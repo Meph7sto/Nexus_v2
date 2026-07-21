@@ -25,13 +25,19 @@
         <label class="input-label">{{ t('admin.users.username') }}</label>
         <input v-model="form.username" type="text" class="input" :placeholder="t('admin.users.enterUsername')" />
       </div>
-      <div>
+      <div v-if="authStore.isSuperAdmin">
         <label class="input-label">{{ t('admin.users.form.roleLabel') }}</label>
         <select v-model="form.role" class="input">
           <option value="user">{{ t('admin.users.roles.user') }}</option>
           <option value="admin">{{ t('admin.users.roles.admin') }}</option>
+          <option value="super_admin">{{ t('admin.users.roles.super_admin') }}</option>
         </select>
       </div>
+      <AdminPermissionMatrix
+        v-if="authStore.isSuperAdmin && form.role === 'admin'"
+        v-model="form.admin_permissions"
+        :definitions="permissionDefinitions"
+      />
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label class="input-label">{{ t('admin.users.columns.balance') }}</label>
@@ -73,7 +79,10 @@
 import { reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'; import { adminAPI } from '@/api/admin'
 import { useAppStore } from '@/stores/app'
+import { useAuthStore } from '@/stores/auth'
+import type { AdminPermission, AdminPermissionDefinition, UserRole } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import AdminPermissionMatrix from './AdminPermissionMatrix.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { useStepUp, isStepUpBlocked, isStepUpCancelled, stepUpBlockReason } from '@/composables/useStepUp'
 import TotpStepUpDialog from '@/components/auth/TotpStepUpDialog.vue'
@@ -81,8 +90,20 @@ import TotpStepUpDialog from '@/components/auth/TotpStepUpDialog.vue'
 const props = defineProps<{ show: boolean }>()
 const emit = defineEmits(['close', 'success']); const { t } = useI18n()
 const appStore = useAppStore()
+const authStore = useAuthStore()
 
-const form = reactive({ email: '', password: '', username: '', notes: '', role: 'user' as 'user' | 'admin', balance: '', concurrency: 1, rpm_limit: 0 })
+const form = reactive({
+  email: '',
+  password: '',
+  username: '',
+  notes: '',
+  role: 'user' as UserRole,
+  admin_permissions: [] as AdminPermission[],
+  balance: '',
+  concurrency: 1,
+  rpm_limit: 0,
+})
+const permissionDefinitions = ref<AdminPermissionDefinition[]>([])
 
 const stepUp = useStepUp()
 const loading = ref(false)
@@ -91,11 +112,33 @@ const submit = async () => {
   if (loading.value) return
   loading.value = true
   try {
-    const { balance: rawBalance, ...rest } = { ...form }
-    const balance = String(rawBalance).trim()
-    const payload: typeof rest & { balance?: number } = { ...rest }
+    const balance = String(form.balance).trim()
+    const payload: {
+      email: string
+      password: string
+      username: string
+      notes: string
+      concurrency: number
+      rpm_limit: number
+      role?: UserRole
+      admin_permissions?: AdminPermission[]
+      balance?: number
+    } = {
+      email: form.email,
+      password: form.password,
+      username: form.username,
+      notes: form.notes,
+      concurrency: form.concurrency,
+      rpm_limit: form.rpm_limit,
+    }
     if (balance !== '') {
       payload.balance = Number(balance)
+    }
+    if (authStore.isSuperAdmin) {
+      payload.role = form.role
+      if (form.role === 'admin') {
+        payload.admin_permissions = form.admin_permissions
+      }
     }
     // 创建管理员属敏感操作：后端返回 STEP_UP_REQUIRED 时弹 TOTP 验证并重试
     await stepUp.run(() => adminAPI.users.create(payload))
@@ -116,7 +159,27 @@ const submit = async () => {
   } finally { loading.value = false }
 }
 
-watch(() => props.show, (v) => { if(v) Object.assign(form, { email: '', password: '', username: '', notes: '', role: 'user', balance: '', concurrency: 1, rpm_limit: 0 }) })
+watch(() => props.show, async (visible) => {
+  if (!visible) return
+  Object.assign(form, {
+    email: '',
+    password: '',
+    username: '',
+    notes: '',
+    role: 'user',
+    admin_permissions: [],
+    balance: '',
+    concurrency: 1,
+    rpm_limit: 0,
+  })
+  permissionDefinitions.value = []
+  if (!authStore.isSuperAdmin) return
+  try {
+    permissionDefinitions.value = await adminAPI.users.getPermissionDirectory()
+  } catch (error) {
+    appStore.showError(error instanceof Error ? error.message : t('admin.users.failedToLoad'))
+  }
+})
 
 const generateRandomPassword = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%^&*'

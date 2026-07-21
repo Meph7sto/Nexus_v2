@@ -13,6 +13,7 @@ import (
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
+	"github.com/Wei-Shaw/sub2api/ent/user"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
@@ -111,13 +112,43 @@ func normalizeUserRole(role, fallback string) (string, error) {
 	if role == "" {
 		return fallback, nil
 	}
-	if role != RoleAdmin && role != RoleUser {
-		return "", fmt.Errorf("invalid role: %q (must be %s or %s)", role, RoleAdmin, RoleUser)
+	if role != RoleAdmin && role != RoleSuperAdmin && role != RoleUser {
+		return "", fmt.Errorf("invalid role: %q (must be %s, %s, or %s)", role, RoleAdmin, RoleSuperAdmin, RoleUser)
 	}
 	return role, nil
 }
 
 func (s *adminServiceImpl) CreateUser(ctx context.Context, input *CreateUserInput) (*User, error) {
+	if input != nil && input.AdminPermissions != nil && s.entClient != nil {
+		tx, err := s.entClient.Tx(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("begin create user transaction: %w", err)
+		}
+		defer func() { _ = tx.Rollback() }()
+
+		user, err := s.createUser(dbent.NewTxContext(ctx, tx), input)
+		if err != nil {
+			return nil, err
+		}
+		if err := tx.Commit(); err != nil {
+			return nil, fmt.Errorf("commit create user transaction: %w", err)
+		}
+		s.assignDefaultSubscriptions(ctx, user.ID)
+		return user, nil
+	}
+
+	user, err := s.createUser(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	s.assignDefaultSubscriptions(ctx, user.ID)
+	return user, nil
+}
+
+func (s *adminServiceImpl) createUser(ctx context.Context, input *CreateUserInput) (*User, error) {
+	if input == nil {
+		return nil, errors.New("create user input is required")
+	}
 	balance := 0.0
 	if input.Balance != nil {
 		balance = *input.Balance
@@ -129,6 +160,19 @@ func (s *adminServiceImpl) CreateUser(ctx context.Context, input *CreateUserInpu
 	role, err := normalizeUserRole(input.Role, RoleUser)
 	if err != nil {
 		return nil, err
+	}
+	var permissions []AdminPermission
+	if input.AdminPermissions != nil {
+		if role != RoleAdmin {
+			if len(*input.AdminPermissions) > 0 {
+				return nil, infraerrors.BadRequest("INVALID_ADMIN_PERMISSION", "only limited administrators may have admin_permissions")
+			}
+		} else {
+			permissions, err = NormalizeAdminPermissions(*input.AdminPermissions)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	user := &User{
@@ -148,29 +192,55 @@ func (s *adminServiceImpl) CreateUser(ctx context.Context, input *CreateUserInpu
 	if err := s.userRepo.Create(ctx, user); err != nil {
 		return nil, err
 	}
+	if role == RoleAdmin && input.AdminPermissions != nil {
+		if s.adminPermissionRepo == nil {
+			return nil, errors.New("admin permission repository is unavailable")
+		}
+		if err := s.adminPermissionRepo.ReplaceForUser(ctx, user.ID, permissions); err != nil {
+			return nil, fmt.Errorf("replace admin permissions: %w", err)
+		}
+		user.AdminPermissions = permissions
+	}
 	// 创建管理员属权限敏感操作，落审计日志（含操作者），便于事后追溯。
-	if user.Role == RoleAdmin {
+	if user.IsAdminLike() {
 		logger.LegacyPrintf("service.admin", "audit: admin user created actor_admin_id=%d target_user_id=%d",
 			input.ActorAdminID, user.ID)
 	}
-	s.assignDefaultSubscriptions(ctx, user.ID)
 	return user, nil
 }
 
-// ensureNotLastAdmin 降级管理员前确认系统中仍存在其他管理员，防止零 admin 锁死。
-// 注：读取与写入之间存在竞态窗口，极端并发下仍可能双双降级；作为后台低频操作
-// 的兜底保护足够，彻底防护需依赖数据库层约束。
+// ensureNotLastAdmin locks all active super_admin rows in the transaction
+// before counting them, so concurrent demotion, disable, and delete requests
+// serialize on the same protected set.
 func (s *adminServiceImpl) ensureNotLastAdmin(ctx context.Context) error {
+	if s.entClient != nil {
+		client := s.entClient
+		if tx := dbent.TxFromContext(ctx); tx != nil {
+			client = tx.Client()
+		}
+		superAdmins, err := client.User.Query().
+			Where(user.RoleEQ(RoleSuperAdmin), user.StatusEQ(StatusActive)).
+			ForUpdate().
+			All(ctx)
+		if err != nil {
+			return fmt.Errorf("lock and list super admin users: %w", err)
+		}
+		if len(superAdmins) <= 1 {
+			return errors.New("cannot demote the last super admin user")
+		}
+		return nil
+	}
+
 	noSubs := false
 	_, result, err := s.userRepo.ListWithFilters(ctx,
 		pagination.PaginationParams{Page: 1, PageSize: 1},
-		UserListFilters{Role: RoleAdmin, IncludeSubscriptions: &noSubs},
+		UserListFilters{Status: StatusActive, Role: RoleSuperAdmin, IncludeSubscriptions: &noSubs},
 	)
 	if err != nil {
-		return fmt.Errorf("count admin users: %w", err)
+		return fmt.Errorf("count super admin users: %w", err)
 	}
 	if result == nil || result.Total <= 1 {
-		return errors.New("cannot demote the last admin user")
+		return errors.New("cannot demote the last super admin user")
 	}
 	return nil
 }
@@ -193,6 +263,29 @@ func (s *adminServiceImpl) assignDefaultSubscriptions(ctx context.Context, userI
 }
 
 func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *UpdateUserInput) (*User, error) {
+	if input == nil {
+		return nil, errors.New("update user input is required")
+	}
+	if s.entClient != nil && (input.Role != "" || input.Status != "" || input.AdminPermissions != nil) {
+		tx, err := s.entClient.Tx(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("begin update user transaction: %w", err)
+		}
+		defer func() { _ = tx.Rollback() }()
+
+		updated, err := s.updateUser(dbent.NewTxContext(ctx, tx), id, input)
+		if err != nil {
+			return nil, err
+		}
+		if err := tx.Commit(); err != nil {
+			return nil, fmt.Errorf("commit update user transaction: %w", err)
+		}
+		return updated, nil
+	}
+	return s.updateUser(ctx, id, input)
+}
+
+func (s *adminServiceImpl) updateUser(ctx context.Context, id int64, input *UpdateUserInput) (*User, error) {
 	// 校验用户专属分组倍率：必须 > 0（nil 合法，表示清除专属倍率）
 	if input.GroupRates != nil {
 		for groupID, rate := range input.GroupRates {
@@ -207,9 +300,11 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 		return nil, err
 	}
 
-	// Protect admin users: cannot disable admin accounts
-	if user.Role == "admin" && input.Status == "disabled" {
-		return nil, errors.New("cannot disable admin user")
+	// Disabling the final active super administrator would lock the instance.
+	if user.Role == RoleSuperAdmin && input.Status == StatusDisabled {
+		if err := s.ensureNotLastAdmin(ctx); err != nil {
+			return nil, err
+		}
 	}
 
 	oldConcurrency := user.Concurrency
@@ -244,9 +339,8 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 		if err != nil {
 			return nil, err
 		}
-		// 防锁死保护：不允许降级系统中最后一个管理员（自我降级已在 handler 层拦截，
-		// 此处兜底覆盖跨管理员互降导致零 admin 的场景）。
-		if user.Role == RoleAdmin && role == RoleUser {
+		// 防锁死保护：不允许降级系统中最后一个 super_admin。
+		if user.Role == RoleSuperAdmin && role != RoleSuperAdmin {
 			if err := s.ensureNotLastAdmin(ctx); err != nil {
 				return nil, err
 			}
@@ -266,14 +360,82 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 		user.AllowedGroups = *input.AllowedGroups
 	}
 
+	var normalizedPermissions []AdminPermission
+	permissionsRequested := input.AdminPermissions != nil
+	if permissionsRequested {
+		if user.Role != RoleAdmin {
+			if len(*input.AdminPermissions) > 0 {
+				return nil, infraerrors.BadRequest("INVALID_ADMIN_PERMISSION", "only limited administrators may have admin_permissions")
+			}
+		} else {
+			normalized, err := NormalizeAdminPermissions(*input.AdminPermissions)
+			if err != nil {
+				return nil, err
+			}
+			normalizedPermissions = normalized
+		}
+	}
+	// Preserve the normalized grants in the response when a super admin edits
+	// unrelated fields on an existing limited administrator. Load before the
+	// user write so an invalid persisted grant cannot turn a failed response
+	// into a partially applied update.
+	var existingPermissions []AdminPermission
+	if oldRole == RoleAdmin && user.Role == RoleAdmin && !permissionsRequested && s.adminPermissionRepo != nil {
+		existingPermissions, err = s.adminPermissionRepo.ListByUserID(ctx, user.ID)
+		if err != nil {
+			return nil, fmt.Errorf("list admin permissions: %w", err)
+		}
+		existingPermissions, err = NormalizeAdminPermissions(existingPermissions)
+		if err != nil {
+			return nil, fmt.Errorf("validate stored admin permissions: %w", err)
+		}
+	}
+
+	permissionRowsMustChange := permissionsRequested || (oldRole == RoleAdmin && user.Role != RoleAdmin) || (oldRole != RoleAdmin && user.Role == RoleAdmin)
+	if permissionRowsMustChange && s.adminPermissionRepo == nil && s.entClient != nil {
+		return nil, errors.New("admin permission repository is unavailable")
+	}
+
 	if err := s.userRepo.Update(ctx, user); err != nil {
 		return nil, err
+	}
+
+	permissionsChanged := false
+	if permissionRowsMustChange && s.adminPermissionRepo != nil {
+		switch {
+		case user.Role != RoleAdmin:
+			if err := s.adminPermissionRepo.DeleteForUser(ctx, user.ID); err != nil {
+				return nil, fmt.Errorf("delete admin permissions: %w", err)
+			}
+			user.AdminPermissions = nil
+			permissionsChanged = true
+		case permissionsRequested:
+			if err := s.adminPermissionRepo.ReplaceForUser(ctx, user.ID, normalizedPermissions); err != nil {
+				return nil, fmt.Errorf("replace admin permissions: %w", err)
+			}
+			user.AdminPermissions = normalizedPermissions
+			permissionsChanged = true
+		default:
+			// A newly limited admin starts with no grants unless an explicit
+			// permission set accompanied the role change.
+			if err := s.adminPermissionRepo.DeleteForUser(ctx, user.ID); err != nil {
+				return nil, fmt.Errorf("clear new admin permissions: %w", err)
+			}
+			permissionsChanged = true
+		}
+	}
+	if oldRole == RoleAdmin && user.Role == RoleAdmin && !permissionsRequested {
+		user.AdminPermissions = existingPermissions
 	}
 
 	// 角色变更属权限敏感操作，落审计日志（含操作者），便于事后追溯。
 	if user.Role != oldRole {
 		logger.LegacyPrintf("service.admin", "audit: user role changed actor_admin_id=%d target_user_id=%d old_role=%s new_role=%s",
 			input.ActorAdminID, user.ID, oldRole, user.Role)
+	}
+	if permissionsChanged {
+		logger.LegacyPrintf("service.admin", "audit: user admin permissions replaced actor_admin_id=%d target_user_id=%d role=%s permission_rows=%d",
+			input.ActorAdminID, user.ID, user.Role, len(user.AdminPermissions))
 	}
 
 	// 同步用户专属分组倍率
@@ -286,7 +448,7 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 	if s.authCacheInvalidator != nil {
 		// RPMLimit 直接参与 billing_cache_service.checkRPM 的三级级联，
 		// allowed_groups 参与 API Key 专属分组授权判断；不失效缓存会让修改在一个 L2 TTL 内失去效果。
-		if user.Concurrency != oldConcurrency || user.Status != oldStatus || user.Role != oldRole || user.RPMLimit != oldRPMLimit || !sameInt64Set(user.AllowedGroups, oldAllowedGroups) {
+		if user.Concurrency != oldConcurrency || user.Status != oldStatus || user.Role != oldRole || user.RPMLimit != oldRPMLimit || !sameInt64Set(user.AllowedGroups, oldAllowedGroups) || permissionsChanged {
 			s.authCacheInvalidator.InvalidateAuthCacheByUserID(ctx, user.ID)
 		}
 	}
@@ -336,13 +498,35 @@ func sameInt64Set(a, b []int64) bool {
 }
 
 func (s *adminServiceImpl) DeleteUser(ctx context.Context, id int64) error {
-	// Protect admin users: cannot delete admin accounts
+	if s.entClient != nil {
+		tx, err := s.entClient.Tx(ctx)
+		if err != nil {
+			return fmt.Errorf("begin delete user transaction: %w", err)
+		}
+		defer func() { _ = tx.Rollback() }()
+		if err := s.deleteUser(dbent.NewTxContext(ctx, tx), id); err != nil {
+			return err
+		}
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("commit delete user transaction: %w", err)
+		}
+		return nil
+	}
+	return s.deleteUser(ctx, id)
+}
+
+func (s *adminServiceImpl) deleteUser(ctx context.Context, id int64) error {
+	// The caller-level authorization decides who may delete an administrator.
+	// The domain invariant here is narrower: deleting the last active
+	// super_admin is never allowed.
 	user, err := s.userRepo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
-	if user.Role == "admin" {
-		return errors.New("cannot delete admin user")
+	if user.Role == RoleSuperAdmin {
+		if err := s.ensureNotLastAdmin(ctx); err != nil {
+			return err
+		}
 	}
 
 	apiKeys, err := s.listUserAPIKeysForDeletion(ctx, id)
@@ -350,24 +534,8 @@ func (s *adminServiceImpl) DeleteUser(ctx context.Context, id int64) error {
 		return err
 	}
 
-	if s.entClient != nil {
-		tx, err := s.entClient.Tx(ctx)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = tx.Rollback() }()
-
-		opCtx := dbent.NewTxContext(ctx, tx)
-		if err := s.deleteUserWithAPIKeys(opCtx, id, apiKeys); err != nil {
-			return err
-		}
-		if err := tx.Commit(); err != nil {
-			return err
-		}
-	} else {
-		if err := s.deleteUserWithAPIKeys(ctx, id, apiKeys); err != nil {
-			return err
-		}
+	if err := s.deleteUserWithAPIKeys(ctx, id, apiKeys); err != nil {
+		return err
 	}
 
 	if s.authCacheInvalidator != nil {

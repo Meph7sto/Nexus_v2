@@ -18,8 +18,9 @@ const (
 
 // Role constants
 const (
-	RoleAdmin = domain.RoleAdmin
-	RoleUser  = domain.RoleUser
+	RoleAdmin      = domain.RoleAdmin
+	RoleSuperAdmin = domain.RoleSuperAdmin
+	RoleUser       = domain.RoleUser
 )
 
 // Affiliate rebate settings
@@ -379,7 +380,7 @@ const (
 	SettingKeyAvailableChannelsEnabled = "available_channels_enabled"
 
 	// SettingKeyUpstreamBillingProbeSettings stores the global enable switch and interval
-	// for probing remote Sub2API API-key billing metadata.
+	// for probing remote Nexus API-key billing metadata.
 	SettingKeyUpstreamBillingProbeSettings = "upstream_billing_probe_settings"
 
 	// =========================

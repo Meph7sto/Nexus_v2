@@ -144,6 +144,20 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT to_regclass('public.user_allowed_groups')").Scan(&uagRegclass))
 	require.True(t, uagRegclass.Valid, "expected user_allowed_groups table to exist")
 
+	// admin_permissions: limited-admin grants must retain the database
+	// invariants that make role/permission changes safe to deploy together.
+	var adminPermissionsRegclass sql.NullString
+	require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT to_regclass('public.admin_permissions')").Scan(&adminPermissionsRegclass))
+	require.True(t, adminPermissionsRegclass.Valid, "expected admin_permissions table to exist")
+	requireColumn(t, tx, "admin_permissions", "user_id", "bigint", 0, false)
+	requireColumn(t, tx, "admin_permissions", "resource", "character varying", 64, false)
+	requireColumn(t, tx, "admin_permissions", "actions", "jsonb", 0, false)
+	requireIndex(t, tx, "admin_permissions", "idx_admin_permissions_user_id")
+	requireIndex(t, tx, "admin_permissions", "idx_admin_permissions_resource")
+	requireConstraintDefinitionContains(t, tx, "admin_permissions", "chk_admin_permissions_actions_array", "jsonb_typeof", "actions")
+	requireConstraintDefinitionContains(t, tx, "admin_permissions", "uq_admin_permissions_user_resource", "UNIQUE", "user_id", "resource")
+	requireForeignKeyOnDelete(t, tx, "admin_permissions", "user_id", "users", "CASCADE")
+
 	// user_subscriptions: deleted_at for soft delete support (migration 012)
 	requireColumn(t, tx, "user_subscriptions", "deleted_at", "timestamp with time zone", 0, true)
 

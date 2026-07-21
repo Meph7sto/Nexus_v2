@@ -3,6 +3,7 @@
  * Extends the RouteMeta interface with custom properties
  */
 
+import type { AdminPermissionAction, AdminPermissionResource } from '@/types'
 import 'vue-router'
 
 declare module 'vue-router' {
@@ -18,6 +19,12 @@ declare module 'vue-router' {
      * @default false
      */
     requiresAdmin?: boolean
+
+    /**
+     * Explicit RBAC capability required by an admin view route.
+     */
+    adminResource?: AdminPermissionResource
+    adminAction?: AdminPermissionAction
 
     /**
      * Page title for this route

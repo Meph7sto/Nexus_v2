@@ -584,7 +584,7 @@ func (s *UserRepoSuite) TestRemoveGroupFromAllowedGroups_NoMatch() {
 func (s *UserRepoSuite) TestGetFirstAdmin() {
 	admin1 := s.mustCreateUser(&service.User{
 		Email:  "admin1@example.com",
-		Role:   service.RoleAdmin,
+		Role:   service.RoleSuperAdmin,
 		Status: service.StatusActive,
 	})
 	s.mustCreateUser(&service.User{
@@ -612,7 +612,7 @@ func (s *UserRepoSuite) TestGetFirstAdmin_NoAdmin() {
 func (s *UserRepoSuite) TestGetFirstAdmin_DisabledAdminIgnored() {
 	s.mustCreateUser(&service.User{
 		Email:  "disabled@example.com",
-		Role:   service.RoleAdmin,
+		Role:   service.RoleSuperAdmin,
 		Status: service.StatusDisabled,
 	})
 	activeAdmin := s.mustCreateUser(&service.User{

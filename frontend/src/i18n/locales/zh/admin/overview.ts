@@ -168,7 +168,7 @@ export default {
         step1: {
           title: '创建 R2 存储桶',
           line1: '登录 Cloudflare Dashboard (dash.cloudflare.com)，左侧菜单选择「R2 对象存储」',
-          line2: '点击「创建存储桶」，输入名称（如 sub2api-backups），选择区域',
+          line2: '点击「创建存储桶」，输入名称（如 nexus-backups），选择区域',
           line3: '点击创建完成'
         },
         step2: {
@@ -541,8 +541,10 @@ export default {
       deleteConfirm: "确定要删除用户 '{email}' 吗？此操作无法撤销。",
       roles: {
         admin: '管理员',
+        super_admin: '超级管理员',
         user: '用户'
       },
+      adminPermissions: '管理员权限',
       form: {
         emailLabel: '邮箱',
         emailPlaceholder: '请输入邮箱',

@@ -59,15 +59,38 @@ const latestAPIKeyIPIndexMigration = "174_add_usage_logs_api_key_latest_ip_index
 const latestAPIKeyIPIndex = "idx_usage_logs_api_key_latest_ip"
 
 type migrationChecksumCompatibilityRule struct {
-	fileChecksum       string
-	acceptedDBChecksum map[string]struct{}
-	acceptedChecksums  map[string]struct{}
+	fileChecksum             string
+	acceptedDBChecksum       map[string]struct{}
+	acceptedChecksums        map[string]struct{}
+	requireExactFileChecksum bool
 }
 
 // migrationChecksumCompatibilityRules 仅用于兼容历史上误修改过的迁移文件 checksum。
 // 规则必须同时匹配「迁移名 + 数据库 checksum + 当前文件 checksum」且两者都落在该迁移的已知版本集合内才会放行，
 // 避免放宽全局校验，也允许将误改的历史 migration 回滚为已发布版本而不要求人工修 checksum。
+// Nexus 的五条规则固定为冻结源基线的数据库 checksum 与当前 V2 文件 checksum 的精确组合；
+// 生产副本出现清单外的值仍必须 fail closed，并在部署前按 MIGRATION_CHECKSUM_RECONCILIATION.md 核对。
 var migrationChecksumCompatibilityRules = map[string]migrationChecksumCompatibilityRule{
+	"001_init.sql": newExactMigrationChecksumCompatibilityRule(
+		"9ba0369779484625edcea7a7d1d4582397e31546db9149b05004990a3f16c630",
+		"5c0a4d96dcf6171a76c0634615e276821e7702787c25ad3bc6b6569595001815",
+	),
+	"002_account_type_migration.sql": newExactMigrationChecksumCompatibilityRule(
+		"aad3816e44f58ff007ea4df8092aae580f3f85180314c1deb1b1054b20892bbf",
+		"3c14e65bdb91ab87e2b69437b11f2083c0a67df3d10b6f75ddaffff58d4fc7f0",
+	),
+	"003_subscription.sql": newExactMigrationChecksumCompatibilityRule(
+		"4642fcb1ccd7954b1d3eef8f795cfba2ce21431257346cc5a7568cde61a60b13",
+		"69df1b8ace3691e40e6a6aa099719a936629c1e066fa0a8796328690c87f4770",
+	),
+	"038_ops_errors_resolution_retry_results_and_standardize_classification.sql": newExactMigrationChecksumCompatibilityRule(
+		"4cc121d97c7f59e9def9397b7d0314d4dfbfe4cd831698359456dd49bf995ece",
+		"debf408999da634be25cb20aec5011ca65ca8c27ef5aa45290eec32fb6e05df9",
+	),
+	"052_migrate_upstream_to_apikey.sql": newExactMigrationChecksumCompatibilityRule(
+		"d2ea657ec24995664a8ddc1bfb9c3fe317646c7bcd12517dee8478bc6c36244a",
+		"1070dc0ed8174979aa71e02ec95a987a931ad8816024909c75ace7ed771b7f45",
+	),
 	"054_drop_legacy_cache_columns.sql":                       newMigrationChecksumCompatibilityRule("82de761156e03876653e7a6a4eee883cd927847036f779b0b9f34c42a8af7a7d", "182c193f3359946cf094090cd9e57d5c3fd9abaffbc1e8fc378646b8a6fa12b4"),
 	"061_add_usage_log_request_type.sql":                      newMigrationChecksumCompatibilityRule("66207e7aa5dd0429c2e2c0fabdaf79783ff157fa0af2e81adff2ee03790ec65c", "08a248652cbab7cfde147fc6ef8cda464f2477674e20b718312faa252e0481c0", "222b4a09c797c22e5922b6b172327c824f5463aaa8760e4f621bc5c22e2be0f3"),
 	"109_auth_identity_compat_backfill.sql":                   newMigrationChecksumCompatibilityRule("0580b4602d85435edf9aca1633db580bb3932f26517f75134106f80275ec2ace", "551e498aa5616d2d91096e9d72cf9fb36e418ee22eacc557f8811cadbc9e20ee"),
@@ -126,13 +149,24 @@ func applyMigrationsFS(ctx context.Context, db *sql.DB, fsys fs.FS) error {
 		return errors.New("nil sql db")
 	}
 
-	// 获取分布式锁，确保多实例部署时只有一个实例执行迁移。
-	// 这是 PostgreSQL 特有的 Advisory Lock 机制。
 	lockConn, err := db.Conn(ctx)
 	if err != nil {
 		return fmt.Errorf("acquire migrations lock connection: %w", err)
 	}
 	defer func() { _ = lockConn.Close() }()
+	return applyMigrationsOnConnection(ctx, lockConn, fsys)
+}
+
+// applyMigrationsOnConnection runs the migration sequence on one pinned
+// PostgreSQL session. Keeping the session explicit is required because both
+// the advisory lock and an optional schema-local rehearsal use session state.
+func applyMigrationsOnConnection(ctx context.Context, lockConn *sql.Conn, fsys fs.FS) error {
+	if lockConn == nil {
+		return errors.New("nil migrations connection")
+	}
+
+	// 获取分布式锁，确保多实例部署时只有一个实例执行迁移。
+	// 这是 PostgreSQL 特有的 Advisory Lock 机制。
 	if err := pgAdvisoryLock(ctx, lockConn); err != nil {
 		return err
 	}
@@ -457,10 +491,23 @@ func newMigrationChecksumCompatibilityRule(fileChecksum string, acceptedDBChecks
 	}
 }
 
+func newExactMigrationChecksumCompatibilityRule(fileChecksum string, acceptedDBChecksums ...string) migrationChecksumCompatibilityRule {
+	return migrationChecksumCompatibilityRule{
+		fileChecksum:             fileChecksum,
+		acceptedDBChecksum:       checksumSet(acceptedDBChecksums...),
+		acceptedChecksums:        checksumSet(fileChecksum),
+		requireExactFileChecksum: true,
+	}
+}
+
 func isMigrationChecksumCompatible(name, dbChecksum, fileChecksum string) bool {
 	rule, ok := migrationChecksumCompatibilityRules[name]
 	if !ok {
 		return false
+	}
+	if rule.requireExactFileChecksum {
+		_, dbOK := rule.acceptedDBChecksum[dbChecksum]
+		return dbOK && fileChecksum == rule.fileChecksum
 	}
 	_, dbOK := rule.acceptedChecksums[dbChecksum]
 	if !dbOK {

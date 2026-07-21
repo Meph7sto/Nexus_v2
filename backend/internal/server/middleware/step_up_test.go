@@ -115,8 +115,8 @@ func TestEnforceStepUpPassesWithGrant(t *testing.T) {
 	require.False(t, c.IsAborted())
 }
 
-// 功能开关关闭时：不论 TOTP/grant/凭证类型，一律放行（恢复门控引入前行为）。
-func TestEnforceStepUpDisabledSkipsAllChecks(t *testing.T) {
+// 功能开关关闭时，真人会话跳过 TOTP/grant 检查；机器凭证仍必须拒绝。
+func TestEnforceStepUpDisabledSkipsHumanChecks(t *testing.T) {
 	disabled := stubStepUpSettingReader{enabled: false}
 
 	t.Run("no totp, no grant", func(t *testing.T) {
@@ -129,14 +129,16 @@ func TestEnforceStepUpDisabledSkipsAllChecks(t *testing.T) {
 		require.False(t, c.IsAborted())
 	})
 
-	t.Run("admin api key", func(t *testing.T) {
-		c, _ := newStepUpTestContext(t)
+	t.Run("admin api key remains forbidden", func(t *testing.T) {
+		c, rec := newStepUpTestContext(t)
 		c.Set("auth_method", service.AuditAuthMethodAdminAPIKey)
 
 		ok := enforceStepUp(c, stubStepUpGrantChecker{granted: false}, stubStepUpUserReader{user: nil, err: errors.New("should not be called")}, disabled)
 
-		require.True(t, ok)
-		require.False(t, c.IsAborted())
+		require.False(t, ok)
+		require.True(t, c.IsAborted())
+		require.Equal(t, http.StatusForbidden, rec.Code)
+		require.Contains(t, rec.Body.String(), "STEP_UP_ADMIN_API_KEY_FORBIDDEN")
 	})
 }
 

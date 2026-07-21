@@ -5,11 +5,8 @@ export default {
   },
   // Home Page
   home: {
-    viewOnGithub: 'View on GitHub',
     viewDocs: 'View Documentation',
     docs: 'Docs',
-    switchToLight: 'Switch to Light Mode',
-    switchToDark: 'Switch to Dark Mode',
     dashboard: 'Dashboard',
     login: 'Login',
     getStarted: 'Get Started',
@@ -191,8 +188,8 @@ export default {
 
   // Setup Wizard
   setup: {
-    title: 'Sub2API Setup',
-    description: 'Configure your Sub2API instance',
+    title: 'Nexus Setup',
+    description: 'Configure your Nexus instance',
     database: {
       title: 'Database Configuration',
       description: 'Connect to your PostgreSQL database',

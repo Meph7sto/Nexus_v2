@@ -1,20 +1,20 @@
 <template>
   <AppLayout>
-    <div class="mx-auto max-w-[1600px]" :class="activeTab === 'config' && draft ? 'pb-28' : 'pb-8'">
+    <div class="prompt-audit-surface mx-auto max-w-[1600px]" :class="activeTab === 'config' && draft ? 'pb-28' : 'pb-8'">
       <header class="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.16em] text-primary-600 dark:text-primary-400">{{ t('nav.securityAudit') }}</p>
-          <h1 class="mt-1 text-2xl font-semibold tracking-tight text-gray-950 dark:text-white">{{ t('admin.promptAudit.title') }}</h1>
-          <p class="mt-2 max-w-3xl text-sm text-gray-500 dark:text-dark-300">{{ t('admin.promptAudit.description') }}</p>
+          <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--nx-accent)]">{{ t('nav.securityAudit') }}</p>
+          <h1 class="mt-1 text-2xl font-semibold tracking-tight text-[var(--nx-text)]">{{ t('admin.promptAudit.title') }}</h1>
+          <p class="mt-2 max-w-3xl text-sm text-[var(--nx-subtle)]">{{ t('admin.promptAudit.description') }}</p>
         </div>
-        <div v-if="draft" class="text-right text-xs text-gray-500 dark:text-dark-400">
+        <div v-if="draft" class="text-right text-xs text-[var(--nx-subtle)]">
           <p>{{ t('admin.promptAudit.configVersion', { version: draft.config_version }) }}</p>
           <p v-if="draft.updated_at" class="mt-1">{{ formatDate(draft.updated_at) }}</p>
         </div>
       </header>
 
-      <div v-if="loadErrors.config && !draft" role="alert" class="rounded-xl border border-red-200 bg-red-50 p-5 dark:border-red-900 dark:bg-red-950/30">
-        <p class="text-sm text-red-700 dark:text-red-300">{{ loadErrors.config }}</p>
+      <div v-if="loadErrors.config && !draft" role="alert" class="rounded-lg border border-[var(--nx-danger)] bg-[rgba(196,28,28,0.08)] p-5">
+        <p class="text-sm text-[var(--nx-danger)]">{{ loadErrors.config }}</p>
         <button type="button" class="btn btn-secondary btn-sm mt-3" @click="loadConfig">{{ t('admin.promptAudit.actions.retry') }}</button>
       </div>
 
@@ -49,7 +49,7 @@
                 @update:endpoints="updateEndpoints"
                 @probe="runProbe"
               />
-              <div v-if="loadErrors.groups" role="alert" class="mt-5 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">{{ loadErrors.groups }}</div>
+              <div v-if="loadErrors.groups" role="alert" class="mt-5 rounded-lg border border-[rgba(166,95,0,0.28)] bg-[rgba(166,95,0,0.10)] px-4 py-3 text-sm text-[var(--nx-warning)]">{{ loadErrors.groups }}</div>
               <PolicyPanel :draft="draft" :groups="groups" @update:draft="replaceDraft" />
             </template>
           </div>
@@ -59,7 +59,7 @@
               v-if="draft?.enabled && !draft.store_pass_events"
               data-test="pass-events-disabled-notice"
               role="status"
-              class="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200"
+              class="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[rgba(166,95,0,0.28)] bg-[rgba(166,95,0,0.10)] px-4 py-3 text-sm text-[var(--nx-warning)]"
             >
               <span>{{ t('admin.promptAudit.events.passEventsDisabled') }}</span>
               <button type="button" class="btn btn-secondary btn-sm" @click="activeTab = 'config'">
@@ -90,21 +90,23 @@
       </template>
     </div>
 
-    <div v-if="draft && activeTab === 'config'" class="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 px-4 py-3 shadow-[0_-12px_35px_rgba(15,23,42,0.08)] backdrop-blur dark:border-dark-700/80 dark:bg-dark-900/95 dark:shadow-[0_-12px_35px_rgba(0,0,0,0.35)] lg:left-64">
+    <div v-if="draft && activeTab === 'config'" class="fixed inset-x-0 bottom-0 z-30 border-t border-[var(--nx-border)] bg-[var(--nx-surface)] px-4 py-3 lg:left-64">
       <div class="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-center gap-x-5 gap-y-2">
-          <SaveToggle :label="t('admin.promptAudit.saveBar.enabled')" :model-value="draft.enabled" data-test="enabled-toggle" @update:model-value="setEnabled" />
-          <SaveToggle :label="t('admin.promptAudit.saveBar.blocking')" :model-value="draft.blocking_enabled" :disabled="!draft.enabled" data-test="blocking-toggle" @update:model-value="setBlocking" />
-          <SaveToggle :label="t('admin.promptAudit.saveBar.storePass')" :model-value="draft.store_pass_events" data-test="store-pass-toggle" @update:model-value="replaceDraft({ ...draft!, store_pass_events: $event })" />
+          <SaveToggle :label="t('admin.promptAudit.saveBar.enabled')" :model-value="draft.enabled" :disabled="!canUpdate" data-test="enabled-toggle" @update:model-value="setEnabled" />
+          <SaveToggle :label="t('admin.promptAudit.saveBar.blocking')" :model-value="draft.blocking_enabled" :disabled="!canUpdate || !draft.enabled" data-test="blocking-toggle" @update:model-value="setBlocking" />
+          <SaveToggle :label="t('admin.promptAudit.saveBar.storePass')" :model-value="draft.store_pass_events" :disabled="!canUpdate" data-test="store-pass-toggle" @update:model-value="replaceDraft({ ...draft!, store_pass_events: $event })" />
         </div>
         <div class="flex items-center gap-3">
-          <span class="text-sm" :class="dirty ? 'text-amber-700 dark:text-amber-300' : 'text-gray-500 dark:text-dark-400'">
+          <span class="text-sm" :class="dirty ? 'text-[var(--nx-warning)]' : 'text-[var(--nx-subtle)]'">
             {{ dirty ? t('admin.promptAudit.saveBar.dirty') : t('admin.promptAudit.saveBar.synced') }}
           </span>
           <button type="button" class="btn btn-secondary" :disabled="!dirty || loading.saving" @click="resetDraft">{{ t('common.reset') }}</button>
-          <button type="button" class="btn btn-primary" :disabled="!dirty || loading.saving" data-test="save-config" @click="saveConfig">
-            {{ loading.saving ? t('common.saving') : t('common.save') }}
-          </button>
+          <AdminPermissionGate resource="prompt_audit" action="update">
+            <button type="button" class="btn btn-primary" :disabled="!dirty || loading.saving" data-test="save-config" @click="saveConfig">
+              {{ loading.saving ? t('common.saving') : t('common.save') }}
+            </button>
+          </AdminPermissionGate>
         </div>
       </div>
     </div>
@@ -118,26 +120,30 @@
       @confirm="confirmBlocking"
       @cancel="showBlockingConfirmation = false"
     />
-    <ConfirmDialog
-      :show="deleteRequest.mode !== ''"
-      :title="t('admin.promptAudit.events.deleteConfirmTitle')"
-      :message="t('admin.promptAudit.events.deleteConfirmMessage', { count: deleteRequest.ids.length })"
-      :confirm-text="t('common.delete')"
-      danger
-      @confirm="confirmIDDelete"
-      @cancel="clearDeleteRequest"
-    />
-    <FilterDeleteDialog
-      :show="showFilterDelete"
-      :initial-filters="filters"
-      :preview="deletePreview"
-      :previewing="loading.previewing"
-      :deleting="loading.deleting"
-      @close="closeFilterDelete"
-      @preview="runFilterDeletePreview"
-      @confirm="confirmFilterDelete"
-      @criteria-change="clearDeletePreview"
-    />
+    <AdminPermissionGate resource="prompt_audit" action="delete">
+      <ConfirmDialog
+        :show="deleteRequest.mode !== ''"
+        :title="t('admin.promptAudit.events.deleteConfirmTitle')"
+        :message="t('admin.promptAudit.events.deleteConfirmMessage', { count: deleteRequest.ids.length })"
+        :confirm-text="t('common.delete')"
+        danger
+        @confirm="confirmIDDelete"
+        @cancel="clearDeleteRequest"
+      />
+    </AdminPermissionGate>
+    <AdminPermissionGate resource="prompt_audit" action="execute">
+      <FilterDeleteDialog
+        :show="showFilterDelete"
+        :initial-filters="filters"
+        :preview="deletePreview"
+        :previewing="loading.previewing"
+        :deleting="loading.deleting"
+        @close="closeFilterDelete"
+        @preview="runFilterDeletePreview"
+        @confirm="confirmFilterDelete"
+        @criteria-change="clearDeletePreview"
+      />
+    </AdminPermissionGate>
     <EventDetailDialog :show="showEventDetail" :event="activeEvent" :loading="loading.detail" @close="closeEventDetail" />
   </AppLayout>
 </template>
@@ -147,7 +153,9 @@ import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import AdminPermissionGate from '@/components/admin/AdminPermissionGate.vue'
 import { useAppStore } from '@/stores/app'
+import { useAuthStore } from '@/stores/auth'
 import { extractApiErrorCode, extractApiErrorMessage } from '@/utils/apiError'
 import RuntimeOverview from './components/RuntimeOverview.vue'
 import EndpointPool from './components/EndpointPool.vue'
@@ -172,6 +180,7 @@ import { buildUpdateRequest, cloneData, configToDraft, draftFingerprint, emptyEv
 
 const { t, locale } = useI18n()
 const appStore = useAppStore()
+const authStore = useAuthStore()
 type PromptAuditPageTab = 'config' | 'events'
 const activeTab = ref<PromptAuditPageTab>('events')
 const pageTabs = computed(() => [
@@ -198,6 +207,7 @@ const deleteRequest = reactive<{ mode: '' | 'single' | 'batch'; ids: number[] }>
 const loading = reactive({ config: false, runtime: false, groups: false, events: false, saving: false, detail: false, deleting: false, previewing: false })
 const loadErrors = reactive<PromptLoadErrors>({ config: '', runtime: '', groups: '', events: '' })
 const dirty = computed(() => draftFingerprint(draft.value) !== draftFingerprint(serverConfig.value))
+const canUpdate = computed(() => authStore.canAdmin('prompt_audit', 'update'))
 
 const SaveToggle = defineComponent({
   inheritAttrs: false,
@@ -213,8 +223,8 @@ const SaveToggle = defineComponent({
         'aria-label': props.label,
         disabled: props.disabled,
         class: [
-          'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2',
-          props.modelValue ? 'bg-primary-600' : 'bg-gray-300 dark:bg-dark-600',
+          'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,86,0,0.3)] focus-visible:ring-offset-2',
+          props.modelValue ? 'bg-[var(--nx-accent)]' : 'bg-[var(--nx-border-strong)]',
           props.disabled ? 'cursor-not-allowed' : 'cursor-pointer',
         ],
         onClick: (event: MouseEvent) => {
@@ -224,12 +234,12 @@ const SaveToggle = defineComponent({
       }, [
         h('span', {
           class: [
-            'pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ease-in-out',
+            'pointer-events-none inline-block h-5 w-5 rounded-full bg-[var(--nx-surface)] shadow transition-transform duration-200 ease-in-out',
             props.modelValue ? 'translate-x-5' : 'translate-x-0',
           ],
         }),
       ]),
-      h('span', { class: 'select-none text-gray-700 dark:text-dark-200' }, props.label),
+      h('span', { class: 'select-none text-[var(--nx-muted)]' }, props.label),
     ])
   },
 })
@@ -429,3 +439,48 @@ function formatDate(value: string): string {
 
 onMounted(loadInitial)
 </script>
+
+<style scoped>
+.prompt-audit-surface :deep(.bg-white) {
+  background-color: var(--nx-surface);
+}
+
+.prompt-audit-surface :deep(.bg-gray-50),
+.prompt-audit-surface :deep([class*='bg-gray-50/']) {
+  background-color: var(--nx-bg);
+}
+
+.prompt-audit-surface :deep(.bg-gray-100),
+.prompt-audit-surface :deep(.bg-gray-200),
+.prompt-audit-surface :deep(.bg-gray-300) {
+  background-color: var(--nx-surface-muted);
+}
+
+.prompt-audit-surface :deep([class*='border-gray-']) {
+  border-color: var(--nx-border);
+}
+
+.prompt-audit-surface :deep(.text-gray-950),
+.prompt-audit-surface :deep(.text-gray-900),
+.prompt-audit-surface :deep(.text-gray-800),
+.prompt-audit-surface :deep(.text-gray-700) {
+  color: var(--nx-text);
+}
+
+.prompt-audit-surface :deep(.text-gray-600),
+.prompt-audit-surface :deep(.text-gray-500),
+.prompt-audit-surface :deep(.text-gray-400),
+.prompt-audit-surface :deep(.text-gray-300) {
+  color: var(--nx-subtle);
+}
+
+.prompt-audit-surface :deep(.hover\:bg-gray-50:hover),
+.prompt-audit-surface :deep(.hover\:bg-gray-100:hover) {
+  background-color: var(--nx-bg);
+}
+
+.prompt-audit-surface :deep(.shadow-card),
+.prompt-audit-surface :deep(.shadow-sm) {
+  box-shadow: none;
+}
+</style>

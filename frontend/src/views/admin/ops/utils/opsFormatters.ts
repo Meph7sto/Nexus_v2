@@ -1,7 +1,7 @@
 /**
  * Ops 页面共享的格式化/样式工具。
  *
- * 目标：尽量对齐 `docs/sub2api` 备份版本的视觉表现（需求一致部分保持一致），
+ * 目标：尽量对齐历史备份版本的视觉表现（需求一致部分保持一致），
  * 同时避免引入额外 UI 依赖。
  */
 
@@ -10,10 +10,10 @@ import { formatBytes } from '@/utils/format'
 
 export function getSeverityClass(severity: OpsSeverity): string {
   const classes: Record<string, string> = {
-    P0: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-    P1: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
-    P2: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
-    P3: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+    P0: 'bg-red-100 text-red-800  ',
+    P1: 'bg-orange-100 text-orange-800  ',
+    P2: 'bg-yellow-100 text-yellow-800  ',
+    P3: 'bg-blue-100 text-blue-800  '
   }
   return classes[String(severity || '')] || classes.P3
 }

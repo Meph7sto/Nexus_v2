@@ -9,6 +9,9 @@ const mockListSystemLogs = vi.fn()
 const mockCleanupSystemLogs = vi.fn()
 const mockGetSystemLogSinkHealth = vi.fn()
 const mockGetRuntimeLogConfig = vi.fn()
+const authStore = vi.hoisted(() => ({
+  canAdmin: vi.fn(),
+}))
 
 vi.mock('@/api/admin/ops', () => ({
   opsAPI: {
@@ -24,6 +27,10 @@ vi.mock('@/stores', () => ({
     showError: vi.fn(),
     showSuccess: vi.fn(),
   }),
+}))
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => authStore,
 }))
 
 vi.mock('vue-i18n', async (importOriginal) => {
@@ -73,6 +80,7 @@ const sinkHealth = {
 describe('OpsSystemLogTable host support', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    authStore.canAdmin.mockReturnValue(true)
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     mockListSystemLogs.mockResolvedValue({
       items: [
@@ -124,6 +132,23 @@ describe('OpsSystemLogTable host support', () => {
     await flushPromises()
 
     expect(mockCleanupSystemLogs).toHaveBeenCalledWith(expect.objectContaining({ host: 'api-node-2' }))
+  })
+
+  it('hides runtime log changes and cleanup without the matching Ops permissions', async () => {
+    authStore.canAdmin.mockReturnValue(false)
+    const wrapper = mount(OpsSystemLogTable, {
+      global: {
+        stubs: {
+          Select: SelectStub,
+          Pagination: PaginationStub,
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.findAll('button').some((button) => button.text().includes('admin.ops.systemLogs.saveAndApply'))).toBe(false)
+    expect(wrapper.findAll('button').some((button) => button.text().includes('admin.ops.systemLogs.resetDefaults'))).toBe(false)
+    expect(wrapper.findAll('button').some((button) => button.text().includes('admin.ops.systemLogs.cleanCurrentFilters'))).toBe(false)
   })
 
   it.each([

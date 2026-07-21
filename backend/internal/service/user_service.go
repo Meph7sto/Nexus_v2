@@ -228,21 +228,54 @@ type UserService struct {
 	settingRepo          SettingRepository
 	authCacheInvalidator APIKeyAuthCacheInvalidator
 	billingCache         BillingCache
+	adminPermissionRepo  AdminPermissionRepository
 	lastActiveTouchL1    sync.Map
 	lastActiveTouchSF    singleflight.Group
 }
 
 // NewUserService 创建用户服务实例
-func NewUserService(userRepo UserRepository, settingRepo SettingRepository, authCacheInvalidator APIKeyAuthCacheInvalidator, billingCache BillingCache) *UserService {
-	return &UserService{
+func NewUserService(userRepo UserRepository, settingRepo SettingRepository, authCacheInvalidator APIKeyAuthCacheInvalidator, billingCache BillingCache, adminPermissionRepos ...AdminPermissionRepository) *UserService {
+	service := &UserService{
 		userRepo:             userRepo,
 		settingRepo:          settingRepo,
 		authCacheInvalidator: authCacheInvalidator,
 		billingCache:         billingCache,
 	}
+	if len(adminPermissionRepos) > 0 {
+		service.adminPermissionRepo = adminPermissionRepos[0]
+	}
+	return service
 }
 
-// GetFirstAdmin 获取首个管理员用户（用于 Admin API Key 认证）
+// ProvideUserService is the Wire-facing constructor. The variadic public
+// constructor keeps existing unit tests and integrations source-compatible.
+func ProvideUserService(userRepo UserRepository, settingRepo SettingRepository, authCacheInvalidator APIKeyAuthCacheInvalidator, billingCache BillingCache, adminPermissionRepo AdminPermissionRepository) *UserService {
+	return NewUserService(userRepo, settingRepo, authCacheInvalidator, billingCache, adminPermissionRepo)
+}
+
+// HydrateAdminPermissions attaches normalized grants to a limited admin. It
+// deliberately does not expose any permission rows for users or super admins.
+func (s *UserService) HydrateAdminPermissions(ctx context.Context, user *User) error {
+	if user == nil || !user.IsAdmin() {
+		return nil
+	}
+	if s == nil || s.adminPermissionRepo == nil {
+		return fmt.Errorf("admin permission repository is unavailable")
+	}
+	permissions, err := s.adminPermissionRepo.ListByUserID(ctx, user.ID)
+	if err != nil {
+		return fmt.Errorf("list admin permissions: %w", err)
+	}
+	normalized, err := NormalizeAdminPermissions(permissions)
+	if err != nil {
+		return fmt.Errorf("stored admin permissions are invalid: %w", err)
+	}
+	user.AdminPermissions = normalized
+	return nil
+}
+
+// GetFirstAdmin returns the first active admin-like user for legacy local
+// tooling and report delivery. It is not used to authorize the Admin API Key.
 func (s *UserService) GetFirstAdmin(ctx context.Context) (*User, error) {
 	admin, err := s.userRepo.GetFirstAdmin(ctx)
 	if err != nil {
@@ -1198,10 +1231,10 @@ func saveNotifyVerifyCode(ctx context.Context, cache EmailCache, email, code str
 
 // sendNotifyVerifyEmail builds and sends the verification email.
 func (s *UserService) sendNotifyVerifyEmail(ctx context.Context, emailService *EmailService, userID int64, email, code, locale string) error {
-	siteName := "Sub2API"
+	siteName := "Nexus"
 	if s.settingRepo != nil {
-		if name, err := s.settingRepo.GetValue(ctx, SettingKeySiteName); err == nil && name != "" {
-			siteName = name
+		if name, err := s.settingRepo.GetValue(ctx, SettingKeySiteName); err == nil {
+			siteName = normalizeSiteName(name)
 		}
 	}
 	if emailService.notificationEmailService != nil {

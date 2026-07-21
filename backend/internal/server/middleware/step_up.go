@@ -95,16 +95,23 @@ func EnforceStepUpAlways(
 }
 
 func enforceStepUp(c *gin.Context, grantChecker stepUpGrantChecker, userReader stepUpUserReader, settings stepUpSettingReader) bool {
-	// 功能开关关闭时直接放行（含 admin API key），恢复门控引入前的行为。
-	// settings 为 nil 时保持门控（fail-closed）：正常装配不会出现 nil。
-	if settings != nil && !settings.IsStepUpEnabled(c.Request.Context()) {
-		return true
+	// A machine credential can never satisfy a human step-up requirement. This
+	// check intentionally precedes the feature flag so disabling the optional
+	// grant mechanism cannot turn a machine request into a human operation.
+	if subject, ok := GetAuthSubjectFromContext(c); ok && !subject.IsHuman() {
+		AbortWithError(c, 403, "STEP_UP_ADMIN_API_KEY_FORBIDDEN",
+			"Admin API key cannot access this endpoint; a two-factor verified admin session is required")
+		return false
 	}
-
 	if c.GetString("auth_method") == service.AuditAuthMethodAdminAPIKey {
 		AbortWithError(c, 403, "STEP_UP_ADMIN_API_KEY_FORBIDDEN",
 			"Admin API key cannot access this endpoint; a two-factor verified admin session is required")
 		return false
+	}
+
+	// settings 为 nil 时保持门控（fail-closed）：正常装配不会出现 nil。
+	if settings != nil && !settings.IsStepUpEnabled(c.Request.Context()) {
+		return true
 	}
 
 	subject, ok := GetAuthSubjectFromContext(c)

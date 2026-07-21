@@ -14,12 +14,15 @@ const authStore = vi.hoisted(() => ({
   checkAuth: vi.fn(),
   isAuthenticated: true,
   isAdmin: false,
+  isAdminLike: false,
+  adminLandingPath: '/dashboard',
+  canAdmin: vi.fn(() => false),
   isSimpleMode: false,
   hasPendingAuthSession: false,
 }))
 
 const appStore = vi.hoisted(() => ({
-  siteName: 'Sub2API',
+  siteName: 'Nexus',
   backendModeEnabled: false,
   publicSettingsLoaded: false,
   cachedPublicSettings: null as null | {
@@ -51,14 +54,6 @@ vi.mock('@/stores/app', () => ({
 
 vi.mock('@/stores/adminSettings', () => ({
   useAdminSettingsStore: () => ({ customMenuItems: [] }),
-}))
-
-vi.mock('@/stores/adminCompliance', () => ({
-  useAdminComplianceStore: () => ({
-    initialized: true,
-    fetchStatus: vi.fn(),
-    requireAcknowledgement: vi.fn(),
-  }),
 }))
 
 vi.mock('@/composables/useNavigationLoading', () => ({
@@ -113,6 +108,10 @@ describe('feature route guard', () => {
   beforeEach(() => {
     authStore.isAuthenticated = true
     authStore.isAdmin = false
+    authStore.isAdminLike = false
+    authStore.adminLandingPath = '/dashboard'
+    authStore.canAdmin.mockReset()
+    authStore.canAdmin.mockReturnValue(false)
     authStore.isSimpleMode = false
     appStore.publicSettingsLoaded = false
     appStore.cachedPublicSettings = null
@@ -144,6 +143,8 @@ describe('feature route guard', () => {
     ['risk control', { requiresRiskControl: true }, '/admin/risk-control'],
   ])('does not treat a failed %s settings load as explicitly disabled', async (_name, meta, path) => {
     authStore.isAdmin = meta.requiresRiskControl === true
+    authStore.isAdminLike = meta.requiresRiskControl === true
+    authStore.adminLandingPath = meta.requiresRiskControl ? '/admin/settings' : '/dashboard'
     appStore.fetchPublicSettings.mockResolvedValue(null)
 
     const { navigation, next } = runGuard(meta, path)
@@ -164,6 +165,8 @@ describe('feature route guard', () => {
     ],
   ])('redirects when loaded settings explicitly disable %s', async (_name, meta, settings, target) => {
     authStore.isAdmin = meta.requiresRiskControl === true
+    authStore.isAdminLike = meta.requiresRiskControl === true
+    authStore.adminLandingPath = meta.requiresRiskControl ? '/admin/settings' : '/dashboard'
     appStore.cachedPublicSettings = settings
     appStore.publicSettingsLoaded = true
 
@@ -173,5 +176,35 @@ describe('feature route guard', () => {
     expect(appStore.fetchPublicSettings).not.toHaveBeenCalled()
     expect(next).toHaveBeenCalledOnce()
     expect(next).toHaveBeenCalledWith(target)
+  })
+
+  it('redirects a limited administrator from an ungranted admin route to its first allowed page', async () => {
+    authStore.isAdminLike = true
+    authStore.adminLandingPath = '/admin/users'
+    authStore.canAdmin.mockReturnValue(false)
+
+    const { navigation, next } = runGuard(
+      { requiresAdmin: true, adminResource: 'dashboard', adminAction: 'view' },
+      '/admin/dashboard',
+    )
+    await navigation
+
+    expect(next).toHaveBeenCalledOnce()
+    expect(next).toHaveBeenCalledWith('/admin/users')
+  })
+
+  it('allows a limited administrator on an explicitly granted admin route', async () => {
+    authStore.isAdminLike = true
+    authStore.adminLandingPath = '/admin/users'
+    authStore.canAdmin.mockImplementation((resource: string, action: string) => resource === 'users' && action === 'view')
+
+    const { navigation, next } = runGuard(
+      { requiresAdmin: true, adminResource: 'users', adminAction: 'view' },
+      '/admin/users',
+    )
+    await navigation
+
+    expect(next).toHaveBeenCalledOnce()
+    expect(next).toHaveBeenCalledWith()
   })
 })

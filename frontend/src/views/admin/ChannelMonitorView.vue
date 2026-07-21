@@ -18,7 +18,7 @@
         <DataTable :columns="columns" :data="monitors" :loading="loading">
           <template #cell-name="{ row, value }">
             <div class="flex items-center gap-1.5">
-              <span class="font-medium text-gray-900 dark:text-white">{{ value }}</span>
+              <span class="font-medium text-gray-900 ">{{ value }}</span>
               <HelpTooltip v-if="row.api_key_decrypt_failed" :content="t('admin.channelMonitor.apiKeyDecryptFailed')">
                 <Icon name="exclamationTriangle" size="sm" class="text-red-500" />
               </HelpTooltip>
@@ -36,15 +36,17 @@
           </template>
 
           <template #cell-availability_7d="{ row }">
-            <span class="text-sm text-gray-900 dark:text-gray-100">{{ formatAvailability(row) }}</span>
+            <span class="text-sm text-gray-900 ">{{ formatAvailability(row) }}</span>
           </template>
 
           <template #cell-latency="{ row }">
-            <span class="text-sm text-gray-900 dark:text-gray-100">{{ formatLatency(row.primary_latency_ms) }}</span>
+            <span class="text-sm text-gray-900 ">{{ formatLatency(row.primary_latency_ms) }}</span>
           </template>
 
           <template #cell-enabled="{ row }">
-            <Toggle :modelValue="row.enabled" @update:modelValue="toggleEnabled(row)" />
+            <AdminPermissionGate resource="channel_monitor" action="update">
+              <Toggle :modelValue="row.enabled" @update:modelValue="toggleEnabled(row)" />
+            </AdminPermissionGate>
           </template>
 
           <template #cell-actions="{ row }">
@@ -63,9 +65,16 @@
             <EmptyState
               :title="t('admin.channelMonitor.noMonitorsYet')"
               :description="t('admin.channelMonitor.createFirstMonitor')"
-              :action-text="t('admin.channelMonitor.createButton')"
-              @action="openCreateDialog"
-            />
+            >
+              <template #action>
+                <AdminPermissionGate resource="channel_monitor" action="create">
+                  <button class="btn btn-primary" @click="openCreateDialog">
+                    <Icon name="plus" size="md" class="mr-2" />
+                    {{ t('admin.channelMonitor.createButton') }}
+                  </button>
+                </AdminPermissionGate>
+              </template>
+            </EmptyState>
           </template>
         </DataTable>
       </template>
@@ -82,12 +91,14 @@
       </template>
     </TablePageLayout>
 
-    <MonitorFormDialog
-      :show="showDialog"
-      :monitor="editing"
-      @close="closeDialog"
-      @saved="reload"
-    />
+    <AdminPermissionGate resource="channel_monitor" :action="editing ? 'update' : 'create'">
+      <MonitorFormDialog
+        :show="showDialog"
+        :monitor="editing"
+        @close="closeDialog"
+        @saved="reload"
+      />
+    </AdminPermissionGate>
 
     <MonitorTemplateManagerDialog
       :show="showTemplateManager"
@@ -101,16 +112,18 @@
       @close="showRunResult = false"
     />
 
-    <ConfirmDialog
-      :show="showDeleteDialog"
-      :title="t('common.delete')"
-      :message="deleteConfirmMessage"
-      :confirm-text="t('common.delete')"
-      :cancel-text="t('common.cancel')"
-      :danger="true"
-      @confirm="confirmDelete"
-      @cancel="showDeleteDialog = false"
-    />
+    <AdminPermissionGate resource="channel_monitor" action="delete">
+      <ConfirmDialog
+        :show="showDeleteDialog"
+        :title="t('common.delete')"
+        :message="deleteConfirmMessage"
+        :confirm-text="t('common.delete')"
+        :cancel-text="t('common.cancel')"
+        :danger="true"
+        @confirm="confirmDelete"
+        @cancel="showDeleteDialog = false"
+      />
+    </AdminPermissionGate>
   </AppLayout>
 </template>
 
@@ -135,6 +148,7 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import Icon from '@/components/icons/Icon.vue'
+import AdminPermissionGate from '@/components/admin/AdminPermissionGate.vue'
 import Toggle from '@/components/common/Toggle.vue'
 import MonitorFiltersBar from '@/components/admin/monitor/MonitorFiltersBar.vue'
 import MonitorFormDialog from '@/components/admin/monitor/MonitorFormDialog.vue'

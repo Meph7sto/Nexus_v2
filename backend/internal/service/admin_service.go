@@ -138,11 +138,14 @@ type CreateUserInput struct {
 	Password      string
 	Username      string
 	Notes         string
-	Role          string // 空字符串表示使用默认角色(user);合法值 admin/user
+	Role          string // 空字符串表示使用默认角色(user);合法值 user/admin/super_admin
 	Balance       *float64
 	Concurrency   int
 	RPMLimit      int
 	AllowedGroups []int64
+	// AdminPermissions is valid only for the limited admin role. nil means the
+	// caller omitted the field; an empty slice means no grants.
+	AdminPermissions *[]AdminPermission
 	// ActorAdminID 执行本次操作的管理员ID(来自JWT)，仅用于权限敏感操作的审计日志。
 	ActorAdminID int64
 }
@@ -152,12 +155,15 @@ type UpdateUserInput struct {
 	Password      string
 	Username      *string
 	Notes         *string
-	Role          string   // 空字符串表示"未提供"(不修改);合法值 admin/user
+	Role          string   // 空字符串表示"未提供"(不修改);合法值 user/admin/super_admin
 	Balance       *float64 // 使用指针区分"未提供"和"设置为0"
 	Concurrency   *int     // 使用指针区分"未提供"和"设置为0"
 	RPMLimit      *int     // 使用指针区分"未提供"和"设置为0"
 	Status        string
 	AllowedGroups *[]int64 // 使用指针区分"未提供"和"设置为空数组"
+	// AdminPermissions distinguishes omitted (leave grants unchanged) from an
+	// explicit empty array (clear every grant).
+	AdminPermissions *[]AdminPermission
 	// GroupRates 用户专属分组倍率配置
 	// map[groupID]*rate，nil 表示删除该分组的专属倍率
 	GroupRates map[int64]*float64
@@ -610,6 +616,7 @@ type adminServiceImpl struct {
 	privacyClientFactory PrivacyClientFactory
 	runtimeBlocker       AccountRuntimeBlocker
 	affiliateService     adminRechargeAffiliateAccruer
+	adminPermissionRepo  AdminPermissionRepository
 }
 
 type adminRechargeAffiliateAccruer interface {
@@ -641,7 +648,12 @@ func NewAdminService(
 	privacyClientFactory PrivacyClientFactory,
 	runtimeBlocker AccountRuntimeBlocker,
 	affiliateService *AffiliateService,
+	adminPermissionRepos ...AdminPermissionRepository,
 ) AdminService {
+	var adminPermissionRepo AdminPermissionRepository
+	if len(adminPermissionRepos) > 0 {
+		adminPermissionRepo = adminPermissionRepos[0]
+	}
 	return &adminServiceImpl{
 		userRepo:             userRepo,
 		groupRepo:            groupRepo,
@@ -664,5 +676,54 @@ func NewAdminService(
 		privacyClientFactory: privacyClientFactory,
 		runtimeBlocker:       runtimeBlocker,
 		affiliateService:     affiliateService,
+		adminPermissionRepo:  adminPermissionRepo,
 	}
+}
+
+// ProvideAdminService is the Wire-facing constructor. NewAdminService remains
+// variadic to preserve existing focused unit-test construction call sites.
+func ProvideAdminService(
+	userRepo UserRepository,
+	groupRepo AdminGroupRepository,
+	accountRepo AdminAccountRepository,
+	proxyRepo ProxyRepository,
+	apiKeyRepo APIKeyRepository,
+	redeemCodeRepo RedeemCodeRepository,
+	userGroupRateRepo UserGroupRateRepository,
+	userRPMCache UserRPMCache,
+	billingCacheService *BillingCacheService,
+	proxyProber ProxyExitInfoProber,
+	proxyLatencyCache ProxyLatencyCache,
+	authCacheInvalidator APIKeyAuthCacheInvalidator,
+	entClient *dbent.Client,
+	settingService *SettingService,
+	defaultSubAssigner DefaultSubscriptionAssigner,
+	userSubRepo UserSubscriptionRepository,
+	privacyClientFactory PrivacyClientFactory,
+	runtimeBlocker AccountRuntimeBlocker,
+	affiliateService *AffiliateService,
+	adminPermissionRepo AdminPermissionRepository,
+) AdminService {
+	return NewAdminService(
+		userRepo,
+		groupRepo,
+		accountRepo,
+		proxyRepo,
+		apiKeyRepo,
+		redeemCodeRepo,
+		userGroupRateRepo,
+		userRPMCache,
+		billingCacheService,
+		proxyProber,
+		proxyLatencyCache,
+		authCacheInvalidator,
+		entClient,
+		settingService,
+		defaultSubAssigner,
+		userSubRepo,
+		privacyClientFactory,
+		runtimeBlocker,
+		affiliateService,
+		adminPermissionRepo,
+	)
 }

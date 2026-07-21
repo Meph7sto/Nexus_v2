@@ -19,7 +19,27 @@ func (s *settingPublicRepoStub) Get(ctx context.Context, key string) (*Setting, 
 }
 
 func (s *settingPublicRepoStub) GetValue(ctx context.Context, key string) (string, error) {
-	panic("unexpected GetValue call")
+	return s.values[key], nil
+}
+
+func TestSettingService_GetPublicSettings_NormalizesLegacyDefaultSiteName(t *testing.T) {
+	repo := &settingPublicRepoStub{values: map[string]string{SettingKeySiteName: " Sub 2 API "}}
+	svc := NewSettingService(repo, &config.Config{})
+
+	settings, err := svc.GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "Nexus", settings.SiteName)
+	require.Equal(t, "Nexus", svc.GetSiteName(context.Background()))
+}
+
+func TestSettingService_GetPublicSettings_PreservesCustomSiteName(t *testing.T) {
+	repo := &settingPublicRepoStub{values: map[string]string{SettingKeySiteName: " Custom Gateway "}}
+	svc := NewSettingService(repo, &config.Config{})
+
+	settings, err := svc.GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "Custom Gateway", settings.SiteName)
+	require.Equal(t, "Custom Gateway", svc.GetSiteName(context.Background()))
 }
 
 func (s *settingPublicRepoStub) Set(ctx context.Context, key, value string) error {

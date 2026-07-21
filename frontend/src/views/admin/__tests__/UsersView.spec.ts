@@ -18,6 +18,12 @@ const {
   getBatchUserAttributes: vi.fn()
 }))
 
+const authStore = vi.hoisted(() => ({
+  canAdmin: vi.fn(() => true),
+  isSuperAdmin: true,
+  user: null,
+}))
+
 vi.mock('@/api/admin', () => ({
   adminAPI: {
     users: {
@@ -43,6 +49,10 @@ vi.mock('@/stores/app', () => ({
     showError: vi.fn(),
     showSuccess: vi.fn()
   })
+}))
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => authStore,
 }))
 
 vi.mock('vue-i18n', async () => {
@@ -129,6 +139,9 @@ describe('admin UsersView', () => {
     getBatchUsersUsage.mockReset()
     listEnabledDefinitions.mockReset()
     getBatchUserAttributes.mockReset()
+    authStore.canAdmin.mockReset()
+    authStore.canAdmin.mockReturnValue(true)
+    authStore.isSuperAdmin = true
 
     listUsers.mockResolvedValue({
       items: [createAdminUser()],

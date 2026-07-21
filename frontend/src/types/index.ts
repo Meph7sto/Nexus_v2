@@ -1,5 +1,5 @@
 /**
- * Core Type Definitions for Sub2API Frontend
+ * Core Type Definitions for Nexus Frontend
  */
 
 // ==================== Common Types ====================
@@ -35,6 +35,61 @@ export interface NotifyEmailEntry {
 // ==================== User & Auth Types ====================
 
 export type UserAuthProvider = 'email' | 'linuxdo' | 'oidc' | 'wechat' | 'github' | 'google' | 'dingtalk'
+
+export type UserRole = 'user' | 'admin' | 'super_admin'
+
+export type AdminPermissionAction = 'view' | 'create' | 'update' | 'delete' | 'export' | 'execute'
+
+export type AdminPermissionResource =
+  | 'dashboard'
+  | 'ops'
+  | 'alert_rules'
+  | 'alert_events'
+  | 'alert_silences'
+  | 'auth_cache_invalidation'
+  | 'users'
+  | 'user_attributes'
+  | 'api_keys'
+  | 'groups'
+  | 'accounts'
+  | 'announcements'
+  | 'proxies'
+  | 'redeem_codes'
+  | 'promo_codes'
+  | 'channels'
+  | 'channel_monitor'
+  | 'subscriptions'
+  | 'usage'
+  | 'risk_control'
+  | 'prompt_audit'
+  | 'audit_logs'
+  | 'affiliates'
+  | 'payment_dashboard'
+  | 'payment_orders'
+  | 'payment_plans'
+  | 'payment_providers'
+  | 'payment_settings'
+  | 'data_management'
+  | 'backups'
+  | 'settings'
+  | 'system'
+  | 'error_passthrough_rules'
+  | 'tls_fingerprint_profiles'
+  | 'scheduled_tests'
+  | 'pages'
+  | 'admin_permissions'
+
+export interface AdminPermission {
+  resource: AdminPermissionResource
+  actions: AdminPermissionAction[]
+}
+
+export interface AdminPermissionDefinition {
+  resource: AdminPermissionResource
+  label: string
+  actions: AdminPermissionAction[]
+  super_admin_only: boolean
+}
 
 export interface UserAuthBindingStatus {
   bound?: boolean
@@ -84,7 +139,10 @@ export interface User {
   linuxdo_bound?: boolean
   oidc_bound?: boolean
   wechat_bound?: boolean
-  role: 'admin' | 'user' // User role for authorization
+  role: UserRole // User role for authorization
+  // Present for the signed-in limited administrator and when a super
+  // administrator explicitly loads a limited-admin target.
+  admin_permissions?: AdminPermission[]
   balance: number // User balance for API usage
   frozen_balance?: number // Balance currently held by async batch jobs
   concurrency: number // Allowed concurrent requests
@@ -1732,7 +1790,8 @@ export interface UpdateUserRequest {
   password?: string
   username?: string
   notes?: string
-  role?: 'admin' | 'user'
+  role?: UserRole
+  admin_permissions?: AdminPermission[]
   balance?: number
   concurrency?: number
   rpm_limit?: number

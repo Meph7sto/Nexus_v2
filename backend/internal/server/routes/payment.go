@@ -18,6 +18,7 @@ func RegisterPaymentRoutes(
 	adminPaymentHandler *admin.PaymentHandler,
 	jwtAuth middleware.JWTAuthMiddleware,
 	adminAuth middleware.AdminAuthMiddleware,
+	adminPermission middleware.AdminPermissionMiddleware,
 	auditLog middleware.AuditLogMiddleware,
 	settingService *service.SettingService,
 ) {
@@ -69,7 +70,7 @@ func RegisterPaymentRoutes(
 	adminGroup := v1.Group("/admin/payment")
 	adminGroup.Use(gin.HandlerFunc(adminAuth))
 	adminGroup.Use(gin.HandlerFunc(auditLog))
-	adminGroup.Use(middleware.AdminComplianceGuard(settingService))
+	adminGroup.Use(RequireAdminRoutePermission(adminPermission))
 	{
 		// Dashboard
 		adminGroup.GET("/dashboard", adminPaymentHandler.GetDashboard)

@@ -411,6 +411,17 @@ describe('useAppStore', () => {
       expect(store.publicSettingsLoaded).toBe(true)
     })
 
+    it('normalizes the legacy product name to Nexus', () => {
+      const windowAny = window as any
+      windowAny.__APP_CONFIG__ = { site_name: 'Sub2API', site_logo: '/logo.png' }
+
+      const store = useAppStore()
+      expect(store.initFromInjectedConfig()).toBe(true)
+      expect(store.siteName).toBe('Nexus')
+      expect(store.cachedPublicSettings?.site_name).toBe('Nexus')
+      expect(windowAny.__APP_CONFIG__.site_name).toBe('Nexus')
+    })
+
     it('无注入配置时返回 false', () => {
       const store = useAppStore()
       const result = store.initFromInjectedConfig()

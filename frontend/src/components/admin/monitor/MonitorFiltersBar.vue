@@ -6,7 +6,7 @@
         <Icon
           name="search"
           size="md"
-          class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"
+          class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 "
         />
         <input
           v-model="search"
@@ -44,18 +44,22 @@
       >
         <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
       </button>
-      <button
-        @click="$emit('manage-templates')"
-        class="btn btn-secondary"
-        :title="t('admin.channelMonitor.template.manageButton')"
-      >
-        <Icon name="cog" size="md" class="mr-2" />
-        {{ t('admin.channelMonitor.template.manageButton') }}
-      </button>
-      <button @click="$emit('create')" class="btn btn-primary">
-        <Icon name="plus" size="md" class="mr-2" />
-        {{ t('admin.channelMonitor.createButton') }}
-      </button>
+      <AdminPermissionGate resource="channel_monitor" action="view">
+        <button
+          @click="$emit('manage-templates')"
+          class="btn btn-secondary"
+          :title="t('admin.channelMonitor.template.manageButton')"
+        >
+          <Icon name="cog" size="md" class="mr-2" />
+          {{ t('admin.channelMonitor.template.manageButton') }}
+        </button>
+      </AdminPermissionGate>
+      <AdminPermissionGate resource="channel_monitor" action="create">
+        <button @click="$emit('create')" class="btn btn-primary">
+          <Icon name="plus" size="md" class="mr-2" />
+          {{ t('admin.channelMonitor.createButton') }}
+        </button>
+      </AdminPermissionGate>
     </div>
   </div>
 </template>
@@ -66,6 +70,7 @@ import { useI18n } from 'vue-i18n'
 import type { Provider } from '@/api/admin/channelMonitor'
 import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
+import AdminPermissionGate from '@/components/admin/AdminPermissionGate.vue'
 import {
   PROVIDER_OPENAI,
   PROVIDER_ANTHROPIC,

@@ -85,34 +85,34 @@ func TestAdminService_UpdateUser_InvalidRoleRejected(t *testing.T) {
 	require.Nil(t, repo.lastUpdated, "非法角色不应触发持久化")
 }
 
-// roleGuardUserRepoStub 在 rpmUserRepoStub 之上提供可控的管理员计数，
-// 用于测试"最后一个管理员不可降级"守卫。
+// roleGuardUserRepoStub 在 rpmUserRepoStub 之上提供可控的 super_admin 计数，
+// 用于测试"最后一个 super_admin 不可降级"守卫。
 type roleGuardUserRepoStub struct {
 	*rpmUserRepoStub
-	adminTotal int64
-	listCalls  int
+	superAdminTotal int64
+	listCalls       int
 }
 
 func (s *roleGuardUserRepoStub) ListWithFilters(_ context.Context, _ pagination.PaginationParams, _ UserListFilters) ([]User, *pagination.PaginationResult, error) {
 	s.listCalls++
-	return nil, &pagination.PaginationResult{Total: s.adminTotal}, nil
+	return nil, &pagination.PaginationResult{Total: s.superAdminTotal}, nil
 }
 
-func TestAdminService_UpdateUser_DemoteLastAdminRejected(t *testing.T) {
-	base := &userRepoStub{user: &User{ID: 42, Email: "a@example.com", Role: RoleAdmin}}
-	repo := &roleGuardUserRepoStub{rpmUserRepoStub: &rpmUserRepoStub{userRepoStub: base}, adminTotal: 1}
+func TestAdminService_UpdateUser_DemoteLastSuperAdminRejected(t *testing.T) {
+	base := &userRepoStub{user: &User{ID: 42, Email: "a@example.com", Role: RoleSuperAdmin}}
+	repo := &roleGuardUserRepoStub{rpmUserRepoStub: &rpmUserRepoStub{userRepoStub: base}, superAdminTotal: 1}
 	svc := &adminServiceImpl{userRepo: repo, redeemCodeRepo: &redeemRepoStub{}}
 
 	_, err := svc.UpdateUser(context.Background(), 42, &UpdateUserInput{Role: RoleUser})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "last admin")
-	require.Nil(t, repo.lastUpdated, "最后一个管理员不应被降级持久化")
-	require.Equal(t, 1, repo.listCalls, "降级路径应触发管理员计数")
+	require.Contains(t, err.Error(), "last super admin")
+	require.Nil(t, repo.lastUpdated, "最后一个 super_admin 不应被降级持久化")
+	require.Equal(t, 1, repo.listCalls, "super_admin 降级路径应触发 super_admin 计数")
 }
 
-func TestAdminService_UpdateUser_DemoteAdminAllowedWhenOthersExist(t *testing.T) {
-	base := &userRepoStub{user: &User{ID: 42, Email: "a@example.com", Role: RoleAdmin}}
-	repo := &roleGuardUserRepoStub{rpmUserRepoStub: &rpmUserRepoStub{userRepoStub: base}, adminTotal: 2}
+func TestAdminService_UpdateUser_DemoteSuperAdminAllowedWhenOthersExist(t *testing.T) {
+	base := &userRepoStub{user: &User{ID: 42, Email: "a@example.com", Role: RoleSuperAdmin}}
+	repo := &roleGuardUserRepoStub{rpmUserRepoStub: &rpmUserRepoStub{userRepoStub: base}, superAdminTotal: 2}
 	invalidator := &authCacheInvalidatorStub{}
 	svc := &adminServiceImpl{
 		userRepo:             repo,
@@ -124,12 +124,25 @@ func TestAdminService_UpdateUser_DemoteAdminAllowedWhenOthersExist(t *testing.T)
 	require.NoError(t, err)
 	require.Equal(t, RoleUser, updated.Role)
 	require.NotNil(t, repo.lastUpdated)
-	require.Equal(t, RoleUser, repo.lastUpdated.Role, "存在其他管理员时允许降级")
+	require.Equal(t, RoleUser, repo.lastUpdated.Role, "存在其他 super_admin 时允许降级")
+	require.Equal(t, 1, repo.listCalls, "super_admin 降级路径应触发 super_admin 计数")
+}
+
+func TestAdminService_UpdateUser_DemoteLimitedAdminAllowedWithoutCountingSuperAdmins(t *testing.T) {
+	base := &userRepoStub{user: &User{ID: 42, Email: "a@example.com", Role: RoleAdmin}}
+	repo := &roleGuardUserRepoStub{rpmUserRepoStub: &rpmUserRepoStub{userRepoStub: base}, superAdminTotal: 1}
+	svc := &adminServiceImpl{userRepo: repo, redeemCodeRepo: &redeemRepoStub{}}
+
+	updated, err := svc.UpdateUser(context.Background(), 42, &UpdateUserInput{Role: RoleUser})
+	require.NoError(t, err)
+	require.Equal(t, RoleUser, updated.Role)
+	require.NotNil(t, repo.lastUpdated)
+	require.Equal(t, 0, repo.listCalls, "limited admin 降级不应触发 super_admin 计数")
 }
 
 func TestAdminService_UpdateUser_PromoteDoesNotCountAdmins(t *testing.T) {
 	base := &userRepoStub{user: &User{ID: 42, Email: "u@example.com", Role: RoleUser}}
-	repo := &roleGuardUserRepoStub{rpmUserRepoStub: &rpmUserRepoStub{userRepoStub: base}, adminTotal: 1}
+	repo := &roleGuardUserRepoStub{rpmUserRepoStub: &rpmUserRepoStub{userRepoStub: base}, superAdminTotal: 1}
 	svc := &adminServiceImpl{
 		userRepo:             repo,
 		redeemCodeRepo:       &redeemRepoStub{},
