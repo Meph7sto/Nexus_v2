@@ -91,9 +91,10 @@ async function loadStorageUsage() {
     const message = error instanceof Error ? error.message : ''
     errorMessage.value = message || t('admin.ops.storage.loadFailed')
   } finally {
-    if (sequence !== requestSequence) return
-    loading.value = false
-    if (controller === nextController) controller = null
+    if (sequence === requestSequence) {
+      loading.value = false
+      if (controller === nextController) controller = null
+    }
   }
 }
 
