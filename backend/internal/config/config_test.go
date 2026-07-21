@@ -482,6 +482,23 @@ func TestLoadOpsStoragePaths(t *testing.T) {
 	}, cfg.Ops.Storage.Paths)
 }
 
+func TestDeployConfigExampleLoadsWithOpsStoragePaths(t *testing.T) {
+	resetViperWithJWTSecret(t)
+
+	examplePath := filepath.Join("..", "..", "..", "deploy", "config.example.yaml")
+	example, err := os.ReadFile(examplePath)
+	require.NoError(t, err)
+
+	dataDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dataDir, "config.yaml"), example, 0o644))
+	t.Setenv("DATA_DIR", dataDir)
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.True(t, cfg.Ops.Enabled)
+	require.Empty(t, cfg.Ops.Storage.Paths)
+}
+
 func TestLoadDefaultSecurityToggles(t *testing.T) {
 	resetViperWithJWTSecret(t)
 
