@@ -53,3 +53,10 @@ describe('AppSidebar header styles', () => {
     expect(sidebarBrandBlockMatch?.[0]).not.toContain('overflow: hidden;')
   })
 })
+
+describe('AppSidebar OpenAI quota summary navigation', () => {
+  it('registers the accounts:view-gated quota summary entry', () => {
+    expect(componentSource).toContain("{ path: '/admin/openai-quota-summary', label: t('nav.openAIQuotaSummary'), icon: ChartIcon, adminResource: 'accounts' },")
+    expect(componentSource).toContain("authStore.canAdmin(item.adminResource, 'view')")
+  })
+})
