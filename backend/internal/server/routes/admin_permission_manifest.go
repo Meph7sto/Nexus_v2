@@ -118,6 +118,7 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 		admin+"/accounts", admin+"/accounts/upstream-billing-probe/settings", admin+"/accounts/:id", admin+"/accounts/:id/stats",
 		admin+"/accounts/:id/usage", admin+"/accounts/:id/today-stats", admin+"/accounts/:id/temp-unschedulable",
 		admin+"/accounts/:id/models", admin+"/accounts/antigravity/default-model-mapping", admin+"/openai/accounts/:id/quota",
+		admin+"/openai/quota-summary",
 		admin+"/gemini/oauth/capabilities", admin+"/grok/accounts/:id/quota", admin+"/grok/runtime-sanity")
 	add(service.AdminResourceAccounts, service.AdminActionExport, http.MethodGet, admin+"/accounts/data")
 	add(service.AdminResourceAccounts, service.AdminActionCreate, http.MethodPost,
