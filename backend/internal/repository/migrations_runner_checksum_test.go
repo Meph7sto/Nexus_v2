@@ -158,6 +158,15 @@ func TestIsMigrationChecksumCompatible(t *testing.T) {
 		}
 	})
 
+	t.Run("187仅兼容已发布的settings时间戳版本", func(t *testing.T) {
+		const oldChecksum = "10c49b210e65e9589f02e474a1e5a1893f748fd6b409a89b587ff6b9a1e58f2a"
+		const fixedChecksum = "2b3713009db811fea9b7be937c6c8d5247826c794c44a5c12dfa23066f45a430"
+
+		require.True(t, isMigrationChecksumCompatible("187_add_usage_interactions.sql", oldChecksum, fixedChecksum))
+		require.False(t, isMigrationChecksumCompatible("187_add_usage_interactions.sql", oldChecksum, "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"))
+		require.False(t, isMigrationChecksumCompatible("187_add_usage_interactions.sql", "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", fixedChecksum))
+	})
+
 	t.Run("119未知checksum不兼容", func(t *testing.T) {
 		ok := isMigrationChecksumCompatible(
 			"119_enforce_payment_orders_out_trade_no_unique.sql",
@@ -240,4 +249,21 @@ func TestNexusFrozenChecksumRulesMatchEmbeddedFiles(t *testing.T) {
 			require.True(t, accepted)
 		})
 	}
+}
+
+func TestUsageInteractionsMigrationChecksumCompatibilityRuleMatchesEmbeddedFile(t *testing.T) {
+	const oldChecksum = "10c49b210e65e9589f02e474a1e5a1893f748fd6b409a89b587ff6b9a1e58f2a"
+
+	content, err := fs.ReadFile(migrations.FS, "187_add_usage_interactions.sql")
+	require.NoError(t, err)
+	sum := sha256.Sum256([]byte(strings.TrimSpace(string(content))))
+	fileChecksum := hex.EncodeToString(sum[:])
+
+	rule, ok := migrationChecksumCompatibilityRules["187_add_usage_interactions.sql"]
+	require.True(t, ok)
+	require.True(t, rule.requireExactFileChecksum)
+	require.Equal(t, fileChecksum, rule.fileChecksum)
+	_, accepted := rule.acceptedDBChecksum[oldChecksum]
+	require.True(t, accepted)
+	require.True(t, isMigrationChecksumCompatible("187_add_usage_interactions.sql", oldChecksum, fileChecksum))
 }

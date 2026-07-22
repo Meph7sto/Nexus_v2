@@ -23,9 +23,11 @@ CREATE INDEX IF NOT EXISTS idx_usage_interactions_request_id ON usage_interactio
 CREATE INDEX IF NOT EXISTS idx_usage_interactions_created_at ON usage_interactions(created_at);
 CREATE INDEX IF NOT EXISTS idx_usage_interactions_user_created_at ON usage_interactions(user_id, created_at DESC);
 
-INSERT INTO settings (key, value, created_at, updated_at)
+-- Historical settings tables have no created_at column. Migration 097 ensures
+-- updated_at has a database default, so this works across legacy schemas too.
+INSERT INTO settings (key, value)
 VALUES
-    ('usage_interaction_recording_enabled', 'false', NOW(), NOW()),
-    ('usage_interaction_store_raw_enabled', 'false', NOW(), NOW()),
-    ('usage_interaction_retention_days', '7', NOW(), NOW())
+    ('usage_interaction_recording_enabled', 'false'),
+    ('usage_interaction_store_raw_enabled', 'false'),
+    ('usage_interaction_retention_days', '7')
 ON CONFLICT (key) DO NOTHING;
