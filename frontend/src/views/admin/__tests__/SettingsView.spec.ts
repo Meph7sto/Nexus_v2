@@ -662,6 +662,41 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(wrapper.text()).not.toContain("支付来源");
   });
 
+  it("uses shared Toggle controls for usage interaction settings", async () => {
+    const wrapper = mountView();
+
+    await flushPromises();
+    await openGatewayTab(wrapper);
+
+    const rows = wrapper
+      .findAll(".flex.items-center.justify-between")
+      .filter((row) =>
+        row.text().includes("admin.settings.usageInteractions.recordingEnabled") ||
+        row.text().includes("admin.settings.usageInteractions.storeRawEnabled"),
+      );
+
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row.find(".toggle-stub").exists()).toBe(true);
+      expect(row.find(".toggle-slider").exists()).toBe(false);
+    }
+  });
+
+  it("uses the Nexus full-width input style for interaction retention", async () => {
+    const wrapper = mountView();
+
+    await flushPromises();
+    await openGatewayTab(wrapper);
+
+    const label = wrapper
+      .findAll("label")
+      .find((node) => node.text().includes("admin.settings.usageInteractions.retentionDays"));
+    const input = label?.element.parentElement?.querySelector<HTMLInputElement>('input[type="number"]');
+
+    expect(input).toBeTruthy();
+    expect(input?.className).toBe("input mt-1");
+  });
+
   it("does not expose the main settings save command without settings:update", async () => {
     authStore.canAdmin.mockReturnValue(false);
     const wrapper = mountView();

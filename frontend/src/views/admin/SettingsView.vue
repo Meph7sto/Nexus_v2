@@ -5276,10 +5276,7 @@
                   {{ t('admin.settings.usageInteractions.recordingEnabledHint') }}
                 </p>
               </div>
-              <label class="toggle">
-                <input v-model="form.usage_interaction_recording_enabled" type="checkbox" />
-                <span class="toggle-slider"></span>
-              </label>
+              <Toggle v-model="form.usage_interaction_recording_enabled" />
             </div>
             <div class="flex items-center justify-between">
               <div>
@@ -5290,10 +5287,7 @@
                   {{ t('admin.settings.usageInteractions.storeRawEnabledHint') }}
                 </p>
               </div>
-              <label class="toggle">
-                <input v-model="form.usage_interaction_store_raw_enabled" type="checkbox" />
-                <span class="toggle-slider"></span>
-              </label>
+              <Toggle v-model="form.usage_interaction_store_raw_enabled" />
             </div>
             <div>
               <label class="text-sm font-medium text-gray-700 ">
@@ -5304,7 +5298,7 @@
                 type="number"
                 min="0"
                 max="3650"
-                class="input mt-1 max-w-xs"
+                class="input mt-1"
               />
               <p class="mt-1 text-xs text-gray-500 ">
                 {{ t('admin.settings.usageInteractions.retentionDaysHint') }}
