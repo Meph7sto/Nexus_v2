@@ -1,7 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import OpenAIQuotaSummaryView from '../OpenAIQuotaSummaryView.vue'
-import { accountsAPI } from '@/api/admin'
+import { accountsAPI, groupsAPI } from '@/api/admin'
 
 const authStore = vi.hoisted(() => ({
   canAdmin: vi.fn(() => true)
@@ -20,6 +20,9 @@ vi.mock('vue-i18n', () => ({
 vi.mock('@/api/admin', () => ({
   accountsAPI: {
     getOpenAIQuotaSummary: vi.fn()
+  },
+  groupsAPI: {
+    getAllIncludingInactive: vi.fn()
   }
 }))
 
@@ -76,6 +79,12 @@ describe('OpenAIQuotaSummaryView', () => {
     appStore.showError.mockReset()
     vi.mocked(accountsAPI.getOpenAIQuotaSummary).mockReset()
     vi.mocked(accountsAPI.getOpenAIQuotaSummary).mockResolvedValue(response)
+    vi.mocked(groupsAPI.getAllIncludingInactive).mockReset()
+    vi.mocked(groupsAPI.getAllIncludingInactive).mockResolvedValue([
+      { id: 12, name: 'OpenAI Production Accounts With A Long Name', platform: 'openai' },
+      { id: 99, name: 'Empty OpenAI Group', platform: 'openai' },
+      { id: 100, name: 'Other Platform Group', platform: 'anthropic' },
+    ] as never)
   })
 
   it('loads grouped rows with missing snapshots, exclusions, recovery, and long group names', async () => {
@@ -84,7 +93,10 @@ describe('OpenAIQuotaSummaryView', () => {
 
     expect(authStore.canAdmin).toHaveBeenCalledWith('accounts', 'view')
     expect(accountsAPI.getOpenAIQuotaSummary).toHaveBeenCalledWith({})
+    expect(groupsAPI.getAllIncludingInactive).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('OpenAI Production Accounts With A Long Name')
+    expect(wrapper.text()).toContain('Empty OpenAI Group')
+    expect(wrapper.text()).not.toContain('Other Platform Group')
     expect(wrapper.text()).toContain('90.0%')
     expect(wrapper.text()).toContain('84.5%')
     expect(wrapper.text()).toContain('90.0% -> 100.0%')
@@ -128,6 +140,7 @@ describe('OpenAIQuotaSummaryView', () => {
     await flushPromises()
 
     expect(accountsAPI.getOpenAIQuotaSummary).not.toHaveBeenCalled()
+    expect(groupsAPI.getAllIncludingInactive).not.toHaveBeenCalled()
     expect(wrapper.text()).toContain('admin.openAIQuotaSummary.noPermission')
   })
 

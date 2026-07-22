@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -431,6 +432,11 @@ func (h *OpenAIOAuthHandler) QueryQuota(c *gin.Context) {
 // QuotaSummary returns the grouped OpenAI/Codex quota projection.
 // GET /api/v1/admin/openai/quota-summary
 func (h *OpenAIOAuthHandler) QuotaSummary(c *gin.Context) {
+	if h.adminService == nil {
+		response.Error(c, http.StatusServiceUnavailable, "admin service not available")
+		return
+	}
+
 	now := time.Now().UTC()
 	input := service.OpenAIQuotaSummaryInput{
 		ProjectionAt: now,
@@ -440,22 +446,24 @@ func (h *OpenAIOAuthHandler) QuotaSummary(c *gin.Context) {
 	if rawProjection := strings.TrimSpace(c.Query("projection_at")); rawProjection != "" {
 		projectionAt, err := time.Parse(time.RFC3339, rawProjection)
 		if err != nil {
-			response.BadRequest(c, "Invalid projection_at")
+			response.BadRequest(c, "invalid projection_at")
 			return
 		}
 		input.ProjectionAt = projectionAt.UTC()
 	}
 	if rawGroup := strings.TrimSpace(c.Query("group")); rawGroup != "" {
-		if strings.EqualFold(rawGroup, "ungrouped") {
-			input.GroupFilter = &service.OpenAIQuotaSummaryGroupFilter{Ungrouped: true}
+		filter := &service.OpenAIQuotaSummaryGroupFilter{}
+		if rawGroup == accountListGroupUngroupedQueryValue {
+			filter.Ungrouped = true
 		} else {
 			groupID, err := strconv.ParseInt(rawGroup, 10, 64)
 			if err != nil || groupID <= 0 {
-				response.BadRequest(c, "Invalid group")
+				response.BadRequest(c, "invalid group")
 				return
 			}
-			input.GroupFilter = &service.OpenAIQuotaSummaryGroupFilter{ID: &groupID}
+			filter.ID = &groupID
 		}
+		input.GroupFilter = filter
 	}
 
 	summary, err := h.adminService.GetOpenAIQuotaSummary(c.Request.Context(), input)
