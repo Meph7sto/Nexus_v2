@@ -428,6 +428,44 @@ func (h *OpenAIOAuthHandler) QueryQuota(c *gin.Context) {
 	response.Success(c, usage)
 }
 
+// QuotaSummary returns the grouped OpenAI/Codex quota projection.
+// GET /api/v1/admin/openai/quota-summary
+func (h *OpenAIOAuthHandler) QuotaSummary(c *gin.Context) {
+	now := time.Now().UTC()
+	input := service.OpenAIQuotaSummaryInput{
+		ProjectionAt: now,
+		GeneratedAt:  now,
+		AccountType:  strings.TrimSpace(c.Query("type")),
+	}
+	if rawProjection := strings.TrimSpace(c.Query("projection_at")); rawProjection != "" {
+		projectionAt, err := time.Parse(time.RFC3339, rawProjection)
+		if err != nil {
+			response.BadRequest(c, "Invalid projection_at")
+			return
+		}
+		input.ProjectionAt = projectionAt.UTC()
+	}
+	if rawGroup := strings.TrimSpace(c.Query("group")); rawGroup != "" {
+		if strings.EqualFold(rawGroup, "ungrouped") {
+			input.GroupFilter = &service.OpenAIQuotaSummaryGroupFilter{Ungrouped: true}
+		} else {
+			groupID, err := strconv.ParseInt(rawGroup, 10, 64)
+			if err != nil || groupID <= 0 {
+				response.BadRequest(c, "Invalid group")
+				return
+			}
+			input.GroupFilter = &service.OpenAIQuotaSummaryGroupFilter{ID: &groupID}
+		}
+	}
+
+	summary, err := h.adminService.GetOpenAIQuotaSummary(c.Request.Context(), input)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, summary)
+}
+
 // CreateShadowRequest is the request body for CreateShadow.
 type CreateShadowRequest struct {
 	Name        string  `json:"name"`
