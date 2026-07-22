@@ -206,13 +206,14 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import { accountsAPI } from '@/api/admin'
+import { accountsAPI, groupsAPI } from '@/api/admin'
 import type {
   OpenAIQuotaSummaryParams,
   OpenAIQuotaSummaryResponse,
 } from '@/api/admin/accounts'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
+import type { AdminGroup } from '@/types'
 
 type ProjectionMode = 'current' | 'hours' | 'days'
 
@@ -229,6 +230,7 @@ const projectionMode = ref<ProjectionMode>('current')
 const projectionAmount = ref(1)
 const selectedGroup = ref('')
 const selectedType = ref('')
+const groups = ref<AdminGroup[]>([])
 const summary = ref<OpenAIQuotaSummaryResponse | null>(null)
 const loading = ref(true)
 const errorMessage = ref('')
@@ -238,15 +240,22 @@ const summaryGroups = computed(() => summary.value?.groups ?? [])
 const commonPlanTypes = ['free', 'plus', 'pro', 'team', 'enterprise', 'unknown']
 
 const groupOptions = computed<GroupFilterOption[]>(() => {
-  const options = new Map<number, GroupFilterOption>()
+  const options: GroupFilterOption[] = []
+  const seen = new Set<number>()
 
-  for (const group of summaryGroups.value) {
-    if (!group.ungrouped && group.group_id != null && !options.has(group.group_id)) {
-      options.set(group.group_id, { id: group.group_id, name: group.group_name })
-    }
+  for (const group of groups.value) {
+    if (group.platform !== 'openai') continue
+    options.push({ id: group.id, name: group.name })
+    seen.add(group.id)
   }
 
-  return Array.from(options.values()).sort((left, right) => left.name.localeCompare(right.name))
+  for (const group of summaryGroups.value) {
+    if (group.ungrouped || group.group_id == null || seen.has(group.group_id)) continue
+    options.push({ id: group.group_id, name: group.group_name })
+    seen.add(group.group_id)
+  }
+
+  return options
 })
 
 const typeOptions = computed(() => {
@@ -301,7 +310,7 @@ function projectionParams(): OpenAIQuotaSummaryParams {
   }
 
   const projectionAt = new Date()
-  const amount = Math.max(1, Math.floor(Number(projectionAmount.value) || 1))
+  const amount = Math.max(1, Number(projectionAmount.value) || 1)
   if (projectionMode.value === 'hours') {
     projectionAt.setHours(projectionAt.getHours() + amount)
   } else {
@@ -325,6 +334,14 @@ function messageFromError(error: unknown): string {
   return error instanceof Error && error.message ? error.message : t('admin.openAIQuotaSummary.loadFailed')
 }
 
+async function loadGroups(): Promise<void> {
+  try {
+    groups.value = await groupsAPI.getAllIncludingInactive()
+  } catch (error) {
+    appStore.showError(error instanceof Error ? error.message : String(error))
+  }
+}
+
 async function loadSummary(): Promise<void> {
   if (!canView.value) {
     return
@@ -343,6 +360,10 @@ async function loadSummary(): Promise<void> {
 }
 
 onMounted(() => {
+  if (!canView.value) {
+    return
+  }
+  void loadGroups()
   void loadSummary()
 })
 </script>

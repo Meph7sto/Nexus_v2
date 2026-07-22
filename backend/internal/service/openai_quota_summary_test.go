@@ -206,6 +206,7 @@ func TestBuildOpenAIQuotaSummaryGroupsFiltersAndResolvesPlanType(t *testing.T) {
 	require.Equal(t, int64(10), *summary.Groups[0].GroupID)
 	require.Equal(t, int64(20), *summary.Groups[1].GroupID)
 	require.True(t, summary.Groups[2].Ungrouped)
+	require.Equal(t, "Ungrouped", summary.Groups[2].GroupName)
 	require.Equal(t, []string{"team", "unknown"}, openAIQuotaSummaryRowTypes(summary.Groups[0].Rows))
 	require.Equal(t, []string{"pro", "team"}, openAIQuotaSummaryRowTypes(summary.Groups[1].Rows))
 	require.Equal(t, []string{"plus"}, openAIQuotaSummaryRowTypes(summary.Groups[2].Rows))
@@ -230,6 +231,13 @@ func TestBuildOpenAIQuotaSummaryGroupsFiltersAndResolvesPlanType(t *testing.T) {
 	require.Len(t, ungrouped.Groups, 1)
 	require.True(t, ungrouped.Groups[0].Ungrouped)
 	require.Equal(t, []string{"plus"}, openAIQuotaSummaryRowTypes(ungrouped.Groups[0].Rows))
+
+	nonNexusFilter := BuildOpenAIQuotaSummary(accounts, OpenAIQuotaSummaryInput{
+		ProjectionAt: projectionAt,
+		GeneratedAt:  projectionAt,
+		AccountType:  "ChatGPT Pro",
+	})
+	require.Empty(t, nonNexusFilter.Groups)
 }
 
 func TestBuildOpenAIQuotaSummaryHandlesZeroAccounts(t *testing.T) {

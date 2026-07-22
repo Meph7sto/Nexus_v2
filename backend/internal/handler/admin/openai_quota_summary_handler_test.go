@@ -36,6 +36,7 @@ func TestOpenAIQuotaSummaryHandlerValidatesParameters(t *testing.T) {
 		"/api/v1/admin/openai/quota-summary?group=0",
 		"/api/v1/admin/openai/quota-summary?group=-1",
 		"/api/v1/admin/openai/quota-summary?group=not-a-group",
+		"/api/v1/admin/openai/quota-summary?group=UNGROUPED",
 	} {
 		t.Run(rawURL, func(t *testing.T) {
 			stub := &openAIQuotaSummaryHandlerServiceStub{}
@@ -50,6 +51,18 @@ func TestOpenAIQuotaSummaryHandlerValidatesParameters(t *testing.T) {
 			require.Zero(t, stub.calls)
 		})
 	}
+}
+
+func TestOpenAIQuotaSummaryHandlerReturnsServiceUnavailableWithoutAdminService(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler := NewOpenAIOAuthHandler(nil, nil, nil)
+	router := gin.New()
+	router.GET("/api/v1/admin/openai/quota-summary", handler.QuotaSummary)
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/admin/openai/quota-summary", nil))
+
+	require.Equal(t, http.StatusServiceUnavailable, recorder.Code)
 }
 
 func TestOpenAIQuotaSummaryHandlerReturnsEmptyResultAndForwardsFilters(t *testing.T) {

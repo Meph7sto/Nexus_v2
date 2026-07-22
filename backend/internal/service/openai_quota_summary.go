@@ -119,10 +119,7 @@ type openAIQuotaSummaryMembership struct {
 // five-hour and seven-day snapshot fields; it does not affect quota resets,
 // account health, gateway traffic, or scheduler state.
 func BuildOpenAIQuotaSummary(accounts []Account, input OpenAIQuotaSummaryInput) OpenAIQuotaSummaryResponse {
-	planTypeFilter := ""
-	if strings.TrimSpace(input.AccountType) != "" {
-		planTypeFilter = normalizeOpenAIQuotaSummaryPlanType(input.AccountType)
-	}
+	planTypeFilter := strings.TrimSpace(input.AccountType)
 
 	groups := make(map[string]*openAIQuotaSummaryGroupAccumulator)
 	for _, account := range accounts {
@@ -131,7 +128,7 @@ func BuildOpenAIQuotaSummary(accounts []Account, input OpenAIQuotaSummaryInput) 
 		}
 
 		planType := openAIQuotaSummaryPlanType(account)
-		if planTypeFilter != "" && planType != planTypeFilter {
+		if planTypeFilter != "" && !strings.EqualFold(planType, planTypeFilter) {
 			continue
 		}
 
@@ -254,7 +251,7 @@ func openAIQuotaSummaryMemberships(account Account) []openAIQuotaSummaryMembersh
 		memberships = append(memberships, openAIQuotaSummaryMembership{groupID: groupID})
 	}
 	if len(memberships) == 0 {
-		return []openAIQuotaSummaryMembership{{ungrouped: true}}
+		return []openAIQuotaSummaryMembership{{ungrouped: true, groupName: "Ungrouped"}}
 	}
 	return memberships
 }
