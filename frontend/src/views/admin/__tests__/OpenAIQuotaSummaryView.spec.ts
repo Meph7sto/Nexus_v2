@@ -1,7 +1,13 @@
+import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import OpenAIQuotaSummaryView from '../OpenAIQuotaSummaryView.vue'
 import { accountsAPI, groupsAPI } from '@/api/admin'
+
+const stylePath = resolve(dirname(fileURLToPath(import.meta.url)), '../../../style.css')
+const styleSource = readFileSync(stylePath, 'utf8')
 
 const authStore = vi.hoisted(() => ({
   canAdmin: vi.fn(() => true)
@@ -167,5 +173,9 @@ describe('OpenAIQuotaSummaryView', () => {
 
     expect(appStore.showError).toHaveBeenCalledWith('quota service unavailable')
     expect(errorWrapper.get('[data-test="summary-error"]').text()).toContain('quota service unavailable')
+  })
+
+  it('keeps numeric column headers aligned with their values', () => {
+    expect(styleSource).toMatch(/\.table th\.text-right\s*\{\s*text-align:\s*right;/)
   })
 })

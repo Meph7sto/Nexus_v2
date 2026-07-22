@@ -390,6 +390,14 @@
  border-bottom: 1px solid var(--nx-border);
  }
 
+ .table th.text-right {
+ text-align: right;
+ }
+
+ .table th.text-center {
+ text-align: center;
+ }
+
  .table td {
  @apply px-4 py-3;
  color: var(--nx-text);
