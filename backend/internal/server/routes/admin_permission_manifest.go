@@ -65,7 +65,7 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 		admin+"/ops/errors", admin+"/ops/errors/:id", admin+"/ops/request-errors", admin+"/ops/request-errors/:id",
 		admin+"/ops/request-errors/:id/upstream-errors", admin+"/ops/ingress-rejections", admin+"/ops/ingress-rejections/health",
 		admin+"/ops/upstream-errors", admin+"/ops/upstream-errors/:id", admin+"/ops/requests", admin+"/ops/system-logs",
-		admin+"/ops/system-logs/health", admin+"/ops/dashboard/snapshot-v2", admin+"/ops/dashboard/overview",
+		admin+"/ops/system-logs/health", admin+"/ops/storage", admin+"/ops/dashboard/snapshot-v2", admin+"/ops/dashboard/overview",
 		admin+"/ops/dashboard/throughput-trend", admin+"/ops/dashboard/latency-histogram", admin+"/ops/dashboard/error-trend",
 		admin+"/ops/dashboard/error-distribution", admin+"/ops/dashboard/openai-token-stats")
 	add(service.AdminResourceOps, service.AdminActionUpdate, http.MethodPut,

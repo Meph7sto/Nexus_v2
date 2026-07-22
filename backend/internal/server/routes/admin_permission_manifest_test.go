@@ -46,3 +46,10 @@ func TestAdminRoutePermissionManifestSeparatesAPIKeyReads(t *testing.T) {
 		require.Equal(t, service.AdminActionView, permission.Action, path)
 	}
 }
+
+func TestAdminRoutePermissionManifestMapsOpsStorageView(t *testing.T) {
+	permission, ok := AdminRoutePermissionFor(http.MethodGet, "/api/v1/admin/ops/storage")
+	require.True(t, ok)
+	require.Equal(t, service.AdminResourceOps, permission.Resource)
+	require.Equal(t, service.AdminActionView, permission.Action)
+}

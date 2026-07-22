@@ -465,6 +465,40 @@ func TestLoadForcedCodexInstructionsTemplate(t *testing.T) {
 	require.Equal(t, "server-prefix\n\n{{ .ExistingInstructions }}", cfg.Gateway.ForcedCodexInstructionsTemplate)
 }
 
+func TestLoadOpsStoragePaths(t *testing.T) {
+	resetViperWithJWTSecret(t)
+
+	tempDir := t.TempDir()
+	configPath := filepath.Join(tempDir, "config.yaml")
+	configContents := "ops:\n  storage:\n    paths:\n      - key: postgres_data\n        label: PostgreSQL data\n        kind: directory\n        path: /var/lib/postgresql/data\n      - key: docker\n        path: /var/lib/docker\n"
+	require.NoError(t, os.WriteFile(configPath, []byte(configContents), 0o644))
+	t.Setenv("DATA_DIR", tempDir)
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.Equal(t, []OpsStoragePathConfig{
+		{Key: "postgres_data", Label: "PostgreSQL data", Kind: "directory", Path: "/var/lib/postgresql/data"},
+		{Key: "docker", Path: "/var/lib/docker"},
+	}, cfg.Ops.Storage.Paths)
+}
+
+func TestDeployConfigExampleLoadsWithOpsStoragePaths(t *testing.T) {
+	resetViperWithJWTSecret(t)
+
+	examplePath := filepath.Join("..", "..", "..", "deploy", "config.example.yaml")
+	example, err := os.ReadFile(examplePath)
+	require.NoError(t, err)
+
+	dataDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dataDir, "config.yaml"), example, 0o644))
+	t.Setenv("DATA_DIR", dataDir)
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.True(t, cfg.Ops.Enabled)
+	require.Empty(t, cfg.Ops.Storage.Paths)
+}
+
 func TestLoadDefaultSecurityToggles(t *testing.T) {
 	resetViperWithJWTSecret(t)
 

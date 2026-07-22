@@ -926,6 +926,16 @@ ops:
   # Other detailed settings (cleanup, aggregation, etc.) are configured in ops settings dialog
   # 其他详细设置（数据清理、预聚合等）在运维监控设置对话框中配置
   enabled: true
+  # Optional storage paths displayed by the admin/ops storage card.
+  # Paths must be readable from inside the backend container/process.
+  storage:
+    paths: []
+    # Example:
+    # paths:
+    #   - key: postgres_data
+    #     label: PostgreSQL data
+    #     kind: directory
+    #     path: /var/lib/postgresql/data
 
 # =============================================================================
 # JWT Configuration

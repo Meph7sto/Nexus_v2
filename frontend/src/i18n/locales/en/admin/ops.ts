@@ -26,6 +26,18 @@ export default {
       result: 'Result',
       noData: 'No data.',
       loadingText: 'loading',
+      storage: {
+        title: 'Storage usage',
+        tooltip: 'Best-effort usage for the current database and configured directories.',
+        loading: 'Loading storage usage',
+        refreshing: 'Refreshing storage usage',
+        empty: 'No storage usage data is available.',
+        loadFailed: 'Failed to load storage usage',
+        status: {
+          unavailable: 'Unavailable',
+          unconfigured: 'Not configured'
+        }
+      },
       ready: 'ready',
       autoRefreshRemaining: 'Remaining {seconds}s',
       systemLogs: {
