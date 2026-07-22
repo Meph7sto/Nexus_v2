@@ -5,10 +5,11 @@ import { createPinia, setActivePinia } from 'pinia'
 import type { DashboardStats } from '@/types'
 import DashboardView from '../DashboardView.vue'
 
-const { getSnapshotV2, getUserUsageTrend, getUserSpendingRanking } = vi.hoisted(() => ({
+const { getSnapshotV2, getUserUsageTrend, getUserSpendingRanking, push } = vi.hoisted(() => ({
   getSnapshotV2: vi.fn(),
   getUserUsageTrend: vi.fn(),
-  getUserSpendingRanking: vi.fn()
+  getUserSpendingRanking: vi.fn(),
+  push: vi.fn(),
 }))
 
 vi.mock('@/api/admin', () => ({
@@ -29,7 +30,7 @@ vi.mock('@/stores/app', () => ({
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({
-    push: vi.fn()
+    push,
   })
 }))
 
@@ -48,6 +49,17 @@ const formatLocalDate = (date: Date): string => {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+const ModelDistributionChartStub = {
+  props: ['rankingItems'],
+  emits: ['rankingClick'],
+  template: `
+    <div data-test="cost-ranking">
+      <span>{{ rankingItems?.[0]?.email }}</span>
+      <button @click="$emit('rankingClick', rankingItems[0])">open-ranking-user</button>
+    </div>
+  `,
 }
 
 const createDashboardStats = (): DashboardStats => ({
@@ -93,6 +105,7 @@ describe('admin DashboardView', () => {
     getSnapshotV2.mockReset()
     getUserUsageTrend.mockReset()
     getUserSpendingRanking.mockReset()
+    push.mockReset()
 
     getSnapshotV2.mockResolvedValue({
       stats: createDashboardStats(),
@@ -142,5 +155,60 @@ describe('admin DashboardView', () => {
       end_date: formatLocalDate(now),
       granularity: 'hour'
     }))
+  })
+
+  it('preserves the spending ranking API, real identity, and usage drill-down', async () => {
+    getUserSpendingRanking.mockResolvedValue({
+      ranking: [{
+        user_id: 19,
+        email: 'real.user@example.test',
+        actual_cost: 12.34,
+        requests: 8,
+        tokens: 1200,
+      }],
+      total_actual_cost: 12.34,
+      total_requests: 8,
+      total_tokens: 1200,
+      start_date: '',
+      end_date: '',
+    })
+
+    const wrapper = mount(DashboardView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          LoadingSpinner: true,
+          Icon: true,
+          DateRangePicker: true,
+          Select: true,
+          ModelDistributionChart: ModelDistributionChartStub,
+          TokenUsageTrend: true,
+          Line: true,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const now = new Date()
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+    expect(getUserSpendingRanking).toHaveBeenCalledWith({
+      start_date: formatLocalDate(yesterday),
+      end_date: formatLocalDate(now),
+      limit: 12,
+    })
+
+    const ranking = wrapper.find('[data-test="cost-ranking"]')
+    expect(ranking.text()).toContain('real.user@example.test')
+
+    await ranking.find('button').trigger('click')
+    expect(push).toHaveBeenCalledWith({
+      path: '/admin/usage',
+      query: {
+        user_id: '19',
+        start_date: formatLocalDate(yesterday),
+        end_date: formatLocalDate(now),
+      },
+    })
   })
 })
