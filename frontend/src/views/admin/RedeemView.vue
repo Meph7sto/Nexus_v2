@@ -36,21 +36,27 @@
             >
               <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
             </button>
-            <button @click="handleExportCodes" class="btn btn-secondary">
-              {{ t('admin.redeem.exportCsv') }}
-            </button>
-            <button
-              data-test="batch-update-open"
-              @click="openBatchUpdateDialog"
-              :disabled="selectedCount === 0 || batchUpdating"
-              class="btn btn-secondary"
-            >
-              <Icon name="edit" size="md" class="mr-2" />
-              {{ t('admin.redeem.batchUpdate') }}
-            </button>
-            <button @click="showGenerateDialog = true" class="btn btn-primary">
-              {{ t('admin.redeem.generateCodes') }}
-            </button>
+            <AdminPermissionGate resource="redeem_codes" action="export">
+              <button @click="handleExportCodes" class="btn btn-secondary">
+                {{ t('admin.redeem.exportCsv') }}
+              </button>
+            </AdminPermissionGate>
+            <AdminPermissionGate resource="redeem_codes" action="update">
+              <button
+                data-test="batch-update-open"
+                @click="openBatchUpdateDialog"
+                :disabled="selectedCount === 0 || batchUpdating"
+                class="btn btn-secondary"
+              >
+                <Icon name="edit" size="md" class="mr-2" />
+                {{ t('admin.redeem.batchUpdate') }}
+              </button>
+            </AdminPermissionGate>
+            <AdminPermissionGate resource="redeem_codes" action="create">
+              <button @click="showGenerateDialog = true" class="btn btn-primary">
+                {{ t('admin.redeem.generateCodes') }}
+              </button>
+            </AdminPermissionGate>
           </div>
         </div>
       </template>
@@ -89,14 +95,14 @@
 
           <template #cell-code="{ value }">
             <div class="flex items-center space-x-2">
-              <code class="font-mono text-sm text-gray-900 dark:text-gray-100">{{ value }}</code>
+              <code class="font-mono text-sm text-gray-900 ">{{ value }}</code>
               <button
                 @click="copyToClipboard(value)"
                 :class="[
                   'flex items-center transition-colors',
                   copiedCode === value
                     ? 'text-green-500'
-                    : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                    : 'text-gray-400 hover:text-gray-600 '
                 ]"
                 :title="copiedCode === value ? t('admin.redeem.copied') : t('keys.copyToClipboard')"
               >
@@ -129,11 +135,11 @@
           </template>
 
           <template #cell-value="{ value, row }">
-            <span class="text-sm font-medium text-gray-900 dark:text-white">
+            <span class="text-sm font-medium text-gray-900 ">
               <template v-if="row.type === 'balance'">${{ value.toFixed(2) }}</template>
               <template v-else-if="row.type === 'subscription'">
                 {{ row.validity_days || 30 }} {{ t('admin.redeem.days') }}
-                <span v-if="row.group" class="ml-1 text-xs text-gray-500 dark:text-gray-400"
+                <span v-if="row.group" class="ml-1 text-xs text-gray-500 "
                   >({{ row.group.name }})</span
                 >
               </template>
@@ -157,13 +163,13 @@
           </template>
 
           <template #cell-used_by="{ value, row }">
-            <span class="text-sm text-gray-500 dark:text-dark-400">
+            <span class="text-sm text-gray-500 ">
               {{ row.user?.email || (value ? t('admin.redeem.userPrefix', { id: value }) : '-') }}
             </span>
           </template>
 
           <template #cell-used_at="{ value }">
-            <span class="text-sm text-gray-500 dark:text-dark-400">{{
+            <span class="text-sm text-gray-500 ">{{
               value ? formatDateTime(value) : '-'
             }}</span>
           </template>
@@ -173,8 +179,8 @@
               :class="[
                 'text-sm',
                 row.status === 'expired'
-                  ? 'text-red-600 dark:text-red-400'
-                  : 'text-gray-500 dark:text-dark-400'
+                  ? 'text-red-600 '
+                  : 'text-gray-500 '
               ]"
             >
               {{ value ? formatDateTime(value) : t('admin.redeem.neverExpires') }}
@@ -183,22 +189,23 @@
 
           <template #cell-actions="{ row }">
             <div class="flex items-center space-x-2">
-              <button
-                v-if="row.status === 'unused'"
-                @click="handleDelete(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-              >
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-                <span class="text-xs">{{ t('common.delete') }}</span>
-              </button>
-              <span v-else class="text-gray-400 dark:text-dark-500">-</span>
+              <AdminPermissionGate v-if="row.status === 'unused'" resource="redeem_codes" action="delete">
+                <button
+                  @click="handleDelete(row)"
+                  class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600  "
+                >
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                  <span class="text-xs">{{ t('common.delete') }}</span>
+                </button>
+              </AdminPermissionGate>
+              <span v-else class="text-gray-400 ">-</span>
             </div>
           </template>
         </DataTable>
@@ -207,26 +214,28 @@
       <template #pagination>
         <div
           v-if="selectedCount > 0"
-          class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-primary-50 p-3 dark:bg-primary-900/20"
+          class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-primary-50 p-3 "
         >
-          <span class="text-sm font-medium text-primary-900 dark:text-primary-100">
+          <span class="text-sm font-medium text-primary-900 ">
             {{ t('admin.redeem.selectedCount', { count: selectedCount }) }}
           </span>
           <div class="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              class="text-xs font-medium text-primary-700 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-200"
+              class="text-xs font-medium text-primary-700 hover:text-primary-800  "
               @click="clearSelectedCodes"
             >
               {{ t('admin.redeem.clearSelection') }}
             </button>
-            <button
-              type="button"
-              class="btn btn-primary btn-sm"
-              @click="openBatchUpdateDialog"
-            >
-              {{ t('admin.redeem.batchUpdate') }}
-            </button>
+            <AdminPermissionGate resource="redeem_codes" action="update">
+              <button
+                type="button"
+                class="btn btn-primary btn-sm"
+                @click="openBatchUpdateDialog"
+              >
+                {{ t('admin.redeem.batchUpdate') }}
+              </button>
+            </AdminPermissionGate>
           </div>
         </div>
 
@@ -240,46 +249,53 @@
         />
 
         <!-- Batch Actions -->
-        <div v-if="filters.status === 'unused'" class="flex justify-end">
-          <button @click="showDeleteUnusedDialog = true" class="btn btn-danger">
-            {{ t('admin.redeem.deleteAllUnused') }}
-          </button>
-        </div>
+        <AdminPermissionGate resource="redeem_codes" action="delete">
+          <div v-if="filters.status === 'unused'" class="flex justify-end">
+            <button @click="showDeleteUnusedDialog = true" class="btn btn-danger">
+              {{ t('admin.redeem.deleteAllUnused') }}
+            </button>
+          </div>
+        </AdminPermissionGate>
       </template>
     </TablePageLayout>
 
     <!-- Delete Confirmation Dialog -->
-    <ConfirmDialog
-      :show="showDeleteDialog"
-      :title="t('admin.redeem.deleteCode')"
-      :message="t('admin.redeem.deleteCodeConfirm')"
-      :confirm-text="t('common.delete')"
-      :cancel-text="t('common.cancel')"
-      danger
-      @confirm="confirmDelete"
-      @cancel="showDeleteDialog = false"
-    />
+    <AdminPermissionGate resource="redeem_codes" action="delete">
+      <ConfirmDialog
+        :show="showDeleteDialog"
+        :title="t('admin.redeem.deleteCode')"
+        :message="t('admin.redeem.deleteCodeConfirm')"
+        :confirm-text="t('common.delete')"
+        :cancel-text="t('common.cancel')"
+        danger
+        @confirm="confirmDelete"
+        @cancel="showDeleteDialog = false"
+      />
+    </AdminPermissionGate>
 
     <!-- Delete Unused Codes Dialog -->
-    <ConfirmDialog
-      :show="showDeleteUnusedDialog"
-      :title="t('admin.redeem.deleteAllUnused')"
-      :message="t('admin.redeem.deleteAllUnusedConfirm')"
-      :confirm-text="t('admin.redeem.deleteAll')"
-      :cancel-text="t('common.cancel')"
-      danger
-      @confirm="confirmDeleteUnused"
-      @cancel="showDeleteUnusedDialog = false"
-    />
+    <AdminPermissionGate resource="redeem_codes" action="delete">
+      <ConfirmDialog
+        :show="showDeleteUnusedDialog"
+        :title="t('admin.redeem.deleteAllUnused')"
+        :message="t('admin.redeem.deleteAllUnusedConfirm')"
+        :confirm-text="t('admin.redeem.deleteAll')"
+        :cancel-text="t('common.cancel')"
+        danger
+        @confirm="confirmDeleteUnused"
+        @cancel="showDeleteUnusedDialog = false"
+      />
+    </AdminPermissionGate>
 
     <!-- Generate Codes Dialog -->
-    <Teleport to="body">
+    <AdminPermissionGate resource="redeem_codes" action="create">
+      <Teleport to="body">
       <div v-if="showGenerateDialog" class="fixed inset-0 z-50 flex items-center justify-center">
         <div class="fixed inset-0 bg-black/50" @click="showGenerateDialog = false"></div>
         <div
-          class="relative z-10 w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-dark-800"
+          class="relative z-10 w-full max-w-md rounded-lg bg-white p-6 shadow-card "
         >
-          <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
+          <h2 class="mb-4 text-lg font-semibold text-gray-900 ">
             {{ t('admin.redeem.generateCodesTitle') }}
           </h2>
           <form @submit.prevent="handleGenerateCodes" class="space-y-4">
@@ -306,8 +322,8 @@
               />
             </div>
             <!-- 邀请码类型：显示提示信息 -->
-            <div v-if="generateForm.type === 'invitation'" class="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
-              <p class="text-sm text-blue-700 dark:text-blue-300">
+            <div v-if="generateForm.type === 'invitation'" class="rounded-lg bg-blue-50 p-3 ">
+              <p class="text-sm text-blue-700 ">
                 {{ t('admin.redeem.invitationHint') }}
               </p>
             </div>
@@ -367,8 +383,8 @@
                   :class="[
                     'rounded-lg border px-3 py-2 text-sm transition-colors',
                     generateForm.expiry_option === option.value
-                      ? 'border-primary-500 bg-primary-50 text-primary-700 dark:border-primary-400 dark:bg-primary-900/20 dark:text-primary-300'
-                      : 'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-dark-600 dark:text-gray-300 dark:hover:bg-dark-700'
+                      ? 'border-primary-500 bg-primary-50 text-primary-700   '
+                      : 'border-gray-200 text-gray-700 hover:bg-gray-50   '
                   ]"
                 >
                   {{ option.label }}
@@ -407,28 +423,30 @@
           </form>
         </div>
       </div>
-    </Teleport>
+      </Teleport>
+    </AdminPermissionGate>
 
     <!-- Batch Update Dialog -->
-    <Teleport to="body">
+    <AdminPermissionGate resource="redeem_codes" action="update">
+      <Teleport to="body">
       <div
         v-if="showBatchUpdateDialog"
         class="fixed inset-0 z-50 flex items-center justify-center p-4"
       >
         <div class="fixed inset-0 bg-black/50" @click="closeBatchUpdateDialog"></div>
         <div
-          class="relative z-10 w-full max-w-lg rounded-xl bg-white p-6 shadow-xl dark:bg-dark-800"
+          class="relative z-10 w-full max-w-lg rounded-lg bg-white p-6 shadow-card "
         >
-          <h2 class="mb-1 text-lg font-semibold text-gray-900 dark:text-white">
+          <h2 class="mb-1 text-lg font-semibold text-gray-900 ">
             {{ t('admin.redeem.batchUpdateTitle') }}
           </h2>
-          <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">
+          <p class="mb-4 text-sm text-gray-500 ">
             {{ t('admin.redeem.selectedCount', { count: selectedCount }) }}
           </p>
 
           <form data-test="batch-update-form" class="space-y-4" @submit.prevent="handleBatchUpdate">
             <div class="space-y-2">
-              <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label class="flex items-center gap-2 text-sm font-medium text-gray-700 ">
                 <input
                   data-test="batch-field-status"
                   v-model="batchUpdateForm.update_status"
@@ -446,7 +464,7 @@
             </div>
 
             <div class="space-y-2">
-              <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label class="flex items-center gap-2 text-sm font-medium text-gray-700 ">
                 <input
                   v-model="batchUpdateForm.update_expires_at"
                   type="checkbox"
@@ -466,7 +484,7 @@
             </div>
 
             <div class="space-y-2">
-              <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label class="flex items-center gap-2 text-sm font-medium text-gray-700 ">
                 <input
                   data-test="batch-field-notes"
                   v-model="batchUpdateForm.update_notes"
@@ -486,7 +504,7 @@
             </div>
 
             <div class="space-y-2">
-              <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label class="flex items-center gap-2 text-sm font-medium text-gray-700 ">
                 <input
                   v-model="batchUpdateForm.update_group_id"
                   type="checkbox"
@@ -518,23 +536,24 @@
           </form>
         </div>
       </div>
-    </Teleport>
+      </Teleport>
+    </AdminPermissionGate>
 
     <!-- Generated Codes Result Dialog -->
     <Teleport to="body">
       <div v-if="showResultDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div class="fixed inset-0 bg-black/50" @click="closeResultDialog"></div>
-        <div class="relative z-10 w-full max-w-lg rounded-xl bg-white shadow-xl dark:bg-dark-800">
+        <div class="relative z-10 w-full max-w-lg rounded-lg bg-white shadow-card ">
           <!-- Header -->
           <div
-            class="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-dark-600"
+            class="flex items-center justify-between border-b border-gray-200 px-5 py-4 "
           >
             <div class="flex items-center gap-3">
               <div
-                class="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30"
+                class="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 "
               >
                 <svg
-                  class="h-5 w-5 text-green-600 dark:text-green-400"
+                  class="h-5 w-5 text-green-600 "
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -548,17 +567,17 @@
                 </svg>
               </div>
               <div>
-                <h2 class="text-base font-semibold text-gray-900 dark:text-white">
+                <h2 class="text-base font-semibold text-gray-900 ">
                   {{ t('admin.redeem.generatedSuccessfully') }}
                 </h2>
-                <p class="text-sm text-gray-500 dark:text-gray-400">
+                <p class="text-sm text-gray-500 ">
                   {{ t('admin.redeem.codesCreated', { count: generatedCodes.length }) }}
                 </p>
               </div>
             </div>
             <button
               @click="closeResultDialog"
-              class="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-dark-700 dark:hover:text-gray-300"
+              class="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600  "
             >
               <Icon name="x" size="md" :stroke-width="2" />
             </button>
@@ -570,13 +589,13 @@
                 readonly
                 :value="generatedCodesText"
                 :style="{ height: textareaHeight }"
-                class="w-full resize-none rounded-lg border border-gray-200 bg-gray-50 p-3 font-mono text-sm text-gray-800 focus:outline-none dark:border-dark-600 dark:bg-dark-700 dark:text-gray-200"
+                class="w-full resize-none rounded-lg border border-gray-200 bg-gray-50 p-3 font-mono text-sm text-gray-800 focus:outline-none   "
               ></textarea>
             </div>
           </div>
           <!-- Footer -->
           <div
-            class="flex justify-end gap-2 rounded-b-xl border-t border-gray-200 bg-gray-50 px-5 py-4 dark:border-dark-600 dark:bg-dark-700/50"
+            class="flex justify-end gap-2 rounded-b-xl border-t border-gray-200 bg-gray-50 px-5 py-4  "
           >
             <button
               @click="copyGeneratedCodes"
@@ -634,6 +653,7 @@ import Select from '@/components/common/Select.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'
 import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
 import Icon from '@/components/icons/Icon.vue'
+import AdminPermissionGate from '@/components/admin/AdminPermissionGate.vue'
 
 const { t } = useI18n()
 const appStore = useAppStore()

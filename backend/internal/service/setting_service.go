@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync/atomic"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -260,4 +261,13 @@ func (s *SettingService) getStringOrDefault(settings map[string]string, key, def
 		return value
 	}
 	return defaultValue
+}
+
+func normalizeSiteName(value string) string {
+	trimmed := strings.TrimSpace(value)
+	compact := strings.Join(strings.Fields(trimmed), "")
+	if compact == "" || strings.EqualFold(compact, "sub2api") {
+		return "Nexus"
+	}
+	return trimmed
 }

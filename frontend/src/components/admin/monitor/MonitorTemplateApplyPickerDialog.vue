@@ -4,7 +4,7 @@
     :title="t('admin.channelMonitor.template.applyPickerTitle', { name: templateName })"
     @close="$emit('close')"
   >
-    <p class="mb-3 text-sm text-gray-600 dark:text-gray-400">
+    <p class="mb-3 text-sm text-gray-600 ">
       {{ t('admin.channelMonitor.template.applyPickerHint') }}
     </p>
 
@@ -21,19 +21,19 @@
       <div class="mb-2 flex items-center gap-3 text-xs">
         <button
           type="button"
-          class="text-primary-600 hover:underline dark:text-primary-400"
+          class="text-primary-600 hover:underline "
           @click="selectAll"
         >
           {{ t('common.selectAll') }}
         </button>
         <button
           type="button"
-          class="text-gray-500 hover:underline dark:text-gray-400"
+          class="text-gray-500 hover:underline "
           @click="selectNone"
         >
           {{ t('admin.channelMonitor.template.selectNone') }}
         </button>
-        <span class="ml-auto text-gray-500 dark:text-gray-400">
+        <span class="ml-auto text-gray-500 ">
           {{ t('admin.channelMonitor.template.selectedCount', {
             n: selectedIds.length,
             total: monitors.length,
@@ -41,11 +41,11 @@
         </span>
       </div>
 
-      <ul class="max-h-80 divide-y divide-gray-100 overflow-y-auto rounded-lg border border-gray-200 dark:divide-dark-700 dark:border-dark-700">
+      <ul class="max-h-80 divide-y divide-gray-100 overflow-y-auto rounded-lg border border-gray-200  ">
         <li
           v-for="m in monitors"
           :key="m.id"
-          class="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-gray-50 dark:hover:bg-dark-800"
+          class="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-gray-50 "
           @click="toggle(m.id)"
         >
           <input
@@ -54,12 +54,12 @@
             class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             @click.stop="toggle(m.id)"
           />
-          <span class="font-medium text-gray-900 dark:text-white">{{ m.name }}</span>
+          <span class="font-medium text-gray-900 ">{{ m.name }}</span>
           <span class="text-xs text-gray-400">{{ m.provider }}</span>
           <span v-if="m.provider === 'openai'" class="text-xs text-gray-400">{{ m.api_mode }}</span>
           <span
             v-if="!m.enabled"
-            class="ml-auto rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500 dark:bg-dark-700 dark:text-gray-400"
+            class="ml-auto rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500  "
           >
             {{ t('admin.channelMonitor.onlyDisabled').replace(/^仅|^Only /, '') }}
           </span>

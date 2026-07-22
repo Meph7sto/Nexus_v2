@@ -58,6 +58,9 @@ const {
 }));
 
 const localeRef = vi.hoisted(() => ({ value: "zh-CN" }));
+const authStore = vi.hoisted(() => ({
+  canAdmin: vi.fn(),
+}));
 
 vi.mock("@/api", () => ({
   adminAPI: {
@@ -107,6 +110,10 @@ vi.mock("@/stores/adminSettings", () => ({
   useAdminSettingsStore: () => ({
     fetch: adminSettingsFetch,
   }),
+}));
+
+vi.mock("@/stores/auth", () => ({
+  useAuthStore: () => authStore,
 }));
 
 vi.mock("@/composables/useClipboard", () => ({
@@ -168,8 +175,6 @@ vi.mock("vue-i18n", async () => {
     "admin.settings.paymentVisibleMethods.sourceLabel": "支付来源",
     "admin.settings.paymentVisibleMethods.sourceHint": "启用后必须明确选择一个来源；未配置状态不会对外展示该支付方式。",
     "admin.settings.paymentVisibleMethods.sourceRequiredError": "{title} 已启用，请先选择支付来源。",
-    "admin.settings.payment.configGuide": "查看支付配置说明",
-    "admin.settings.payment.findProvider": "查看支持的支付方式",
     "admin.settings.openaiExperimentalScheduler.title": "OpenAI 实验调度策略",
     "admin.settings.openaiExperimentalScheduler.description": "默认关闭。开启后仅影响本网关在 OpenAI 账号间的实验性调度选择逻辑，不代表上游 OpenAI 官方能力。",
     "admin.settings.openaiExperimentalScheduler.lowRatePriorityTitle": "低倍率优先",
@@ -196,7 +201,7 @@ vi.mock("vue-i18n", async () => {
     "admin.settings.openaiExperimentalScheduler.previousResponseWeight": "previous_response 粘性",
     "admin.settings.openaiExperimentalScheduler.sessionStickyWeight": "session_hash 粘性",
     "admin.settings.upstreamBillingProbe.title": "上游倍率自动探测",
-    "admin.settings.upstreamBillingProbe.description": "定期获取 OpenAI API Key 所连接上游 Sub2API 站点声明的计费倍率。",
+    "admin.settings.upstreamBillingProbe.description": "定期获取 OpenAI API Key 所连接上游 Nexus 站点声明的计费倍率。",
     "admin.settings.upstreamBillingProbe.enabled": "启用全局自动探测",
     "admin.settings.upstreamBillingProbe.enabledHint": "开启后，仅对账号自身已启用自动检测的账号执行定时探测。",
     "admin.settings.upstreamBillingProbe.intervalMinutes": "探测周期（分钟）",
@@ -343,7 +348,7 @@ const baseSettingsResponse = {
   default_balance: 0,
   default_concurrency: 1,
   default_subscriptions: [],
-  site_name: "Sub2API",
+  site_name: "Nexus",
   site_logo: "",
   site_subtitle: "",
   api_base_url: "",
@@ -516,6 +521,11 @@ function mountView() {
   });
 }
 
+beforeEach(() => {
+  authStore.canAdmin.mockReset();
+  authStore.canAdmin.mockReturnValue(true);
+});
+
 async function openPaymentTab(wrapper: ReturnType<typeof mountView>) {
   const paymentTabButton = wrapper
     .findAll("button")
@@ -652,28 +662,25 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(wrapper.text()).not.toContain("支付来源");
   });
 
-  it("links payment guidance to README sections instead of removed payment docs", async () => {
+  it("does not expose the main settings save command without settings:update", async () => {
+    authStore.canAdmin.mockReturnValue(false);
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect(wrapper.findAll("button").some((node) => node.text().includes("admin.settings.saveSettings"))).toBe(false);
+  });
+
+  it("does not expose upstream repository links in payment settings", async () => {
     const wrapper = mountView();
 
     await flushPromises();
     await openPaymentTab(wrapper);
 
-    const paymentLinks = wrapper
+    const repositoryLinks = wrapper
       .findAll("a")
-      .filter((node) =>
-        ["查看支付配置说明", "查看支持的支付方式"].includes(node.text()),
-      );
+      .filter((node) => node.attributes("href")?.includes("github.com/Wei-Shaw/sub2api"));
 
-    expect(paymentLinks).toHaveLength(2);
-    expect(paymentLinks[0]?.attributes("href")).toBe(
-      "https://github.com/Wei-Shaw/sub2api/blob/main/docs/PAYMENT_CN.md",
-    );
-    expect(paymentLinks[1]?.attributes("href")).toBe(
-      "https://github.com/Wei-Shaw/sub2api/blob/main/docs/PAYMENT_CN.md#支持的支付方式",
-    );
-    for (const link of paymentLinks) {
-      expect(link.attributes("href")).toContain("docs/PAYMENT");
-    }
+    expect(repositoryLinks).toHaveLength(0);
   });
 
   it("does not submit legacy visible payment method settings", async () => {
@@ -1056,6 +1063,23 @@ describe("admin SettingsView payment visible method controls", () => {
     // supported_types should be normalized to an empty array, not null
     expect(Array.isArray(receivedProviders[0].supported_types)).toBe(true);
     expect(receivedProviders[0].supported_types).toEqual([]);
+  });
+
+  it("hides independent settings commands without their exact permission", async () => {
+    authStore.canAdmin.mockReturnValue(false);
+
+    const wrapper = mountView();
+    await flushPromises();
+    await openSecurityTab(wrapper);
+
+    expect(
+      wrapper
+        .findAll("button")
+        .some((button) => button.text().includes("admin.settings.adminApiKey.create")),
+    ).toBe(false);
+
+    await openGatewayTab(wrapper);
+    expect(wrapper.find('[data-testid="upstream-billing-probe-save"]').exists()).toBe(false);
   });
 });
 

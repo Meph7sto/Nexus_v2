@@ -9,6 +9,14 @@ import FilterDeleteDialog from '../components/FilterDeleteDialog.vue'
 import type { PromptAuditDraft, PromptAuditEndpointDraft, PromptAuditEvent, PromptEventFilters } from '../types'
 import { emptyEventFilters, resolveDeleteRangeFilters, SCANNER_CATALOG } from '../viewModel'
 
+const authStore = vi.hoisted(() => ({
+  canAdmin: vi.fn(),
+}))
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => authStore,
+}))
+
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
   return { ...actual, useI18n: () => ({ locale: { value: 'en' }, t: (key: string, params?: Record<string, unknown>) => key.replace(/\{(\w+)\}/g, (_, token) => String(params?.[token] ?? `{${token}}`)) }) }
@@ -24,7 +32,11 @@ const endpoint = (): PromptAuditEndpointDraft => ({
 })
 
 describe('Prompt Audit components', () => {
-  beforeEach(() => vi.restoreAllMocks())
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    authStore.canAdmin.mockReset()
+    authStore.canAdmin.mockReturnValue(true)
+  })
 
   it('edits a saved endpoint with blank-secret keep, explicit clear, replacement, and probe actions', async () => {
     const wrapper = mount(EndpointPool, {
@@ -48,6 +60,21 @@ describe('Prompt Audit components', () => {
     const probe = wrapper.findAll('button').find((button) => button.text().includes('admin.promptAudit.pool.probe'))
     await probe!.trigger('click')
     expect(wrapper.emitted('probe')?.[0]?.[0]).toMatchObject({ id: 'guard-1' })
+  })
+
+  it('hides endpoint configuration and probe commands without their permissions', () => {
+    authStore.canAdmin.mockReturnValue(false)
+
+    const wrapper = mount(EndpointPool, {
+      props: { endpoints: [endpoint()], probeResults: {}, probingIds: [] },
+      global: { stubs: { BaseDialog: DialogStub } },
+    })
+
+    expect(wrapper.find('[data-test="add-endpoint"]').exists()).toBe(false)
+    expect(wrapper.find('[role="switch"]').exists()).toBe(false)
+    expect(wrapper.findAll('button').some((button) => button.text().includes('admin.promptAudit.pool.probe'))).toBe(false)
+    expect(wrapper.findAll('button').some((button) => button.text().includes('common.edit'))).toBe(false)
+    expect(wrapper.findAll('button').some((button) => button.text().includes('common.delete'))).toBe(false)
   })
 
   it('supports group search, stale configured groups, nine scanners, and bounded worker inputs', async () => {

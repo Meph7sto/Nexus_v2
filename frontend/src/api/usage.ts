@@ -117,6 +117,27 @@ export interface UsageDashboardSnapshotV2Response {
   groups?: GroupStat[]
 }
 
+export type UsageRankingMetric = 'tokens' | 'cost'
+
+export interface UsageRankingParams {
+  rank_by?: UsageRankingMetric
+  start_date?: string
+  end_date?: string
+  timezone?: string
+  page?: number
+  page_size?: number
+}
+
+export interface UsageRankingItem {
+  rank: number
+  user_id?: number
+  nickname: string
+  email: string
+  requests: number
+  total_tokens: number
+  total_actual_cost: number
+}
+
 /**
  * List usage logs with optional filters
  * @param page - Page number (default: 1)
@@ -320,6 +341,15 @@ export async function getDashboardSnapshotV2(
   return data
 }
 
+export async function getRanking(
+  params: UsageRankingParams = {}
+): Promise<PaginatedResponse<UsageRankingItem>> {
+  const { data } = await apiClient.get<PaginatedResponse<UsageRankingItem>>('/usage/ranking', {
+    params
+  })
+  return data
+}
+
 export interface BatchApiKeyUsageStats {
   api_key_id: number
   today_actual_cost: number
@@ -381,6 +411,7 @@ export const usageAPI = {
   getDashboardModels,
   getMyApiKeyDailyUsage,
   getDashboardSnapshotV2,
+  getRanking,
   getDashboardApiKeysUsage,
   // Error requests
   listMyErrorRequests,

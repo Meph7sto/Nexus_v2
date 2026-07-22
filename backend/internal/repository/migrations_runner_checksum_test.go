@@ -1,8 +1,13 @@
 package repository
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"io/fs"
+	"strings"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/migrations"
 	"github.com/stretchr/testify/require"
 )
 
@@ -161,4 +166,78 @@ func TestIsMigrationChecksumCompatible(t *testing.T) {
 		)
 		require.False(t, ok)
 	})
+}
+
+func TestIsMigrationChecksumCompatible_NexusFrozenBaseline(t *testing.T) {
+	tests := []struct {
+		name         string
+		dbChecksum   string
+		fileChecksum string
+	}{
+		{
+			name:         "001_init.sql",
+			dbChecksum:   "5c0a4d96dcf6171a76c0634615e276821e7702787c25ad3bc6b6569595001815",
+			fileChecksum: "9ba0369779484625edcea7a7d1d4582397e31546db9149b05004990a3f16c630",
+		},
+		{
+			name:         "002_account_type_migration.sql",
+			dbChecksum:   "3c14e65bdb91ab87e2b69437b11f2083c0a67df3d10b6f75ddaffff58d4fc7f0",
+			fileChecksum: "aad3816e44f58ff007ea4df8092aae580f3f85180314c1deb1b1054b20892bbf",
+		},
+		{
+			name:         "003_subscription.sql",
+			dbChecksum:   "69df1b8ace3691e40e6a6aa099719a936629c1e066fa0a8796328690c87f4770",
+			fileChecksum: "4642fcb1ccd7954b1d3eef8f795cfba2ce21431257346cc5a7568cde61a60b13",
+		},
+		{
+			name:         "038_ops_errors_resolution_retry_results_and_standardize_classification.sql",
+			dbChecksum:   "debf408999da634be25cb20aec5011ca65ca8c27ef5aa45290eec32fb6e05df9",
+			fileChecksum: "4cc121d97c7f59e9def9397b7d0314d4dfbfe4cd831698359456dd49bf995ece",
+		},
+		{
+			name:         "052_migrate_upstream_to_apikey.sql",
+			dbChecksum:   "1070dc0ed8174979aa71e02ec95a987a931ad8816024909c75ace7ed771b7f45",
+			fileChecksum: "d2ea657ec24995664a8ddc1bfb9c3fe317646c7bcd12517dee8478bc6c36244a",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.True(t, isMigrationChecksumCompatible(tt.name, tt.dbChecksum, tt.fileChecksum))
+			require.False(t, isMigrationChecksumCompatible(tt.name, "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", tt.fileChecksum))
+			require.False(t, isMigrationChecksumCompatible(tt.name, tt.dbChecksum, "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"))
+		})
+	}
+}
+
+func TestNexusFrozenChecksumRulesMatchEmbeddedFiles(t *testing.T) {
+	tests := []struct {
+		name       string
+		dbChecksum string
+	}{
+		{"001_init.sql", "5c0a4d96dcf6171a76c0634615e276821e7702787c25ad3bc6b6569595001815"},
+		{"002_account_type_migration.sql", "3c14e65bdb91ab87e2b69437b11f2083c0a67df3d10b6f75ddaffff58d4fc7f0"},
+		{"003_subscription.sql", "69df1b8ace3691e40e6a6aa099719a936629c1e066fa0a8796328690c87f4770"},
+		{"038_ops_errors_resolution_retry_results_and_standardize_classification.sql", "debf408999da634be25cb20aec5011ca65ca8c27ef5aa45290eec32fb6e05df9"},
+		{"052_migrate_upstream_to_apikey.sql", "1070dc0ed8174979aa71e02ec95a987a931ad8816024909c75ace7ed771b7f45"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			content, err := fs.ReadFile(migrations.FS, tt.name)
+			require.NoError(t, err)
+
+			sum := sha256.Sum256([]byte(strings.TrimSpace(string(content))))
+			fileChecksum := hex.EncodeToString(sum[:])
+
+			rule, ok := migrationChecksumCompatibilityRules[tt.name]
+			require.True(t, ok)
+			require.True(t, rule.requireExactFileChecksum)
+			require.Equal(t, fileChecksum, rule.fileChecksum)
+			require.Len(t, rule.acceptedDBChecksum, 1)
+			require.Len(t, rule.acceptedChecksums, 1)
+			_, accepted := rule.acceptedDBChecksum[tt.dbChecksum]
+			require.True(t, accepted)
+		})
+	}
 }

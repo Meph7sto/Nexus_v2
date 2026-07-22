@@ -1,6 +1,6 @@
 # Apple container Deployment
 
-Sub2API can run as a native three-service stack with Apple's `container` CLI. This workflow runs the published Sub2API, PostgreSQL, and Redis OCI images without Docker Desktop or a Docker-compatible daemon.
+Nexus can run as a native three-service stack with Apple's `container` CLI. This workflow runs the published Nexus, PostgreSQL, and Redis OCI images without Docker Desktop or a Docker-compatible daemon.
 
 ## Support Level
 
@@ -25,8 +25,8 @@ container --version
 ## Quick Start
 
 ```bash
-git clone https://github.com/Wei-Shaw/sub2api.git
-cd sub2api/deploy
+git clone https://github.com/Wei-Shaw/sub2api.git Nexus
+cd Nexus/deploy
 
 # Creates .env with random PostgreSQL, JWT, and TOTP secrets.
 ./apple-container.sh init
@@ -34,7 +34,7 @@ cd sub2api/deploy
 # Review optional settings before startup.
 nano .env
 
-# Creates volumes/network/containers, waits for dependencies, and starts Sub2API.
+# Creates volumes/network/containers, waits for dependencies, and starts Nexus.
 ./apple-container.sh up
 
 # Verifies PostgreSQL, Redis, and the application endpoint.
@@ -61,7 +61,7 @@ The env file uses literal `KEY=value` syntax. Do not use Compose expressions suc
 # Stop containers while preserving all resources and data.
 ./apple-container.sh down
 
-# Restart PostgreSQL, Redis, and Sub2API in dependency order.
+# Restart PostgreSQL, Redis, and Nexus in dependency order.
 ./apple-container.sh restart
 
 # Show resource state and run live health probes.
@@ -89,10 +89,10 @@ After a host reboot or `container system stop`, run `./apple-container.sh up` ag
 
 ## Configuration
 
-The script uses `deploy/.env`, the same source file used by Docker Compose. Export `SUB2API_ENV_FILE` to use another file for every command in the current shell:
+The script uses `deploy/.env`, the same source file used by Docker Compose. Export `NEXUS_ENV_FILE` to use another file for every command in the current shell (`SUB2API_ENV_FILE` remains a compatibility alias):
 
 ```bash
-export SUB2API_ENV_FILE=/absolute/path/to/sub2api.env
+export NEXUS_ENV_FILE=/absolute/path/to/nexus.env
 ./apple-container.sh init
 ./apple-container.sh up
 ```
@@ -100,7 +100,7 @@ export SUB2API_ENV_FILE=/absolute/path/to/sub2api.env
 Apple-specific image overrides are available:
 
 ```dotenv
-APPLE_CONTAINER_SUB2API_IMAGE=weishaw/sub2api:latest
+APPLE_CONTAINER_NEXUS_IMAGE=weishaw/nexus:latest
 APPLE_CONTAINER_POSTGRES_IMAGE=postgres:18-alpine
 APPLE_CONTAINER_REDIS_IMAGE=redis:8-alpine
 ```
@@ -113,10 +113,10 @@ Apple-specific handling of shared settings:
 
 | Setting | Apple workflow behavior |
 |---|---|
-| Application and gateway variables | Passed to Sub2API from `.env` |
+| Application and gateway variables | Passed to Nexus from `.env` |
 | `BIND_HOST`, `SERVER_PORT` | Used for the macOS published port |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | PostgreSQL first initialization only |
-| `REDIS_PASSWORD` | Applied to Redis and Sub2API |
+| `REDIS_PASSWORD` | Applied to Redis and Nexus |
 | `DATABASE_PORT`, `REDIS_PORT` | Internal ports are fixed to 5432 and 6379 |
 | `POSTGRES_MAX_*`, `REDIS_MAXCLIENTS` | Not currently applied to the database/cache server |
 
@@ -126,17 +126,17 @@ The script creates only resources carrying the `org.sub2api.stack=apple-containe
 
 | Type | Names |
 |---|---|
-| Containers | `sub2api-apple`, `sub2api-apple-postgres`, `sub2api-apple-redis` |
-| Network | `sub2api-apple` |
-| Volumes | `sub2api-apple-data`, `sub2api-apple-postgres-data`, `sub2api-apple-redis-data` |
+| Containers | `nexus-apple`, `nexus-apple-postgres`, `nexus-apple-redis` |
+| Network | `nexus-apple` |
+| Volumes | `sub2api-apple-data`, `sub2api-apple-postgres-data`, `sub2api-apple-redis-data` (legacy names retained for in-place upgrades) |
 
-The PostgreSQL volume is mounted at `/var/lib/postgresql`, retaining PostgreSQL 18's default child data directory. Sub2API and Redis also store data in child directories below their Apple volume mount points. This is required because Apple named volumes do not have Docker's copy-up and mount-point ownership behavior.
+The PostgreSQL volume is mounted at `/var/lib/postgresql`, retaining PostgreSQL 18's default child data directory. Nexus and Redis also store data in child directories below their Apple volume mount points. This is required because Apple named volumes do not have Docker's copy-up and mount-point ownership behavior.
 
 ## Networking
 
-Apple `container` 1.1 does not provide Compose-style network-scoped service aliases. After PostgreSQL and Redis start, the script reads their current private-network IPv4 addresses from `container inspect`, injects those addresses into a newly created application container, and then starts Sub2API. The script does not modify `~/.config/container/config.toml` or the macOS host resolver.
+Apple `container` 1.1 does not provide Compose-style network-scoped service aliases. After PostgreSQL and Redis start, the script reads their current private-network IPv4 addresses from `container inspect`, injects those addresses into a newly created application container, and then starts Nexus. The script does not modify `~/.config/container/config.toml` or the macOS host resolver.
 
-All three services attach only to the private `sub2api-apple` network. Only the application publishes a host port; database and Redis ports remain unpublished.
+All three services attach only to the private `nexus-apple` network. Only the application publishes a host port; database and Redis ports remain unpublished.
 
 The application container is intentionally recreated by every `up` and `restart` operation because dependency VM addresses can change after they stop. Application data remains in `sub2api-apple-data`.
 
@@ -151,13 +151,13 @@ umask 077
 mkdir -p backups
 
 # Logical PostgreSQL backup.
-container exec sub2api-apple sh -c \
+container exec nexus-apple sh -c \
   'PGPASSWORD="$DATABASE_PASSWORD" pg_dump -h "$DATABASE_HOST" -U "$DATABASE_USER" "$DATABASE_DBNAME"' \
   > backups/sub2api.sql
 
 # Application configuration and local files.
-container exec sub2api-apple sh -c 'tar -C "$DATA_DIR" -czf - .' \
-  > backups/sub2api-data.tar.gz
+container exec nexus-apple sh -c 'tar -C "$DATA_DIR" -czf - .' \
+  > backups/nexus-data.tar.gz
 
 ./apple-container.sh pull
 ./apple-container.sh up --recreate
@@ -174,20 +174,20 @@ To restore these backups into an existing stack, first ensure the image versions
 ./apple-container.sh down
 
 # Remove only the app container so a helper can mount its named volume.
-container delete sub2api-apple
-SUB2API_IMAGE=weishaw/sub2api:latest # Match APPLE_CONTAINER_SUB2API_IMAGE in .env.
-container run --rm --name sub2api-apple-data-restore \
+container delete nexus-apple
+NEXUS_IMAGE=weishaw/nexus:latest # Match APPLE_CONTAINER_NEXUS_IMAGE in .env.
+container run --rm --name nexus-apple-data-restore \
   --entrypoint /bin/sh \
   --volume sub2api-apple-data:/restore \
   --volume "$PWD/backups:/backup:ro" \
-  "$SUB2API_IMAGE" \
-  -c 'rm -rf /restore/data && mkdir -p /restore/data && tar -xzf /backup/sub2api-data.tar.gz -C /restore/data'
+  "$NEXUS_IMAGE" \
+  -c 'rm -rf /restore/data && mkdir -p /restore/data && tar -xzf /backup/nexus-data.tar.gz -C /restore/data'
 
 # Restore the logical database while the application is absent.
-container start sub2api-apple-postgres
-until container exec sub2api-apple-postgres sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'; do sleep 1; done
-container copy backups/sub2api.sql sub2api-apple-postgres:/tmp/sub2api.sql
-container exec sub2api-apple-postgres sh -c '
+container start nexus-apple-postgres
+until container exec nexus-apple-postgres sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'; do sleep 1; done
+container copy backups/sub2api.sql nexus-apple-postgres:/tmp/sub2api.sql
+container exec nexus-apple-postgres sh -c '
   export PGPASSWORD="$POSTGRES_PASSWORD"
   dropdb -h 127.0.0.1 -U "$POSTGRES_USER" --if-exists --force "$POSTGRES_DB"
   createdb -h 127.0.0.1 -U "$POSTGRES_USER" "$POSTGRES_DB"
@@ -217,5 +217,5 @@ container system start
 - Health probes run during `up`, `restart`, and `status`; Apple `container` does not continuously schedule them.
 - Docker Compose, Testcontainers, Buildx, and tools requiring `/var/run/docker.sock` cannot use this runtime directly.
 - Named volume backup and restore must be tested before using this workflow for important data.
-- The script targets native `linux/arm64` images. The normal Sub2API release publishes an arm64 variant.
+- The script targets native `linux/arm64` images. The normal Nexus release publishes an arm64 variant.
 - Runtime environment values, including credentials, are retained in Apple container configuration and are visible to users who can inspect the local runtime.

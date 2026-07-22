@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildEmbeddedUrl, detectTheme } from '../embedded-url'
+import { buildEmbeddedUrl } from '../embedded-url'
 
 describe('embedded-url', () => {
   const originalLocation = window.location
@@ -21,7 +21,6 @@ describe('embedded-url', () => {
       writable: true,
       configurable: true,
     })
-    document.documentElement.classList.remove('dark')
     vi.restoreAllMocks()
   })
 
@@ -30,7 +29,6 @@ describe('embedded-url', () => {
       'https://pay.example.com/checkout?plan=pro',
       42,
       'token-123',
-      'dark',
       'zh-CN',
     )
 
@@ -38,7 +36,7 @@ describe('embedded-url', () => {
     expect(url.searchParams.get('plan')).toBe('pro')
     expect(url.searchParams.get('user_id')).toBe('42')
     expect(url.searchParams.get('token')).toBe('token-123')
-    expect(url.searchParams.get('theme')).toBe('dark')
+    expect(url.searchParams.get('theme')).toBe('light')
     expect(url.searchParams.get('lang')).toBe('zh-CN')
     expect(url.searchParams.get('ui_mode')).toBe('embedded')
     expect(url.searchParams.get('src_host')).toBe('https://app.example.com')
@@ -46,7 +44,7 @@ describe('embedded-url', () => {
   })
 
   it('omits optional params when they are empty', () => {
-    const result = buildEmbeddedUrl('https://pay.example.com/checkout', undefined, '', 'light')
+    const result = buildEmbeddedUrl('https://pay.example.com/checkout', undefined, '')
 
     const url = new URL(result)
     expect(url.searchParams.get('theme')).toBe('light')
@@ -58,10 +56,5 @@ describe('embedded-url', () => {
 
   it('returns original string for invalid url input', () => {
     expect(buildEmbeddedUrl('not a url', 1, 'token')).toBe('not a url')
-  })
-
-  it('detects dark mode from document root class', () => {
-    document.documentElement.classList.add('dark')
-    expect(detectTheme()).toBe('dark')
   })
 })

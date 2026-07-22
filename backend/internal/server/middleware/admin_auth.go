@@ -136,19 +136,14 @@ func validateAdminAPIKey(
 		return false
 	}
 
-	// 获取真实的管理员用户
-	admin, err := userService.GetFirstAdmin(c.Request.Context())
-	if err != nil {
-		AbortWithError(c, 500, "INTERNAL_ERROR", "No admin user found")
-		return false
-	}
-
+	// The global key is a machine principal, never an impersonation of the
+	// first (or any) database user. Its authorization is stable even when user
+	// records and limited-admin grants change.
+	_ = userService
 	c.Set(string(ContextKeyUser), AuthSubject{
-		UserID:      admin.ID,
-		Concurrency: admin.Concurrency,
+		PrincipalKind: PrincipalKindAdminAPIKey,
 	})
-	c.Set(string(ContextKeyUserRole), admin.Role)
-	c.Set(ContextKeyAuthEmail, admin.Email)
+	c.Set(string(ContextKeyUserRole), service.RoleSuperAdmin)
 	c.Set("auth_method", "admin_api_key")
 	return true
 }
@@ -198,14 +193,15 @@ func validateJWTForAdmin(
 	}
 
 	// 检查管理员权限
-	if !user.IsAdmin() {
+	if !user.IsAdminLike() {
 		AbortWithError(c, 403, "FORBIDDEN", "Admin access required")
 		return false
 	}
 
 	c.Set(string(ContextKeyUser), AuthSubject{
-		UserID:      user.ID,
-		Concurrency: user.Concurrency,
+		UserID:        user.ID,
+		Concurrency:   user.Concurrency,
+		PrincipalKind: PrincipalKindHuman,
 	})
 	c.Set(string(ContextKeyUserRole), user.Role)
 	c.Set(ContextKeyAuthEmail, user.Email)

@@ -5,11 +5,8 @@ export default {
   },
   // Home Page
   home: {
-    viewOnGithub: '在 GitHub 上查看',
     viewDocs: '查看文档',
     docs: '文档',
-    switchToLight: '切换到浅色模式',
-    switchToDark: '切换到深色模式',
     dashboard: '控制台',
     login: '登录',
     getStarted: '立即开始',
@@ -191,8 +188,8 @@ export default {
 
   // Setup Wizard
   setup: {
-    title: 'Sub2API 安装向导',
-    description: '配置您的 Sub2API 实例',
+    title: 'Nexus 安装向导',
+    description: '配置您的 Nexus 实例',
     database: {
       title: '数据库配置',
       description: '连接到您的 PostgreSQL 数据库',

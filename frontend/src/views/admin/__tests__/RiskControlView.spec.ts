@@ -49,6 +49,10 @@ vi.mock('@/stores/app', () => ({
   }),
 }))
 
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({ canAdmin: () => true }),
+}))
+
 vi.mock('@/utils/apiError', () => ({
   extractApiErrorMessage: (_err: unknown, fallback: string) => fallback,
 }))

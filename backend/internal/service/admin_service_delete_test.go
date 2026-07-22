@@ -564,14 +564,27 @@ func TestAdminService_DeleteUser_NotFound(t *testing.T) {
 	require.Empty(t, repo.deletedIDs)
 }
 
-func TestAdminService_DeleteUser_AdminGuard(t *testing.T) {
+func TestAdminService_DeleteUser_LimitedAdminAllowed(t *testing.T) {
 	repo := &userRepoStub{user: &User{ID: 1, Role: RoleAdmin}}
 	svc := &adminServiceImpl{userRepo: repo}
 
 	err := svc.DeleteUser(context.Background(), 1)
-	require.Error(t, err)
-	require.ErrorContains(t, err, "cannot delete admin user")
+	require.NoError(t, err)
+	require.Equal(t, []int64{1}, repo.deletedIDs)
+}
+
+func TestAdminService_DeleteUser_LastSuperAdminGuard(t *testing.T) {
+	base := &userRepoStub{user: &User{ID: 1, Role: RoleSuperAdmin}}
+	repo := &roleGuardUserRepoStub{
+		rpmUserRepoStub: &rpmUserRepoStub{userRepoStub: base},
+		superAdminTotal: 1,
+	}
+	svc := &adminServiceImpl{userRepo: repo}
+
+	err := svc.DeleteUser(context.Background(), 1)
+	require.ErrorContains(t, err, "last super admin")
 	require.Empty(t, repo.deletedIDs)
+	require.Equal(t, 1, repo.listCalls)
 }
 
 func TestAdminService_DeleteUser_DeleteError(t *testing.T) {

@@ -1,5 +1,5 @@
 /**
- * Vue Router configuration for Sub2API frontend
+ * Vue Router configuration for Nexus frontend
  * Defines all application routes with lazy loading and navigation guards
  */
 
@@ -7,17 +7,18 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
 import { useAdminSettingsStore } from '@/stores/adminSettings'
-import { useAdminComplianceStore } from '@/stores/adminCompliance'
 import { useNavigationLoadingState } from '@/composables/useNavigationLoading'
 import { useRoutePrefetch } from '@/composables/useRoutePrefetch'
 import { getSetupStatus } from '@/api/setup'
 import { resolveCompletedSetupRedirectPath } from './setupRedirect'
 import { resolveRouteDocumentTitle } from './title'
+import { ADMIN_ROUTE_PERMISSIONS } from '@/utils/adminPermissions'
+import type { AdminPermissionAction, AdminPermissionResource } from '@/types'
 
 /**
  * Route definitions with lazy loading
  */
-const routes: RouteRecordRaw[] = [
+export const routes: RouteRecordRaw[] = [
   // ==================== Setup Routes ====================
   {
     path: '/setup',
@@ -228,6 +229,17 @@ const routes: RouteRecordRaw[] = [
       title: 'Usage Records',
       titleKey: 'usage.title',
       descriptionKey: 'usage.description'
+    }
+  },
+  {
+    path: '/leaderboard',
+    name: 'Leaderboard',
+    component: () => import('@/views/user/LeaderboardView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Leaderboard',
+      titleKey: 'leaderboard.title'
     }
   },
   {
@@ -515,6 +527,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/openai-quota-summary',
+    name: 'AdminOpenAIQuotaSummary',
+    component: () => import('@/views/admin/OpenAIQuotaSummaryView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'OpenAI Quota Summary',
+      titleKey: 'admin.openAIQuotaSummary.title',
+      descriptionKey: 'admin.openAIQuotaSummary.description'
+    }
+  },
+  {
     path: '/admin/announcements',
     name: 'AdminAnnouncements',
     component: () => import('@/views/admin/AnnouncementsView.vue'),
@@ -703,6 +727,26 @@ const routes: RouteRecordRaw[] = [
   }
 ]
 
+// Admin route metadata is derived only from this explicit name-to-capability
+// table. A missing entry is a startup error rather than a dashboard fallback.
+for (const route of routes) {
+  if (route.meta?.requiresAdmin !== true) {
+    continue
+  }
+  if (typeof route.name !== 'string') {
+    throw new Error(`admin route is missing a stable name: ${route.path}`)
+  }
+  const permission = ADMIN_ROUTE_PERMISSIONS[route.name]
+  if (!permission) {
+    throw new Error(`admin route is missing permission metadata: ${route.name}`)
+  }
+  route.meta = {
+    ...route.meta,
+    adminResource: permission.resource,
+    adminAction: permission.action,
+  }
+}
+
 /**
  * Create router instance
  */
@@ -756,6 +800,21 @@ function isBackendModePublicRouteAllowed(path: string, hasPendingAuthSession: bo
   return false
 }
 
+function adminRoutePermission(meta: Record<string | symbol, unknown>): {
+  resource: AdminPermissionResource
+  action: AdminPermissionAction
+} | null {
+  const resource = meta.adminResource
+  const action = meta.adminAction
+  if (typeof resource !== 'string' || typeof action !== 'string') {
+    return null
+  }
+  return {
+    resource: resource as AdminPermissionResource,
+    action: action as AdminPermissionAction,
+  }
+}
+
 router.beforeEach(async (to, _from, next) => {
   // 开始导航加载状态
   navigationLoading.startNavigation()
@@ -773,7 +832,7 @@ router.beforeEach(async (to, _from, next) => {
   const adminSettingsStore = useAdminSettingsStore()
   const customMenuItems = [
     ...(appStore.cachedPublicSettings?.custom_menu_items ?? []),
-    ...(authStore.isAdmin ? adminSettingsStore.customMenuItems : []),
+    ...(authStore.isAdminLike ? adminSettingsStore.customMenuItems : []),
   ]
   document.title = resolveRouteDocumentTitle(to, appStore.siteName, customMenuItems)
 
@@ -785,7 +844,7 @@ router.beforeEach(async (to, _from, next) => {
     try {
       const status = await getSetupStatus()
       if (!status.needs_setup) {
-        next(resolveCompletedSetupRedirectPath(authStore.isAuthenticated, authStore.isAdmin))
+        next(resolveCompletedSetupRedirectPath(authStore.isAuthenticated, authStore.isAdminLike))
         return
       }
     } catch {
@@ -799,12 +858,12 @@ router.beforeEach(async (to, _from, next) => {
     if (authStore.isAuthenticated && (to.path === '/login' || to.path === '/register')) {
       // In backend mode, non-admin users should NOT be redirected away from login
       // (they are blocked from all protected routes, so redirecting would cause a loop)
-      if (appStore.backendModeEnabled && !authStore.isAdmin) {
+      if (appStore.backendModeEnabled && !authStore.isAdminLike) {
         next()
         return
       }
       // Admin users go to admin dashboard, regular users go to user dashboard
-      next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
+      next(authStore.isAdminLike ? authStore.adminLandingPath : '/dashboard')
       return
     }
     // Backend mode: block public pages for unauthenticated users (except login, key-usage, setup)
@@ -830,26 +889,25 @@ router.beforeEach(async (to, _from, next) => {
   }
 
   // Check admin requirement
-  if (requiresAdmin && !authStore.isAdmin) {
+  if (requiresAdmin && !authStore.isAdminLike) {
     // User is authenticated but not admin, redirect to user dashboard
     next('/dashboard')
     return
   }
 
-  if (requiresAdmin && authStore.isAdmin) {
-    const adminComplianceStore = useAdminComplianceStore()
-    if (!adminComplianceStore.initialized) {
-      try {
-        await adminComplianceStore.fetchStatus()
-      } catch (error) {
-        const err = error as { status?: number; code?: string; metadata?: Record<string, string> }
-        if (err.status === 423 && err.code === 'ADMIN_COMPLIANCE_ACK_REQUIRED') {
-          adminComplianceStore.requireAcknowledgement(err.metadata)
-        }
-      }
-    }
+  const permission = adminRoutePermission(to.meta)
+  if (permission && !authStore.canAdmin(permission.resource, permission.action)) {
+    next(authStore.adminLandingPath)
+    return
   }
 
+  const customAdminPage = to.name === 'CustomPage'
+    ? adminSettingsStore.customMenuItems.find((item) => item.id === String(to.params.id) && item.visibility === 'admin')
+    : undefined
+  if (customAdminPage && (!authStore.isAdminLike || !authStore.canAdmin('pages', 'view'))) {
+    next(authStore.isAdminLike ? authStore.adminLandingPath : '/dashboard')
+    return
+  }
 
   // 公共设置可能尚未加载（App.vue 的 onMounted 异步拉取晚于首次导航，且纯静态部署
   // 无 __APP_CONFIG__ 注入）。此时 cachedPublicSettings 为空会把 payment/risk_control
@@ -869,7 +927,7 @@ router.beforeEach(async (to, _from, next) => {
     appStore.publicSettingsLoaded &&
     appStore.cachedPublicSettings?.payment_enabled === false
   ) {
-    next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
+    next(authStore.isAdminLike ? authStore.adminLandingPath : '/dashboard')
     return
   }
 
@@ -878,7 +936,7 @@ router.beforeEach(async (to, _from, next) => {
     appStore.publicSettingsLoaded &&
     appStore.cachedPublicSettings?.risk_control_enabled === false
   ) {
-    next(authStore.isAdmin ? '/admin/settings' : '/dashboard')
+    next(authStore.isAdminLike ? authStore.adminLandingPath : '/dashboard')
     return
   }
 
@@ -894,14 +952,14 @@ router.beforeEach(async (to, _from, next) => {
 
     if (restrictedPaths.some((path) => to.path.startsWith(path))) {
       // 简易模式下访问受限页面,重定向到仪表板
-      next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
+      next(authStore.isAdminLike ? authStore.adminLandingPath : '/dashboard')
       return
     }
   }
 
   // Backend mode: admin gets full access, non-admin blocked
   if (appStore.backendModeEnabled) {
-    if (authStore.isAuthenticated && authStore.isAdmin) {
+    if (authStore.isAuthenticated && authStore.isAdminLike) {
       next()
       return
     }

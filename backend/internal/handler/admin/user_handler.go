@@ -59,15 +59,16 @@ func NewUserHandler(
 
 // CreateUserRequest represents admin create user request
 type CreateUserRequest struct {
-	Email         string   `json:"email" binding:"required,email"`
-	Password      string   `json:"password" binding:"required,min=6"`
-	Username      string   `json:"username"`
-	Notes         string   `json:"notes"`
-	Role          string   `json:"role" binding:"omitempty,oneof=admin user"`
-	Balance       *float64 `json:"balance"`
-	Concurrency   int      `json:"concurrency"`
-	RPMLimit      int      `json:"rpm_limit"`
-	AllowedGroups []int64  `json:"allowed_groups"`
+	Email            string                     `json:"email" binding:"required,email"`
+	Password         string                     `json:"password" binding:"required,min=6"`
+	Username         string                     `json:"username"`
+	Notes            string                     `json:"notes"`
+	Role             string                     `json:"role" binding:"omitempty,oneof=admin super_admin user"`
+	Balance          *float64                   `json:"balance"`
+	Concurrency      int                        `json:"concurrency"`
+	RPMLimit         int                        `json:"rpm_limit"`
+	AllowedGroups    []int64                    `json:"allowed_groups"`
+	AdminPermissions *[]service.AdminPermission `json:"admin_permissions"`
 }
 
 // UpdateUserRequest represents admin update user request
@@ -77,7 +78,7 @@ type UpdateUserRequest struct {
 	Password      string   `json:"password" binding:"omitempty,min=6"`
 	Username      *string  `json:"username"`
 	Notes         *string  `json:"notes"`
-	Role          string   `json:"role" binding:"omitempty,oneof=admin user"`
+	Role          string   `json:"role" binding:"omitempty,oneof=admin super_admin user"`
 	Balance       *float64 `json:"balance"`
 	Concurrency   *int     `json:"concurrency"`
 	RPMLimit      *int     `json:"rpm_limit"`
@@ -85,7 +86,28 @@ type UpdateUserRequest struct {
 	AllowedGroups *[]int64 `json:"allowed_groups"`
 	// GroupRates 用户专属分组倍率配置
 	// map[groupID]*rate，nil 表示删除该分组的专属倍率
-	GroupRates map[int64]*float64 `json:"group_rates"`
+	GroupRates       map[int64]*float64         `json:"group_rates"`
+	AdminPermissions *[]service.AdminPermission `json:"admin_permissions"`
+}
+
+func requireHumanSuperAdmin(c *gin.Context) bool {
+	subject, ok := middleware.GetAuthSubjectFromContext(c)
+	if !ok || !subject.IsHuman() {
+		middleware.AbortWithError(c, 403, "MACHINE_CREDENTIAL_FORBIDDEN", "This operation requires a human administrator")
+		return false
+	}
+	role, ok := middleware.GetUserRoleFromContext(c)
+	if !ok || role != service.RoleSuperAdmin {
+		middleware.AbortWithError(c, 403, "SUPER_ADMIN_REQUIRED", "Super administrator access required")
+		return false
+	}
+	return true
+}
+
+// GetAdminPermissionDirectory returns the resource/action catalog used by the
+// permissions editor. Its route is guarded as a human-only super-admin route.
+func (h *UserHandler) GetAdminPermissionDirectory(c *gin.Context) {
+	response.Success(c, service.AdminPermissionRegistry())
 }
 
 // UpdateBalanceRequest represents balance update request
@@ -224,6 +246,12 @@ func (h *UserHandler) GetByID(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
+	if role, ok := middleware.GetUserRoleFromContext(c); ok && role == service.RoleSuperAdmin && user.IsAdmin() && h.userService != nil {
+		if err := h.userService.HydrateAdminPermissions(c.Request.Context(), user); err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
+	}
 
 	response.Success(c, dto.UserFromServiceAdmin(user))
 }
@@ -275,25 +303,31 @@ func (h *UserHandler) Create(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
+	if (req.Role != "" && req.Role != service.RoleUser) || req.AdminPermissions != nil {
+		if !requireHumanSuperAdmin(c) {
+			return
+		}
+	}
 
-	// 创建管理员账号属权限敏感操作：需最近完成 step-up 2FA 验证。
-	if req.Role == service.RoleAdmin {
+	// 创建任何管理员账号属权限敏感操作：需最近完成 step-up 2FA 验证。
+	if req.Role == service.RoleAdmin || req.Role == service.RoleSuperAdmin {
 		if !middleware.EnforceStepUp(c, h.totpService, h.userService, h.settingService) {
 			return
 		}
 	}
 
 	user, err := h.adminService.CreateUser(c.Request.Context(), &service.CreateUserInput{
-		Email:         req.Email,
-		Password:      req.Password,
-		Username:      req.Username,
-		Notes:         req.Notes,
-		Role:          req.Role,
-		Balance:       req.Balance,
-		Concurrency:   req.Concurrency,
-		RPMLimit:      req.RPMLimit,
-		AllowedGroups: req.AllowedGroups,
-		ActorAdminID:  getAdminIDFromContext(c),
+		Email:            req.Email,
+		Password:         req.Password,
+		Username:         req.Username,
+		Notes:            req.Notes,
+		Role:             req.Role,
+		Balance:          req.Balance,
+		Concurrency:      req.Concurrency,
+		RPMLimit:         req.RPMLimit,
+		AllowedGroups:    req.AllowedGroups,
+		AdminPermissions: req.AdminPermissions,
+		ActorAdminID:     getAdminIDFromContext(c),
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -317,23 +351,27 @@ func (h *UserHandler) Update(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
+	target, err := h.adminService.GetUser(c.Request.Context(), userID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	privilegedMutation := req.Role != "" || req.AdminPermissions != nil || target.IsAdminLike()
+	if privilegedMutation && !requireHumanSuperAdmin(c) {
+		return
+	}
 
 	// 防锁死保护：管理员不能把自己降级为普通用户(单管理员场景下会失去后台访问权)。
 	// 与既有"不能禁用/删除 admin"保护一致。降级其他管理员仍然允许。
-	if req.Role == service.RoleUser && userID == getAdminIDFromContext(c) {
+	if req.Role != "" && req.Role != service.RoleSuperAdmin && userID == getAdminIDFromContext(c) {
 		response.BadRequest(c, "cannot demote yourself from admin")
 		return
 	}
 
 	// 把普通用户提升为管理员属权限敏感操作：需最近完成 step-up 2FA 验证。
 	// 目标已是管理员时（前端编辑表单总是携带 role）不触发，避免日常编辑被打断。
-	if req.Role == service.RoleAdmin {
-		target, err := h.adminService.GetUser(c.Request.Context(), userID)
-		if err != nil {
-			response.ErrorFrom(c, err)
-			return
-		}
-		if target.Role != service.RoleAdmin {
+	if req.Role == service.RoleAdmin || req.Role == service.RoleSuperAdmin {
+		if target.Role != req.Role {
 			if !middleware.EnforceStepUp(c, h.totpService, h.userService, h.settingService) {
 				return
 			}
@@ -342,18 +380,19 @@ func (h *UserHandler) Update(c *gin.Context) {
 
 	// 使用指针类型直接传递，nil 表示未提供该字段
 	user, err := h.adminService.UpdateUser(c.Request.Context(), userID, &service.UpdateUserInput{
-		Email:         req.Email,
-		Password:      req.Password,
-		Username:      req.Username,
-		Notes:         req.Notes,
-		Role:          req.Role,
-		Balance:       req.Balance,
-		Concurrency:   req.Concurrency,
-		RPMLimit:      req.RPMLimit,
-		Status:        req.Status,
-		AllowedGroups: req.AllowedGroups,
-		GroupRates:    req.GroupRates,
-		ActorAdminID:  getAdminIDFromContext(c),
+		Email:            req.Email,
+		Password:         req.Password,
+		Username:         req.Username,
+		Notes:            req.Notes,
+		Role:             req.Role,
+		Balance:          req.Balance,
+		Concurrency:      req.Concurrency,
+		RPMLimit:         req.RPMLimit,
+		Status:           req.Status,
+		AllowedGroups:    req.AllowedGroups,
+		GroupRates:       req.GroupRates,
+		AdminPermissions: req.AdminPermissions,
+		ActorAdminID:     getAdminIDFromContext(c),
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -369,6 +408,14 @@ func (h *UserHandler) Delete(c *gin.Context) {
 	userID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		response.BadRequest(c, "Invalid user ID")
+		return
+	}
+	target, err := h.adminService.GetUser(c.Request.Context(), userID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	if target.IsAdminLike() && !requireHumanSuperAdmin(c) {
 		return
 	}
 

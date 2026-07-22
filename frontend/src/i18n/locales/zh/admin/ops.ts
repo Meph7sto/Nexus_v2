@@ -26,6 +26,18 @@ export default {
       result: '结果',
       noData: '暂无数据',
       loadingText: '加载中...',
+      storage: {
+        title: '存储用量',
+        tooltip: '尽力采集当前数据库和已配置目录的占用情况。',
+        loading: '正在加载存储用量',
+        refreshing: '正在刷新存储用量',
+        empty: '暂无存储用量数据。',
+        loadFailed: '加载存储用量失败',
+        status: {
+          unavailable: '不可用',
+          unconfigured: '未配置'
+        }
+      },
       ready: '就绪',
       autoRefreshRemaining: '剩余 {seconds}s',
       systemLogs: {

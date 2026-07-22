@@ -32,7 +32,26 @@ func UserFromServiceShallow(u *service.User) *User {
 		TotalRecharged:             u.TotalRecharged,
 		RPMLimit:                   u.RPMLimit,
 		DeletedAt:                  u.DeletedAt,
+		AdminPermissions:           AdminPermissionsFromService(u.AdminPermissions),
 	}
+}
+
+func AdminPermissionsFromService(permissions []service.AdminPermission) []AdminPermission {
+	if len(permissions) == 0 {
+		return nil
+	}
+	result := make([]AdminPermission, 0, len(permissions))
+	for _, permission := range permissions {
+		actions := make([]string, 0, len(permission.Actions))
+		for _, action := range permission.Actions {
+			actions = append(actions, string(action))
+		}
+		result = append(result, AdminPermission{
+			Resource: string(permission.Resource),
+			Actions:  actions,
+		})
+	}
+	return result
 }
 
 func UserFromService(u *service.User) *User {

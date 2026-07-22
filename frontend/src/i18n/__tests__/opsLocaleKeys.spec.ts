@@ -21,12 +21,20 @@ describe('ops locale key completeness', () => {
     'admin.ops.timeRange.custom',
     'admin.ops.customTimeRange.startTime',
     'admin.ops.customTimeRange.endTime',
+    'admin.ops.storage.title',
+    'admin.ops.storage.tooltip',
+    'admin.ops.storage.loading',
+    'admin.ops.storage.refreshing',
+    'admin.ops.storage.empty',
+    'admin.ops.storage.loadFailed',
+    'admin.ops.storage.status.unavailable',
+    'admin.ops.storage.status.unconfigured',
   ]
 
   for (const key of requiredKeys) {
-    it(`en locale has ${key}`, () => {
-      const enKeys = flattenKeys(en)
-      expect(enKeys).toContain(key)
+    it(`en and zh locales both have ${key}`, () => {
+      expect(flattenKeys(en)).toContain(key)
+      expect(flattenKeys(zh)).toContain(key)
     })
   }
 })

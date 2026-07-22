@@ -13,6 +13,10 @@ const { listRedeemCodes, batchUpdateRedeemCodes, getAllGroups, showSuccess, show
     showInfo: vi.fn()
   }))
 
+const authStore = vi.hoisted(() => ({
+  canAdmin: vi.fn(() => true),
+}))
+
 vi.mock('@/api/admin', () => ({
   adminAPI: {
     redeem: {
@@ -35,6 +39,10 @@ vi.mock('@/stores/app', () => ({
     showError,
     showInfo
   })
+}))
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => authStore,
 }))
 
 vi.mock('@/composables/useClipboard', () => ({

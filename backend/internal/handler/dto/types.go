@@ -33,8 +33,17 @@ type User struct {
 	// RPMLimit 用户级每分钟请求数上限（0 = 不限制），仅在所用分组未设置 rpm_limit 时作为兜底生效。
 	RPMLimit int `json:"rpm_limit"`
 
+	// AdminPermissions is present only for the currently authenticated limited
+	// administrator, or when a super administrator explicitly loads a target.
+	AdminPermissions []AdminPermission `json:"admin_permissions,omitempty"`
+
 	APIKeys       []APIKey           `json:"api_keys,omitempty"`
 	Subscriptions []UserSubscription `json:"subscriptions,omitempty"`
+}
+
+type AdminPermission struct {
+	Resource string   `json:"resource"`
+	Actions  []string `json:"actions"`
 }
 
 // AdminUser 是管理员接口使用的 user DTO（包含敏感/内部字段）。

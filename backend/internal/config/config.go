@@ -1356,6 +1356,10 @@ type OpsConfig struct {
 
 	// Pre-aggregation configuration.
 	Aggregation OpsAggregationConfig `mapstructure:"aggregation"`
+
+	// Storage contains optional, explicitly configured paths for best-effort
+	// storage reporting on the Ops dashboard.
+	Storage OpsStorageConfig `mapstructure:"storage"`
 }
 
 type OpsCleanupConfig struct {
@@ -1372,6 +1376,17 @@ type OpsCleanupConfig struct {
 
 type OpsAggregationConfig struct {
 	Enabled bool `mapstructure:"enabled"`
+}
+
+type OpsStorageConfig struct {
+	Paths []OpsStoragePathConfig `mapstructure:"paths"`
+}
+
+type OpsStoragePathConfig struct {
+	Key   string `mapstructure:"key"`
+	Label string `mapstructure:"label"`
+	Kind  string `mapstructure:"kind"`
+	Path  string `mapstructure:"path"`
 }
 
 type OpsMetricsCollectorCacheConfig struct {
@@ -1546,7 +1561,8 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 	// 4. Config subdirectory
 	viper.AddConfigPath("./config")
 	// 5. System config directory
-	viper.AddConfigPath("/etc/sub2api")
+	viper.AddConfigPath("/etc/nexus")
+	viper.AddConfigPath("/etc/sub2api") // Legacy install location.
 
 	// 环境变量支持
 	viper.AutomaticEnv()
@@ -1727,7 +1743,7 @@ func setDefaults() {
 	// Log
 	viper.SetDefault("log.level", "info")
 	viper.SetDefault("log.format", "console")
-	viper.SetDefault("log.service_name", "sub2api")
+	viper.SetDefault("log.service_name", "nexus")
 	viper.SetDefault("log.env", "production")
 	viper.SetDefault("log.caller", true)
 	viper.SetDefault("log.stacktrace_level", "error")
@@ -1954,6 +1970,7 @@ func setDefaults() {
 	viper.SetDefault("ops.metrics_collector_cache.enabled", true)
 	// TTL should be slightly larger than collection interval (1m) to maximize cross-replica cache hits.
 	viper.SetDefault("ops.metrics_collector_cache.ttl", 65*time.Second)
+	viper.SetDefault("ops.storage.paths", []map[string]string{})
 
 	// JWT
 	viper.SetDefault("jwt.secret", "")
@@ -3256,7 +3273,8 @@ func GetServerAddress() string {
 	v.SetConfigType("yaml")
 	v.AddConfigPath(".")
 	v.AddConfigPath("./config")
-	v.AddConfigPath("/etc/sub2api")
+	v.AddConfigPath("/etc/nexus")
+	v.AddConfigPath("/etc/sub2api") // Legacy install location.
 
 	// Support SERVER_HOST and SERVER_PORT environment variables
 	v.AutomaticEnv()

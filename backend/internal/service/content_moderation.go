@@ -1825,7 +1825,7 @@ func (s *ContentModerationService) applyFlaggedAccountSideEffects(ctx context.Co
 			slog.Warn("content_moderation.ban_get_user_failed", "user_id", *log.UserID, "error", err)
 			return false
 		}
-		if user.IsAdmin() {
+		if user.IsAdminLike() {
 			slog.Warn("content_moderation.autoban_skipped_admin", "user_id", *log.UserID, "role", user.Role, "count", count, "threshold", cfg.BanThreshold)
 			// TODO: Disable the triggering API key instead when API key mutation is available here.
 			return false
@@ -1965,13 +1965,13 @@ func contentModerationEmailVariables(log *ContentModerationLog, cfg *ContentMode
 
 func (s *ContentModerationService) siteName(ctx context.Context) string {
 	if s == nil || s.settingRepo == nil {
-		return "Sub2API"
+		return "Nexus"
 	}
 	name, err := s.settingRepo.GetValue(ctx, SettingKeySiteName)
-	if err != nil || strings.TrimSpace(name) == "" {
-		return "Sub2API"
+	if err != nil {
+		return "Nexus"
 	}
-	return strings.TrimSpace(name)
+	return normalizeSiteName(name)
 }
 
 func defaultContentModerationConfig() *ContentModerationConfig {

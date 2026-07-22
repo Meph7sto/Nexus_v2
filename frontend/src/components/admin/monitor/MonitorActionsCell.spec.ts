@@ -4,9 +4,21 @@ import { describe, expect, it, vi } from 'vitest'
 import type { ChannelMonitor } from '@/api/admin/channelMonitor'
 import MonitorActionsCell from '@/components/admin/monitor/MonitorActionsCell.vue'
 
-vi.mock('vue-i18n', () => ({
-  useI18n: () => ({ t: (key: string) => key }),
+const authStore = vi.hoisted(() => ({
+  canAdmin: vi.fn(() => true),
 }))
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => authStore,
+}))
+
+vi.mock('vue-i18n', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('vue-i18n')>()
+  return {
+    ...actual,
+    useI18n: () => ({ t: (key: string) => key }),
+  }
+})
 
 function makeMonitor(overrides: Partial<ChannelMonitor> = {}): ChannelMonitor {
   return {

@@ -1,10 +1,96 @@
 package handler
 
 import (
+	"context"
+	"errors"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
+	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/gin-gonic/gin"
 )
+
+type pageAdminPermissionRepoStub struct {
+	allowed bool
+	err     error
+	called  bool
+}
+
+func (s *pageAdminPermissionRepoStub) ListByUserID(context.Context, int64) ([]service.AdminPermission, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *pageAdminPermissionRepoStub) ReplaceForUser(context.Context, int64, []service.AdminPermission) error {
+	return errors.New("not implemented")
+}
+
+func (s *pageAdminPermissionRepoStub) DeleteForUser(context.Context, int64) error {
+	return errors.New("not implemented")
+}
+
+func (s *pageAdminPermissionRepoStub) HasPermission(_ context.Context, _ int64, resource service.AdminPermissionResource, action service.AdminPermissionAction) (bool, error) {
+	s.called = true
+	if resource != service.AdminResourcePages || action != service.AdminActionView {
+		return false, errors.New("unexpected permission")
+	}
+	return s.allowed, s.err
+}
+
+func TestPageHandlerCanViewAdminPage(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name    string
+		role    string
+		subject middleware.AuthSubject
+		allowed bool
+		want    bool
+	}{
+		{
+			name:    "super admin",
+			role:    service.RoleSuperAdmin,
+			subject: middleware.AuthSubject{UserID: 1, PrincipalKind: middleware.PrincipalKindHuman},
+			want:    true,
+		},
+		{
+			name:    "limited admin with pages view",
+			role:    service.RoleAdmin,
+			subject: middleware.AuthSubject{UserID: 2, PrincipalKind: middleware.PrincipalKindHuman},
+			allowed: true,
+			want:    true,
+		},
+		{
+			name:    "limited admin without pages view",
+			role:    service.RoleAdmin,
+			subject: middleware.AuthSubject{UserID: 2, PrincipalKind: middleware.PrincipalKindHuman},
+			want:    false,
+		},
+		{
+			name:    "ordinary user",
+			role:    service.RoleUser,
+			subject: middleware.AuthSubject{UserID: 3, PrincipalKind: middleware.PrincipalKindHuman},
+			want:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &pageAdminPermissionRepoStub{allowed: tt.allowed}
+			h := &PageHandler{adminPermissionRepo: repo}
+			ctx, _ := gin.CreateTestContext(nil)
+			ctx.Request = httptest.NewRequest("GET", "/api/v1/pages/example", nil)
+			ctx.Set(string(middleware.ContextKeyUserRole), tt.role)
+			ctx.Set(string(middleware.ContextKeyUser), tt.subject)
+
+			if got := h.canViewAdminPage(ctx); got != tt.want {
+				t.Fatalf("canViewAdminPage() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 
 func TestCleanPageImageRelativePath(t *testing.T) {
 	tests := []struct {

@@ -23,6 +23,10 @@ const {
   showError: vi.fn()
 }))
 
+const authStore = vi.hoisted(() => ({
+  canAdmin: vi.fn(),
+}))
+
 vi.mock('@/api/admin', () => ({
   adminAPI: {
     groups: {
@@ -48,11 +52,8 @@ vi.mock('@/stores/app', () => ({
   useAppStore: () => ({ showSuccess, showError })
 }))
 
-vi.mock('@/stores/onboarding', () => ({
-  useOnboardingStore: () => ({
-    isCurrentStep: vi.fn(() => false),
-    nextStep: vi.fn()
-  })
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => authStore,
 }))
 
 vi.mock('vue-i18n', async () => {
@@ -159,6 +160,8 @@ function mountView() {
 describe('GroupsView duplicate action', () => {
   beforeEach(() => {
     localStorage.clear()
+    authStore.canAdmin.mockReset()
+    authStore.canAdmin.mockReturnValue(true)
     vi.spyOn(console, 'error').mockImplementation(() => {})
     for (const fn of [
       listGroups,

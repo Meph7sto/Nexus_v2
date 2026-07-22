@@ -1,13 +1,13 @@
 <template>
   <div class="card">
     <!-- Header -->
-    <div class="border-b border-gray-100 px-4 py-3 dark:border-dark-700">
+    <div class="border-b border-gray-100 px-4 py-3 ">
       <div class="flex items-center justify-between">
         <div>
-          <h2 class="text-base font-semibold text-gray-900 dark:text-white">
+          <h2 class="text-base font-semibold text-gray-900 ">
             {{ t('admin.settings.payment.providerManagement') }}
           </h2>
-          <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+          <p class="mt-0.5 text-xs text-gray-500 ">
             {{ t('admin.settings.payment.providerManagementDesc') }}
           </p>
         </div>
@@ -21,16 +21,18 @@
           >
             <Icon name="refresh" size="sm" :class="loading ? 'animate-spin' : ''" />
           </button>
-          <button
-            type="button"
-            @click="emit('create')"
-            :disabled="!canCreate"
-            :class="canCreate
-              ? 'btn btn-primary btn-sm'
-              : 'btn btn-secondary btn-sm cursor-not-allowed opacity-50'"
-          >
-            {{ t('admin.settings.payment.createProvider') }}
-          </button>
+          <AdminPermissionGate resource="payment_providers" action="create">
+            <button
+              type="button"
+              @click="emit('create')"
+              :disabled="!canCreate"
+              :class="canCreate
+                ? 'btn btn-primary btn-sm'
+                : 'btn btn-secondary btn-sm cursor-not-allowed opacity-50'"
+            >
+              {{ t('admin.settings.payment.createProvider') }}
+            </button>
+          </AdminPermissionGate>
         </div>
       </div>
     </div>
@@ -47,12 +49,13 @@
         v-if="providers.length"
         v-model="localProviders"
         :animation="200"
+        :disabled="!canUpdateProviders"
         handle=".drag-handle"
         class="space-y-3"
         @end="onDragEnd"
       >
         <div v-for="p in localProviders" :key="p.id" class="flex items-start gap-2">
-          <div class="drag-handle mt-3 flex cursor-grab items-center text-gray-300 hover:text-gray-500 active:cursor-grabbing dark:text-dark-600 dark:hover:text-dark-400">
+          <div class="drag-handle mt-3 flex cursor-grab items-center text-gray-300 hover:text-gray-500 active:cursor-grabbing  ">
             <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path d="M7 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM13 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>
             </svg>
@@ -73,33 +76,36 @@
 
       <!-- Empty -->
       <div v-else-if="!loading" class="py-6 text-center">
-        <p class="text-sm text-gray-500 dark:text-gray-400">
+        <p class="text-sm text-gray-500 ">
           {{ canCreate
             ? t('admin.settings.payment.noProviders')
             : t('admin.settings.payment.enableTypesFirst') }}
         </p>
-        <button
-          type="button"
-          v-if="canCreate"
-          @click="emit('create')"
-          class="btn btn-primary btn-sm mt-2"
-        >
-          {{ t('admin.settings.payment.createProvider') }}
-        </button>
+        <AdminPermissionGate v-if="canCreate" resource="payment_providers" action="create">
+          <button
+            type="button"
+            @click="emit('create')"
+            class="btn btn-primary btn-sm mt-2"
+          >
+            {{ t('admin.settings.payment.createProvider') }}
+          </button>
+        </AdminPermissionGate>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { VueDraggable } from 'vue-draggable-plus'
 import Icon from '@/components/icons/Icon.vue'
+import AdminPermissionGate from '@/components/admin/AdminPermissionGate.vue'
 import ProviderCard from './ProviderCard.vue'
 import type { ProviderInstance } from '@/types/payment'
 import type { TypeOption } from './providerConfig'
 import { getAvailableTypes } from './providerConfig'
+import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps<{
   providers: ProviderInstance[]
@@ -121,6 +127,8 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const authStore = useAuthStore()
+const canUpdateProviders = computed(() => authStore.canAdmin('payment_providers', 'update'))
 
 const localProviders = ref<ProviderInstance[]>([])
 
@@ -129,6 +137,7 @@ watch(() => props.providers, (val) => {
 }, { immediate: true })
 
 function onDragEnd() {
+  if (!canUpdateProviders.value) return
   const updates = localProviders.value.map((p, idx) => ({
     id: p.id,
     sort_order: idx,

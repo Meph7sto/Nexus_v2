@@ -8,7 +8,7 @@
             <Icon
               name="search"
               size="md"
-              class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"
+              class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 "
             />
             <input
               v-model="searchQuery"
@@ -46,43 +46,55 @@
             >
               <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
             </button>
-            <button
-              @click="handleBatchTest"
-              :disabled="batchTesting || loading"
-              class="btn btn-secondary"
-              :title="t('admin.proxies.testConnection')"
-            >
-              <Icon name="play" size="md" class="mr-2" />
-              {{ t('admin.proxies.testConnection') }}
-            </button>
-            <button
-              @click="handleBatchQualityCheck"
-              :disabled="batchQualityChecking || loading"
-              class="btn btn-secondary"
-              :title="t('admin.proxies.batchQualityCheck')"
-            >
-              <Icon name="shield" size="md" class="mr-2" :class="batchQualityChecking ? 'animate-pulse' : ''" />
-              {{ t('admin.proxies.batchQualityCheck') }}
-            </button>
-            <button
-              @click="openBatchDelete"
-              :disabled="selectedCount === 0"
-              class="btn btn-danger"
-              :title="t('admin.proxies.batchDeleteAction')"
-            >
-              <Icon name="trash" size="md" class="mr-2" />
-              {{ t('admin.proxies.batchDeleteAction') }}
-            </button>
-            <button @click="showImportData = true" class="btn btn-secondary">
-              {{ t('admin.proxies.dataImport') }}
-            </button>
-            <button @click="showExportDataDialog = true" class="btn btn-secondary">
-              {{ selectedCount > 0 ? t('admin.proxies.dataExportSelected') : t('admin.proxies.dataExport') }}
-            </button>
-            <button @click="showCreateModal = true" class="btn btn-primary">
-              <Icon name="plus" size="md" class="mr-2" />
-              {{ t('admin.proxies.createProxy') }}
-            </button>
+            <AdminPermissionGate resource="proxies" action="execute">
+              <button
+                @click="handleBatchTest"
+                :disabled="batchTesting || loading"
+                class="btn btn-secondary"
+                :title="t('admin.proxies.testConnection')"
+              >
+                <Icon name="play" size="md" class="mr-2" />
+                {{ t('admin.proxies.testConnection') }}
+              </button>
+            </AdminPermissionGate>
+            <AdminPermissionGate resource="proxies" action="execute">
+              <button
+                @click="handleBatchQualityCheck"
+                :disabled="batchQualityChecking || loading"
+                class="btn btn-secondary"
+                :title="t('admin.proxies.batchQualityCheck')"
+              >
+                <Icon name="shield" size="md" class="mr-2" :class="batchQualityChecking ? 'animate-pulse' : ''" />
+                {{ t('admin.proxies.batchQualityCheck') }}
+              </button>
+            </AdminPermissionGate>
+            <AdminPermissionGate resource="proxies" action="delete">
+              <button
+                @click="openBatchDelete"
+                :disabled="selectedCount === 0"
+                class="btn btn-danger"
+                :title="t('admin.proxies.batchDeleteAction')"
+              >
+                <Icon name="trash" size="md" class="mr-2" />
+                {{ t('admin.proxies.batchDeleteAction') }}
+              </button>
+            </AdminPermissionGate>
+            <AdminPermissionGate resource="proxies" action="create">
+              <button @click="showImportData = true" class="btn btn-secondary">
+                {{ t('admin.proxies.dataImport') }}
+              </button>
+            </AdminPermissionGate>
+            <AdminPermissionGate resource="proxies" action="export">
+              <button @click="showExportDataDialog = true" class="btn btn-secondary">
+                {{ selectedCount > 0 ? t('admin.proxies.dataExportSelected') : t('admin.proxies.dataExport') }}
+              </button>
+            </AdminPermissionGate>
+            <AdminPermissionGate resource="proxies" action="create">
+              <button @click="showCreateModal = true" class="btn btn-primary">
+                <Icon name="plus" size="md" class="mr-2" />
+                {{ t('admin.proxies.createProxy') }}
+              </button>
+            </AdminPermissionGate>
           </div>
         </div>
       </template>
@@ -119,7 +131,7 @@
           </template>
 
           <template #cell-name="{ value }">
-            <span class="font-medium text-gray-900 dark:text-white">{{ value }}</span>
+            <span class="font-medium text-gray-900 ">{{ value }}</span>
           </template>
 
           <template #cell-protocol="{ value }">
@@ -138,7 +150,7 @@
               <div class="relative">
                 <button
                   type="button"
-                  class="rounded p-0.5 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400"
+                  class="rounded p-0.5 text-gray-400 hover:text-primary-600 "
                   :title="t('admin.proxies.copyProxyUrl')"
                   @click.stop="copyProxyUrl(row)"
                   @contextmenu.prevent="toggleCopyMenu(row.id)"
@@ -148,15 +160,15 @@
                 <!-- 右键展开格式选择菜单 -->
                 <div
                   v-if="copyMenuProxyId === row.id"
-                  class="absolute left-0 top-full z-50 mt-1 w-auto min-w-[180px] rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-dark-500 dark:bg-dark-700"
+                  class="absolute left-0 top-full z-50 mt-1 w-auto min-w-[180px] rounded-lg border border-gray-200 bg-white py-1 shadow-card  "
                 >
                   <button
                     v-for="fmt in getCopyFormats(row)"
                     :key="fmt.label"
-                    class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-gray-100 dark:hover:bg-dark-600"
+                    class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-gray-100 "
                     @click.stop="copyFormat(fmt.value)"
                   >
-                    <span class="truncate font-mono text-gray-600 dark:text-gray-300">{{ fmt.label }}</span>
+                    <span class="truncate font-mono text-gray-600 ">{{ fmt.label }}</span>
                   </button>
                 </div>
               </div>
@@ -166,15 +178,15 @@
           <template #cell-auth="{ row }">
             <div v-if="row.username || row.password" class="flex items-center gap-1.5">
               <div class="flex flex-col text-xs">
-                <span v-if="row.username" class="text-gray-700 dark:text-gray-200">{{ row.username }}</span>
-                <span v-if="row.password" class="font-mono text-gray-500 dark:text-gray-400">
+                <span v-if="row.username" class="text-gray-700 ">{{ row.username }}</span>
+                <span v-if="row.password" class="font-mono text-gray-500 ">
                   {{ visiblePasswordIds.has(row.id) ? row.password : '••••••' }}
                 </span>
               </div>
               <button
                 v-if="row.password"
                 type="button"
-                class="ml-1 rounded p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                class="ml-1 rounded p-0.5 text-gray-400 hover:text-gray-600 "
                 @click.stop="visiblePasswordIds.has(row.id) ? visiblePasswordIds.delete(row.id) : visiblePasswordIds.add(row.id)"
               >
                 <Icon :name="visiblePasswordIds.has(row.id) ? 'eyeOff' : 'eye'" size="sm" />
@@ -191,7 +203,7 @@
                 :alt="row.country || row.country_code"
                 class="h-4 w-6 rounded-sm"
               />
-              <span v-if="formatLocation(row)" class="text-sm text-gray-700 dark:text-gray-200">
+              <span v-if="formatLocation(row)" class="text-sm text-gray-700 ">
                 {{ formatLocation(row) }}
               </span>
               <span v-else class="text-sm text-gray-400">-</span>
@@ -202,14 +214,14 @@
             <button
               v-if="(value || 0) > 0"
               type="button"
-              class="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-primary-700 hover:bg-gray-200 dark:bg-dark-600 dark:text-primary-300 dark:hover:bg-dark-500"
+              class="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-primary-700 hover:bg-gray-200   "
               @click="openAccountsModal(row)"
             >
               {{ t('admin.groups.accountsCount', { count: value || 0 }) }}
             </button>
             <span
               v-else
-              class="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800 dark:bg-dark-600 dark:text-gray-300"
+              class="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800  "
             >
               {{ t('admin.groups.accountsCount', { count: 0 }) }}
             </span>
@@ -233,7 +245,7 @@
               <span v-else class="text-sm text-gray-400">-</span>
               <div
                 v-if="typeof row.quality_checked === 'number'"
-                class="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400"
+                class="flex items-center gap-1 text-xs text-gray-500 "
                 :title="row.quality_summary || undefined"
               >
                 <span>{{ t('admin.proxies.qualityInline', { grade: row.quality_grade || '-', score: row.quality_score ?? '-' }) }}</span>
@@ -247,13 +259,13 @@
           <template #cell-expiry="{ row }">
             <span v-if="!row.expires_at" class="text-sm text-gray-400">{{ t('admin.proxies.neverExpires') }}</span>
             <div v-else class="flex flex-col text-xs">
-              <span class="text-gray-700 dark:text-gray-200">{{ formatDateTime(row.expires_at) }}</span>
+              <span class="text-gray-700 ">{{ formatDateTime(row.expires_at) }}</span>
               <span :class="expiryBadgeClass(row)">{{ expiryLabel(row) }}</span>
             </div>
           </template>
 
           <template #cell-created_at="{ row }">
-            <span class="text-xs text-gray-600 dark:text-gray-300">{{ formatDateTime(row.created_at) }}</span>
+            <span class="text-xs text-gray-600 ">{{ formatDateTime(row.created_at) }}</span>
           </template>
 
           <template #cell-status="{ value }">
@@ -269,11 +281,12 @@
 
           <template #cell-actions="{ row }">
             <div class="flex items-center gap-1">
-              <button
-                @click="handleTestConnection(row)"
-                :disabled="testingProxyIds.has(row.id)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-emerald-50 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-emerald-900/20 dark:hover:text-emerald-400"
-              >
+              <AdminPermissionGate resource="proxies" action="execute">
+                <button
+                  @click="handleTestConnection(row)"
+                  :disabled="testingProxyIds.has(row.id)"
+                  class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-emerald-50 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-50  "
+                >
                 <svg
                   v-if="testingProxyIds.has(row.id)"
                   class="h-4 w-4 animate-spin"
@@ -296,12 +309,14 @@
                 </svg>
                 <Icon v-else name="checkCircle" size="sm" />
                 <span class="text-xs">{{ t('admin.proxies.testConnection') }}</span>
-              </button>
-              <button
-                @click="handleQualityCheck(row)"
-                :disabled="qualityCheckingProxyIds.has(row.id)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
-              >
+                </button>
+              </AdminPermissionGate>
+              <AdminPermissionGate resource="proxies" action="execute">
+                <button
+                  @click="handleQualityCheck(row)"
+                  :disabled="qualityCheckingProxyIds.has(row.id)"
+                  class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50  "
+                >
                 <svg
                   v-if="qualityCheckingProxyIds.has(row.id)"
                   class="h-4 w-4 animate-spin"
@@ -324,21 +339,26 @@
                 </svg>
                 <Icon v-else name="shield" size="sm" />
                 <span class="text-xs">{{ t('admin.proxies.qualityCheck') }}</span>
-              </button>
-              <button
-                @click="handleEdit(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-primary-600 dark:hover:bg-dark-700 dark:hover:text-primary-400"
-              >
-                <Icon name="edit" size="sm" />
-                <span class="text-xs">{{ t('common.edit') }}</span>
-              </button>
-              <button
-                @click="handleDelete(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-              >
-                <Icon name="trash" size="sm" />
-                <span class="text-xs">{{ t('common.delete') }}</span>
-              </button>
+                </button>
+              </AdminPermissionGate>
+              <AdminPermissionGate resource="proxies" action="update">
+                <button
+                  @click="handleEdit(row)"
+                  class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-primary-600  "
+                >
+                  <Icon name="edit" size="sm" />
+                  <span class="text-xs">{{ t('common.edit') }}</span>
+                </button>
+              </AdminPermissionGate>
+              <AdminPermissionGate resource="proxies" action="delete">
+                <button
+                  @click="handleDelete(row)"
+                  class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600  "
+                >
+                  <Icon name="trash" size="sm" />
+                  <span class="text-xs">{{ t('common.delete') }}</span>
+                </button>
+              </AdminPermissionGate>
             </div>
           </template>
 
@@ -346,9 +366,16 @@
             <EmptyState
               :title="t('admin.proxies.noProxiesYet')"
               :description="t('admin.proxies.createFirstProxy')"
-              :action-text="t('admin.proxies.createProxy')"
-              @action="showCreateModal = true"
-            />
+            >
+              <template #action>
+                <AdminPermissionGate resource="proxies" action="create">
+                  <button class="btn btn-primary" @click="showCreateModal = true">
+                    <Icon name="plus" size="md" class="mr-2" />
+                    {{ t('admin.proxies.createProxy') }}
+                  </button>
+                </AdminPermissionGate>
+              </template>
+            </EmptyState>
           </template>
         </DataTable>
         </div>
@@ -367,15 +394,16 @@
     </TablePageLayout>
 
     <!-- Create Proxy Modal -->
-    <BaseDialog
-      :show="showCreateModal"
-      :title="t('admin.proxies.createProxy')"
-      width="normal"
-      @close="closeCreateModal"
-    >
+    <AdminPermissionGate resource="proxies" action="create">
+      <BaseDialog
+        :show="showCreateModal"
+        :title="t('admin.proxies.createProxy')"
+        width="normal"
+        @close="closeCreateModal"
+      >
       <!-- Tab Switch -->
       <div
-        class="mb-6 flex items-center justify-between gap-3 border-b border-gray-200 dark:border-dark-600"
+        class="mb-6 flex items-center justify-between gap-3 border-b border-gray-200 "
       >
         <div class="flex min-w-0 shrink-0">
           <button
@@ -384,8 +412,8 @@
             :class="[
               '-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors',
               createMode === 'standard'
-                ? 'border-primary-500 text-primary-600 dark:text-primary-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                ? 'border-primary-500 text-primary-600 '
+                : 'border-transparent text-gray-500 hover:text-gray-700  '
             ]"
           >
             <Icon name="plus" size="sm" class="mr-1.5 inline" />
@@ -397,8 +425,8 @@
             :class="[
               '-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors',
               createMode === 'batch'
-                ? 'border-primary-500 text-primary-600 dark:text-primary-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                ? 'border-primary-500 text-primary-600 '
+                : 'border-transparent text-gray-500 hover:text-gray-700  '
             ]"
           >
             <svg
@@ -485,7 +513,7 @@
             />
             <button
               type="button"
-              class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 "
               @click="createPasswordVisible = !createPasswordVisible"
             >
               <Icon :name="createPasswordVisible ? 'eyeOff' : 'eye'" size="md" />
@@ -547,11 +575,11 @@
         </div>
 
         <!-- Parse Result -->
-        <div v-if="batchParseResult.total > 0" class="rounded-lg bg-gray-50 p-4 dark:bg-dark-700">
+        <div v-if="batchParseResult.total > 0" class="rounded-lg bg-gray-50 p-4 ">
             <div class="flex items-center gap-4 text-sm">
               <div class="flex items-center gap-1.5">
               <Icon name="checkCircle" size="sm" :stroke-width="2" class="text-primary-500" />
-              <span class="text-gray-700 dark:text-gray-300">
+              <span class="text-gray-700 ">
                 {{ t('admin.proxies.parsedCount', { count: batchParseResult.valid }) }}
               </span>
             </div>
@@ -562,7 +590,7 @@
                 :stroke-width="2"
                 class="text-amber-500"
               />
-              <span class="text-amber-600 dark:text-amber-400">
+              <span class="text-amber-600 ">
                 {{ t('admin.proxies.invalidCount', { count: batchParseResult.invalid }) }}
               </span>
             </div>
@@ -580,7 +608,7 @@
                   d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75"
                 />
               </svg>
-              <span class="text-gray-500 dark:text-gray-400">
+              <span class="text-gray-500 ">
                 {{ t('admin.proxies.duplicateCount', { count: batchParseResult.duplicate }) }}
               </span>
             </div>
@@ -658,15 +686,17 @@
           </button>
         </div>
       </template>
-    </BaseDialog>
+      </BaseDialog>
+    </AdminPermissionGate>
 
     <!-- Edit Proxy Modal -->
-    <BaseDialog
-      :show="showEditModal"
-      :title="t('admin.proxies.editProxy')"
-      width="normal"
-      @close="closeEditModal"
-    >
+    <AdminPermissionGate resource="proxies" action="update">
+      <BaseDialog
+        :show="showEditModal"
+        :title="t('admin.proxies.editProxy')"
+        width="normal"
+        @close="closeEditModal"
+      >
       <form
         v-if="editingProxy"
         id="edit-proxy-form"
@@ -714,7 +744,7 @@
             />
             <button
               type="button"
-              class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 "
               @click="editPasswordVisible = !editPasswordVisible"
             >
               <Icon :name="editPasswordVisible ? 'eyeOff' : 'eye'" size="md" />
@@ -799,46 +829,55 @@
           </button>
         </div>
       </template>
-    </BaseDialog>
+      </BaseDialog>
+    </AdminPermissionGate>
 
     <!-- Delete Confirmation Dialog -->
-    <ConfirmDialog
-      :show="showDeleteDialog"
-      :title="t('admin.proxies.deleteProxy')"
-      :message="t('admin.proxies.deleteConfirm', { name: deletingProxy?.name })"
-      :confirm-text="t('common.delete')"
-      :cancel-text="t('common.cancel')"
-      :danger="true"
-      @confirm="confirmDelete"
-      @cancel="showDeleteDialog = false"
-    />
+    <AdminPermissionGate resource="proxies" action="delete">
+      <ConfirmDialog
+        :show="showDeleteDialog"
+        :title="t('admin.proxies.deleteProxy')"
+        :message="t('admin.proxies.deleteConfirm', { name: deletingProxy?.name })"
+        :confirm-text="t('common.delete')"
+        :cancel-text="t('common.cancel')"
+        :danger="true"
+        @confirm="confirmDelete"
+        @cancel="showDeleteDialog = false"
+      />
+    </AdminPermissionGate>
 
     <!-- Batch Delete Confirmation Dialog -->
-    <ConfirmDialog
-      :show="showBatchDeleteDialog"
-      :title="t('admin.proxies.batchDelete')"
-      :message="t('admin.proxies.batchDeleteConfirm', { count: selectedCount })"
-      :confirm-text="t('common.delete')"
-      :cancel-text="t('common.cancel')"
-      :danger="true"
-      @confirm="confirmBatchDelete"
-      @cancel="showBatchDeleteDialog = false"
-    />
-    <ConfirmDialog
-      :show="showExportDataDialog"
-      :title="t('admin.proxies.dataExport')"
-      :message="t('admin.proxies.dataExportConfirmMessage')"
-      :confirm-text="t('admin.proxies.dataExportConfirm')"
-      :cancel-text="t('common.cancel')"
-      @confirm="handleExportData"
-      @cancel="showExportDataDialog = false"
-    />
+    <AdminPermissionGate resource="proxies" action="delete">
+      <ConfirmDialog
+        :show="showBatchDeleteDialog"
+        :title="t('admin.proxies.batchDelete')"
+        :message="t('admin.proxies.batchDeleteConfirm', { count: selectedCount })"
+        :confirm-text="t('common.delete')"
+        :cancel-text="t('common.cancel')"
+        :danger="true"
+        @confirm="confirmBatchDelete"
+        @cancel="showBatchDeleteDialog = false"
+      />
+    </AdminPermissionGate>
+    <AdminPermissionGate resource="proxies" action="export">
+      <ConfirmDialog
+        :show="showExportDataDialog"
+        :title="t('admin.proxies.dataExport')"
+        :message="t('admin.proxies.dataExportConfirmMessage')"
+        :confirm-text="t('admin.proxies.dataExportConfirm')"
+        :cancel-text="t('common.cancel')"
+        @confirm="handleExportData"
+        @cancel="showExportDataDialog = false"
+      />
+    </AdminPermissionGate>
 
-    <ImportDataModal
-      :show="showImportData"
-      @close="showImportData = false"
-      @imported="handleDataImported"
-    />
+    <AdminPermissionGate resource="proxies" action="create">
+      <ImportDataModal
+        :show="showImportData"
+        @close="showImportData = false"
+        @imported="handleDataImported"
+      />
+    </AdminPermissionGate>
 
     <BaseDialog
       :show="showQualityReportDialog"
@@ -847,26 +886,26 @@
       @close="closeQualityReportDialog"
     >
       <div v-if="qualityReport" class="space-y-4">
-        <div class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-dark-600 dark:bg-dark-700">
+        <div class="rounded-lg border border-gray-200 bg-gray-50 p-4  ">
           <div class="flex items-center justify-between gap-4">
             <div>
-              <div class="text-sm text-gray-500 dark:text-gray-400">
+              <div class="text-sm text-gray-500 ">
                 {{ qualityReportProxy?.name || '-' }}
               </div>
-              <div class="mt-1 text-sm text-gray-700 dark:text-gray-200">
+              <div class="mt-1 text-sm text-gray-700 ">
                 {{ qualityReport.summary }}
               </div>
             </div>
             <div class="text-right">
-              <div class="text-2xl font-semibold text-gray-900 dark:text-white">
+              <div class="text-2xl font-semibold text-gray-900 ">
                 {{ qualityReport.score }}
               </div>
-              <div class="text-xs text-gray-500 dark:text-gray-400">
+              <div class="text-xs text-gray-500 ">
                 {{ t('admin.proxies.qualityGrade', { grade: qualityReport.grade }) }}
               </div>
             </div>
           </div>
-          <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-300">
+          <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-gray-600 ">
             <div>{{ t('admin.proxies.qualityExitIP') }}: {{ qualityReport.exit_ip || '-' }}</div>
             <div>{{ t('admin.proxies.qualityCountry') }}: {{ qualityReport.country || '-' }}</div>
             <div>
@@ -877,9 +916,9 @@
           </div>
         </div>
 
-        <div class="max-h-80 overflow-auto rounded-lg border border-gray-200 dark:border-dark-600">
-          <table class="min-w-full divide-y divide-gray-200 text-sm dark:divide-dark-700">
-            <thead class="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-dark-800 dark:text-dark-400">
+        <div class="max-h-80 overflow-auto rounded-lg border border-gray-200 ">
+          <table class="min-w-full divide-y divide-gray-200 text-sm ">
+            <thead class="bg-gray-50 text-xs uppercase text-gray-500  ">
               <tr>
                 <th class="px-3 py-2 text-left">{{ t('admin.proxies.qualityTableTarget') }}</th>
                 <th class="px-3 py-2 text-left">{{ t('admin.proxies.qualityTableStatus') }}</th>
@@ -888,17 +927,17 @@
                 <th class="px-3 py-2 text-left">{{ t('admin.proxies.qualityTableMessage') }}</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-200 bg-white dark:divide-dark-700 dark:bg-dark-900">
+            <tbody class="divide-y divide-gray-200 bg-white  ">
               <tr v-for="item in qualityReport.items" :key="item.target">
-                <td class="px-3 py-2 text-gray-900 dark:text-white">{{ qualityTargetLabel(item.target) }}</td>
+                <td class="px-3 py-2 text-gray-900 ">{{ qualityTargetLabel(item.target) }}</td>
                 <td class="px-3 py-2">
                   <span class="badge" :class="qualityStatusClass(item.status)">{{ qualityStatusLabel(item.status) }}</span>
                 </td>
-                <td class="px-3 py-2 text-gray-600 dark:text-gray-300">{{ item.http_status ?? '-' }}</td>
-                <td class="px-3 py-2 text-gray-600 dark:text-gray-300">
+                <td class="px-3 py-2 text-gray-600 ">{{ item.http_status ?? '-' }}</td>
+                <td class="px-3 py-2 text-gray-600 ">
                   {{ typeof item.latency_ms === 'number' ? `${item.latency_ms}ms` : '-' }}
                 </td>
-                <td class="px-3 py-2 text-gray-600 dark:text-gray-300">
+                <td class="px-3 py-2 text-gray-600 ">
                   <span>{{ item.message || '-' }}</span>
                   <span v-if="item.cf_ray" class="ml-1 text-xs text-gray-400">(cf-ray: {{ item.cf_ray }})</span>
                 </td>
@@ -931,21 +970,21 @@
         {{ t('admin.proxies.accountsEmpty') }}
       </div>
       <div v-else class="max-h-80 overflow-auto">
-        <table class="min-w-full divide-y divide-gray-200 text-sm dark:divide-dark-700">
-          <thead class="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-dark-800 dark:text-dark-400">
+        <table class="min-w-full divide-y divide-gray-200 text-sm ">
+          <thead class="bg-gray-50 text-xs uppercase text-gray-500  ">
             <tr>
               <th class="px-4 py-2 text-left">{{ t('admin.proxies.accountName') }}</th>
               <th class="px-4 py-2 text-left">{{ t('admin.accounts.columns.platformType') }}</th>
               <th class="px-4 py-2 text-left">{{ t('admin.proxies.accountNotes') }}</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-200 bg-white dark:divide-dark-700 dark:bg-dark-900">
+          <tbody class="divide-y divide-gray-200 bg-white  ">
             <tr v-for="account in proxyAccounts" :key="account.id">
-              <td class="px-4 py-2 font-medium text-gray-900 dark:text-white">{{ account.name }}</td>
+              <td class="px-4 py-2 font-medium text-gray-900 ">{{ account.name }}</td>
               <td class="px-4 py-2">
                 <PlatformTypeBadge :platform="account.platform" :type="account.type" />
               </td>
-              <td class="px-4 py-2 text-gray-600 dark:text-gray-300">
+              <td class="px-4 py-2 text-gray-600 ">
                 {{ account.notes || '-' }}
               </td>
             </tr>
@@ -981,6 +1020,7 @@ import ImportDataModal from '@/components/admin/proxy/ImportDataModal.vue'
 import Select from '@/components/common/Select.vue'
 import ProxyAdBanner from '@/components/common/ProxyAdBanner.vue'
 import Icon from '@/components/icons/Icon.vue'
+import AdminPermissionGate from '@/components/admin/AdminPermissionGate.vue'
 import PlatformTypeBadge from '@/components/common/PlatformTypeBadge.vue'
 import { useClipboard } from '@/composables/useClipboard'
 import { useSwipeSelect } from '@/composables/useSwipeSelect'
@@ -1909,7 +1949,7 @@ const handleExportData = async () => {
           }
     )
     const timestamp = formatExportTimestamp()
-    const filename = `sub2api-proxy-${timestamp}.json`
+    const filename = `nexus-proxy-${timestamp}.json`
     const blob = new Blob([JSON.stringify(dataPayload, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')

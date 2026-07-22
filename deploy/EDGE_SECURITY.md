@@ -1,6 +1,6 @@
 # Edge and HTTP Ingress Security
 
-Sub2API supports long-lived SSE and WebSocket requests. Protect the request
+Nexus supports long-lived SSE and WebSocket requests. Protect the request
 ingress without imposing a response `WriteTimeout`: a write deadline would
 terminate healthy long generations and streams.
 
@@ -30,7 +30,7 @@ the application's responsibility.
 ## Trusted client IPs
 
 `server.trusted_proxies` must contain only the CIDR/IP addresses that connect
-directly to Sub2API, normally the local Nginx/Caddy address or the private load
+directly to Nexus, normally the local Nginx/Caddy address or the private load
 balancer subnet. An empty list disables forwarded-IP trust.
 
 Never trust `CF-Connecting-IP`, `X-Real-IP`, or `X-Forwarded-For` merely because
@@ -53,9 +53,9 @@ traffic; the values below are conservative starting points, not universal
 capacity targets.
 
 ```nginx
-limit_conn_zone $binary_remote_addr zone=sub2api_conn:20m;
-limit_req_zone  $binary_remote_addr zone=sub2api_auth:20m rate=5r/s;
-limit_req_zone  $binary_remote_addr zone=sub2api_api:40m rate=30r/s;
+limit_conn_zone $binary_remote_addr zone=nexus_conn:20m;
+limit_req_zone  $binary_remote_addr zone=nexus_auth:20m rate=5r/s;
+limit_req_zone  $binary_remote_addr zone=nexus_api:40m rate=30r/s;
 map $http_upgrade $connection_upgrade {
     default upgrade;
     ''      close;
@@ -68,21 +68,21 @@ server {
     client_header_timeout 10s;
     client_max_body_size 256m;
     large_client_header_buffers 4 16k;
-    limit_conn sub2api_conn 40;
+    limit_conn nexus_conn 40;
 
     location ~ ^/(auth|api/auth)/ {
-        limit_req zone=sub2api_auth burst=10 nodelay;
+        limit_req zone=nexus_auth burst=10 nodelay;
         proxy_pass http://127.0.0.1:8080;
     }
 
     location ~ ^/(v1/)?(embeddings|alpha/search)$ {
         client_max_body_size 32m;
-        limit_req zone=sub2api_api burst=60 nodelay;
+        limit_req zone=nexus_api burst=60 nodelay;
         proxy_pass http://127.0.0.1:8080;
     }
 
     location / {
-        limit_req zone=sub2api_api burst=60 nodelay;
+        limit_req zone=nexus_api burst=60 nodelay;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -135,7 +135,7 @@ api.example.com {
 Replace the documentation ranges with the CDN's published, automatically
 maintained egress ranges. `CF-Connecting-IP` is safe here only because direct
 origin access is blocked and Caddy trusts only those TCP peers. Configure
-Sub2API `server.trusted_proxies` with the Caddy address/private subnet so the
+Nexus `server.trusted_proxies` with the Caddy address/private subnet so the
 application accepts only Caddy's rewritten headers.
 
 Caddy core does not provide a general request-rate limiter; use a trusted

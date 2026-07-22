@@ -8,7 +8,7 @@ const componentPath = resolve(dirname(fileURLToPath(import.meta.url)), '../Table
 const componentSource = readFileSync(componentPath, 'utf8')
 
 describe('TablePageLayout responsive table scrolling', () => {
-  it('does not disable the table horizontal scroll container in mobile mode', () => {
+  it('releases the desktop scroll container for the mobile card layout', () => {
     const tableWrapperBlocks = Array.from(
       componentSource.matchAll(/([^{}]*:deep\(\.table-wrapper\)[^{}]*)\{([^{}]*)\}/g)
     )
@@ -19,8 +19,6 @@ describe('TablePageLayout responsive table scrolling', () => {
     const mobileBlocks = tableWrapperBlocks.filter(([selector]) => selector.includes('.mobile-mode'))
 
     expect(baseBlock?.[2]).toContain('overflow-x-auto')
-    expect(mobileBlocks.every(([, , declarations]) => !declarations.includes('overflow-visible'))).toBe(
-      true
-    )
+    expect(mobileBlocks.some(([, , declarations]) => declarations.includes('overflow-visible'))).toBe(true)
   })
 })

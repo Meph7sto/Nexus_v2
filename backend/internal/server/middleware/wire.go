@@ -18,6 +18,7 @@ type APIKeyAuthMiddleware gin.HandlerFunc
 var ProviderSet = wire.NewSet(
 	NewJWTAuthMiddleware,
 	NewAdminAuthMiddleware,
+	NewAdminPermissionMiddleware,
 	NewAPIKeyAuthMiddleware,
 	NewAuditLogMiddleware,
 	NewStepUpAuthMiddleware,

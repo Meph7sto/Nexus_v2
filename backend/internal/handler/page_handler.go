@@ -20,14 +20,15 @@ var validSlugPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]*$`)
 const maxPageFileSize = 1 << 20 // 1MB
 
 type PageHandler struct {
-	pagesDir       string
-	settingService *service.SettingService
+	pagesDir            string
+	settingService      *service.SettingService
+	adminPermissionRepo service.AdminPermissionRepository
 }
 
-func NewPageHandler(dataDir string, settingService *service.SettingService) *PageHandler {
+func NewPageHandler(dataDir string, settingService *service.SettingService, adminPermissionRepo service.AdminPermissionRepository) *PageHandler {
 	pagesDir := filepath.Join(dataDir, "pages")
 	_ = os.MkdirAll(pagesDir, 0755)
-	return &PageHandler{pagesDir: pagesDir, settingService: settingService}
+	return &PageHandler{pagesDir: pagesDir, settingService: settingService, adminPermissionRepo: adminPermissionRepo}
 }
 
 // GetPageContent serves raw markdown content for a given slug.
@@ -241,10 +242,29 @@ func (h *PageHandler) checkSlugVisibility(c *gin.Context, slug string) bool {
 		return false
 	}
 	if visibility == "admin" {
-		role, _ := middleware2.GetUserRoleFromContext(c)
-		return role == "admin"
+		return h.canViewAdminPage(c)
 	}
 	return true
+}
+
+// canViewAdminPage evaluates the pages:view grant for custom admin pages.
+// It is kept separate from menu/configuration lookup so the authorization
+// rule can be exercised independently and cannot silently fall back to a
+// general admin check.
+func (h *PageHandler) canViewAdminPage(c *gin.Context) bool {
+	role, _ := middleware2.GetUserRoleFromContext(c)
+	if role == service.RoleSuperAdmin {
+		return true
+	}
+	if role != service.RoleAdmin || h.adminPermissionRepo == nil {
+		return false
+	}
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok || subject.UserID <= 0 || !subject.IsHuman() {
+		return false
+	}
+	allowed, err := h.adminPermissionRepo.HasPermission(c.Request.Context(), subject.UserID, service.AdminResourcePages, service.AdminActionView)
+	return err == nil && allowed
 }
 
 // checkImageSlugVisibility checks visibility for image requests (no JWT available).
@@ -258,8 +278,8 @@ func (h *PageHandler) checkImageSlugVisibility(c *gin.Context, slug string) bool
 }
 
 // RegisterPageRoutes registers page routes on a router group.
-func RegisterPageRoutes(v1 *gin.RouterGroup, dataDir string, jwtAuth gin.HandlerFunc, adminAuth gin.HandlerFunc, settingService *service.SettingService) {
-	h := NewPageHandler(dataDir, settingService)
+func RegisterPageRoutes(v1 *gin.RouterGroup, dataDir string, jwtAuth gin.HandlerFunc, adminAuth gin.HandlerFunc, adminPermission middleware2.AdminPermissionMiddleware, settingService *service.SettingService, adminPermissionRepo service.AdminPermissionRepository) {
+	h := NewPageHandler(dataDir, settingService, adminPermissionRepo)
 
 	// Authenticated page content (JWT required + visibility check)
 	pages := v1.Group("/pages")
@@ -277,7 +297,7 @@ func RegisterPageRoutes(v1 *gin.RouterGroup, dataDir string, jwtAuth gin.Handler
 	// Admin-only: list all available pages
 	adminPages := v1.Group("/pages")
 	adminPages.Use(adminAuth)
-	adminPages.Use(middleware2.AdminComplianceGuard(settingService))
+	adminPages.Use(gin.HandlerFunc(adminPermission(service.AdminResourcePages, service.AdminActionView)))
 	{
 		adminPages.GET("", h.ListPages)
 	}

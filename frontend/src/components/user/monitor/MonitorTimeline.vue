@@ -1,5 +1,5 @@
 <template>
-  <div class="mt-4 pt-3 border-t border-gray-100 dark:border-dark-700/60">
+  <div class="mt-4 pt-3 border-t border-gray-100 ">
     <div
       class="flex justify-between text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2"
     >
@@ -9,7 +9,7 @@
 
     <div
       v-if="maintenance"
-      class="flex h-5 w-full items-center justify-center rounded border border-dashed border-gray-300 dark:border-dark-600 text-[10px] uppercase tracking-widest text-gray-400"
+      class="flex h-5 w-full items-center justify-center rounded border border-dashed border-gray-300  text-[10px] uppercase tracking-widest text-gray-400"
     >
       {{ t('monitorCommon.maintenancePaused') }}
     </div>
@@ -74,7 +74,7 @@ const STATUS_COLOR: Record<string, string> = {
   degraded: 'bg-amber-500',
   failed: 'bg-red-500',
   error: 'bg-red-500',
-  empty: 'bg-gray-300 dark:bg-dark-600',
+  empty: 'bg-gray-300 ',
 }
 
 const displayBars = computed<Bar[]>(() => {

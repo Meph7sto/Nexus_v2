@@ -11,8 +11,13 @@ const mocks = vi.hoisted(() => ({
   showSuccess: vi.fn(), showError: vi.fn(),
 }))
 
+const authStore = vi.hoisted(() => ({
+  canAdmin: vi.fn(),
+}))
+
 vi.mock('../api', () => ({ default: mocks }))
 vi.mock('@/stores/app', () => ({ useAppStore: () => ({ showSuccess: mocks.showSuccess, showError: mocks.showError }) }))
+vi.mock('@/stores/auth', () => ({ useAuthStore: () => authStore }))
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
   return { ...actual, useI18n: () => ({ locale: { value: 'en' }, t: (key: string, params?: Record<string, unknown>) => key.replace(/\{(\w+)\}/g, (_, token) => String(params?.[token] ?? `{${token}}`)) }) }
@@ -61,6 +66,8 @@ function mountView() {
 describe('PromptAuditView', () => {
   beforeEach(() => {
     Object.values(mocks).forEach((mock) => mock.mockReset())
+    authStore.canAdmin.mockReset()
+    authStore.canAdmin.mockReturnValue(true)
     mocks.getConfig.mockResolvedValue(baseConfig())
     mocks.getRuntime.mockResolvedValue(runtime())
     mocks.listGroups.mockResolvedValue([])
@@ -116,6 +123,24 @@ describe('PromptAuditView', () => {
     expect(wrapper.get('[data-test="tab-config"]').attributes('aria-selected')).toBe('true')
     expect(wrapper.find('[data-test="save-config"]').exists()).toBe(true)
     expect(wrapper.get('[data-test="tab-panel-config"]').attributes('style') || '').not.toContain('display: none')
+  })
+
+  it('hides configuration saves and destructive confirmation flows without permissions', async () => {
+    authStore.canAdmin.mockReturnValue(false)
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-test="tab-config"]').trigger('click')
+    expect(wrapper.find('[data-test="save-config"]').exists()).toBe(false)
+    expect(wrapper.findAll('[role="switch"]').every((item) => 'disabled' in item.attributes())).toBe(true)
+
+    await wrapper.get('[data-test="tab-events"]').trigger('click')
+    await wrapper.get('[data-test="preview"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="filter-delete-dialog"]').exists()).toBe(false)
+
+    await wrapper.get('[data-test="delete-one"]').trigger('click')
+    expect(wrapper.find('[data-test="confirm"]').exists()).toBe(false)
   })
 
   it('requires confirmation for blocking and disables it when audit is turned off', async () => {

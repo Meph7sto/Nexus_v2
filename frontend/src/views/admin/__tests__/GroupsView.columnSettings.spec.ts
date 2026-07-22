@@ -13,8 +13,6 @@ const {
   listAccounts,
   showError,
   showSuccess,
-  isCurrentStep,
-  nextStep,
 } = vi.hoisted(() => ({
   listGroups: vi.fn(),
   getAllGroups: vi.fn(),
@@ -24,8 +22,10 @@ const {
   listAccounts: vi.fn(),
   showError: vi.fn(),
   showSuccess: vi.fn(),
-  isCurrentStep: vi.fn(),
-  nextStep: vi.fn(),
+}))
+
+const authStore = vi.hoisted(() => ({
+  canAdmin: vi.fn(),
 }))
 
 const messages: Record<string, string> = {
@@ -69,11 +69,8 @@ vi.mock('@/stores/app', () => ({
   }),
 }))
 
-vi.mock('@/stores/onboarding', () => ({
-  useOnboardingStore: () => ({
-    isCurrentStep,
-    nextStep,
-  }),
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => authStore,
 }))
 
 vi.mock('vue-i18n', async () => {
@@ -221,6 +218,8 @@ const clickColumnToggle = async (wrapper: ReturnType<typeof mount>, label: strin
 describe('admin GroupsView column settings', () => {
   beforeEach(() => {
     localStorage.clear()
+    authStore.canAdmin.mockReset()
+    authStore.canAdmin.mockReturnValue(true)
 
     listGroups.mockReset()
     getAllGroups.mockReset()
@@ -230,8 +229,6 @@ describe('admin GroupsView column settings', () => {
     listAccounts.mockReset()
     showError.mockReset()
     showSuccess.mockReset()
-    isCurrentStep.mockReset()
-    nextStep.mockReset()
 
     listGroups.mockResolvedValue({
       items: [createGroup()],
@@ -245,7 +242,6 @@ describe('admin GroupsView column settings', () => {
     getUsageSummary.mockResolvedValue([])
     getCapacitySummary.mockResolvedValue([])
     listAccounts.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 20, pages: 0 })
-    isCurrentStep.mockReturnValue(false)
   })
 
   afterEach(() => {
