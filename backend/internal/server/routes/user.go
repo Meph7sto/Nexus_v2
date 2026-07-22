@@ -1,16 +1,11 @@
 package routes
 
 import (
-	"strconv"
-
 	"github.com/Wei-Shaw/sub2api/internal/handler"
-	middleware2 "github.com/Wei-Shaw/sub2api/internal/middleware"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
 )
 
 // RegisterUserRoutes 注册用户相关路由（需要认证）
@@ -20,9 +15,7 @@ func RegisterUserRoutes(
 	jwtAuth middleware.JWTAuthMiddleware,
 	auditLog middleware.AuditLogMiddleware,
 	settingService *service.SettingService,
-	redisClient *redis.Client,
 ) {
-	rankingRateLimiter := middleware2.NewRateLimiter(redisClient)
 	authenticated := v1.Group("")
 	authenticated.Use(gin.HandlerFunc(jwtAuth))
 	authenticated.Use(middleware.BackendModeUserGuard(settingService))
@@ -94,20 +87,7 @@ func RegisterUserRoutes(
 		usage := authenticated.Group("/usage")
 		{
 			usage.GET("", h.Usage.List)
-			usage.GET("/ranking", rankingRateLimiter.LimitByKeyWithTokenBucket(
-				"usage-ranking:user",
-				usagestats.UserUsageRankingRateLimitRequests,
-				usagestats.UserUsageRankingRateLimitWindow,
-				usagestats.UserUsageRankingRateLimitBurst,
-				func(c *gin.Context) (string, bool) {
-					subject, ok := middleware.GetAuthSubjectFromContext(c)
-					if !ok || subject.UserID <= 0 {
-						return "", false
-					}
-					return strconv.FormatInt(subject.UserID, 10), true
-				},
-				middleware2.RateLimitOptions{FailureMode: middleware2.RateLimitFailClose},
-			), h.Usage.Ranking)
+			usage.GET("/ranking", h.Usage.Ranking)
 			usage.GET("/errors", h.Usage.ListErrors)
 			usage.GET("/errors/:id", h.Usage.GetErrorDetail)
 			usage.GET("/:id", h.Usage.GetByID)

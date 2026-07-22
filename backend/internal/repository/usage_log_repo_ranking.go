@@ -2,16 +2,12 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
-	"github.com/Wei-Shaw/sub2api/internal/service"
 )
-
-var userUsageRankingQueryTimeout = usagestats.UserUsageRankingQueryTimeout
 
 // GetUserUsageRanking returns a paginated global user leaderboard for the requested metric.
 func (r *usageLogRepository) GetUserUsageRanking(
@@ -20,15 +16,12 @@ func (r *usageLogRepository) GetUserUsageRanking(
 	rankBy usagestats.UserUsageRankingSort,
 	startTime, endTime time.Time,
 ) (results []usagestats.UserUsageRankingItem, page *pagination.PaginationResult, err error) {
-	params = normalizeUserUsageRankingPagination(params)
-	rankBy = usagestats.NormalizeUserUsageRankingSort(rankBy)
-	orderBy, ok := userUsageRankingOrderBy(rankBy)
-	if !ok {
-		return nil, nil, fmt.Errorf("invalid user usage ranking sort %q", rankBy)
+	if params.Page <= 0 {
+		params.Page = 1
 	}
-
-	queryCtx, cancel := context.WithTimeout(ctx, userUsageRankingQueryTimeout)
-	defer cancel()
+	if params.PageSize <= 0 {
+		params.PageSize = 20
+	}
 
 	var total int64
 	const countQuery = `
@@ -40,11 +33,16 @@ func (r *usageLogRepository) GetUserUsageRanking(
 			GROUP BY ul.user_id
 		) ranked_users
 	`
-	if err := scanSingleRow(queryCtx, r.sql, countQuery, []any{startTime, endTime}, &total); err != nil {
-		return nil, nil, userUsageRankingQueryError(queryCtx, err)
+	if err := scanSingleRow(ctx, r.sql, countQuery, []any{startTime, endTime}, &total); err != nil {
+		return nil, nil, err
 	}
 	if total == 0 {
 		return []usagestats.UserUsageRankingItem{}, paginationResultFromTotal(total, params), nil
+	}
+
+	orderBy := "total_tokens DESC, total_actual_cost DESC, user_id ASC"
+	if rankBy == usagestats.UserUsageRankingByCost {
+		orderBy = "total_actual_cost DESC, total_tokens DESC, user_id ASC"
 	}
 
 	query := fmt.Sprintf(`
@@ -88,13 +86,13 @@ func (r *usageLogRepository) GetUserUsageRanking(
 		LIMIT $3 OFFSET $4
 	`, orderBy)
 
-	rows, err := r.sql.QueryContext(queryCtx, query, startTime, endTime, params.Limit(), params.Offset())
+	rows, err := r.sql.QueryContext(ctx, query, startTime, endTime, params.Limit(), params.Offset())
 	if err != nil {
-		return nil, nil, userUsageRankingQueryError(queryCtx, err)
+		return nil, nil, err
 	}
 	defer func() {
 		if closeErr := rows.Close(); closeErr != nil && err == nil {
-			err = userUsageRankingQueryError(queryCtx, closeErr)
+			err = closeErr
 			results = nil
 			page = nil
 		}
@@ -112,47 +110,13 @@ func (r *usageLogRepository) GetUserUsageRanking(
 			&row.TotalTokens,
 			&row.TotalActualCost,
 		); err != nil {
-			return nil, nil, userUsageRankingQueryError(queryCtx, err)
+			return nil, nil, err
 		}
 		results = append(results, row)
 	}
 	if err = rows.Err(); err != nil {
-		return nil, nil, userUsageRankingQueryError(queryCtx, err)
+		return nil, nil, err
 	}
 
 	return results, paginationResultFromTotal(total, params), nil
-}
-
-func normalizeUserUsageRankingPagination(params pagination.PaginationParams) pagination.PaginationParams {
-	if params.Page < 1 {
-		params.Page = 1
-	}
-	if params.PageSize < 1 {
-		params.PageSize = usagestats.UserUsageRankingDefaultPageSize
-	}
-	if params.PageSize > usagestats.UserUsageRankingMaxPageSize {
-		params.PageSize = usagestats.UserUsageRankingMaxPageSize
-	}
-	return params
-}
-
-func userUsageRankingOrderBy(rankBy usagestats.UserUsageRankingSort) (string, bool) {
-	switch rankBy {
-	case usagestats.UserUsageRankingByTokens:
-		return "total_tokens DESC, total_actual_cost DESC, user_id ASC", true
-	case usagestats.UserUsageRankingByCost:
-		return "total_actual_cost DESC, total_tokens DESC, user_id ASC", true
-	default:
-		return "", false
-	}
-}
-
-func userUsageRankingQueryError(queryCtx context.Context, err error) error {
-	if errors.Is(queryCtx.Err(), context.DeadlineExceeded) {
-		if err == nil {
-			return service.ErrUsageRankingQueryTimeout
-		}
-		return fmt.Errorf("%w: %w", service.ErrUsageRankingQueryTimeout, err)
-	}
-	return err
 }

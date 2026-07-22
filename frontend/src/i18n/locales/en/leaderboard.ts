@@ -8,10 +8,6 @@ export default {
     totalUsers: 'Ranked users',
     refresh: 'Refresh ranking',
     failedToLoad: 'Failed to load leaderboard',
-    rateLimited: 'The leaderboard is busy. Please try again shortly.',
-    timedOut: 'The leaderboard query took too long. Please try again.',
-    rangeTooLarge: 'Choose a date range of 31 days or fewer.',
-    invalidRange: 'Choose an end date on or after the start date.',
     empty: 'No leaderboard data',
     columns: {
       rank: 'Rank',

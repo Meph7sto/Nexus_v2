@@ -4,7 +4,6 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"regexp"
 	"testing"
 	"time"
@@ -12,7 +11,6 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
-	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/stretchr/testify/require"
 )
 
@@ -39,12 +37,12 @@ func TestGetUserUsageRankingUsesStaticOrderAndGlobalRanks(t *testing.T) {
 			expectedOff: 2,
 		},
 		{
-			name:        "cost clamps page size",
+			name:        "cost preserves page size for the handler to cap",
 			rankBy:      usagestats.UserUsageRankingByCost,
 			orderBy:     "total_actual_cost DESC, total_tokens DESC, user_id ASC",
 			page:        1,
-			pageSize:    usagestats.UserUsageRankingMaxPageSize + 1,
-			expectedLim: usagestats.UserUsageRankingMaxPageSize,
+			pageSize:    101,
+			expectedLim: 101,
 			expectedOff: 0,
 		},
 	}
@@ -98,39 +96,25 @@ func TestGetUserUsageRankingEmptyAndInvalidSort(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, rows)
 		require.Equal(t, 1, page.Page)
-		require.Equal(t, usagestats.UserUsageRankingDefaultPageSize, page.PageSize)
+		require.Equal(t, 20, page.PageSize)
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
 
-	t.Run("invalid sort cannot reach SQL", func(t *testing.T) {
+	t.Run("unknown sort keeps the Nexus token ordering", func(t *testing.T) {
 		db, mock := newSQLMock(t)
 		repo := &usageLogRepository{sql: db}
+		mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*)")).
+			WithArgs(start, end).
+			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+		mock.ExpectQuery(regexp.QuoteMeta("ROW_NUMBER() OVER (ORDER BY total_tokens DESC, total_actual_cost DESC, user_id ASC)")).
+			WithArgs(start, end, 20, 0).
+			WillReturnRows(sqlmock.NewRows([]string{
+				"rank", "user_id", "nickname", "email", "requests", "total_tokens", "total_actual_cost",
+			}).AddRow(1, 11, "User #11", "", 4, 800, 12.5))
 
 		_, _, err := repo.GetUserUsageRanking(context.Background(), pagination.PaginationParams{}, "tokens DESC; DROP TABLE usage_logs", start, end)
 
-		require.Error(t, err)
+		require.NoError(t, err)
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
-}
-
-func TestGetUserUsageRankingMapsContextTimeout(t *testing.T) {
-	db, mock := newSQLMock(t)
-	repo := &usageLogRepository{sql: db}
-	start := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
-	end := start.AddDate(0, 0, 1)
-
-	originalTimeout := userUsageRankingQueryTimeout
-	userUsageRankingQueryTimeout = time.Millisecond
-	t.Cleanup(func() { userUsageRankingQueryTimeout = originalTimeout })
-
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*)")).
-		WithArgs(start, end).
-		WillDelayFor(20 * time.Millisecond).
-		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
-
-	_, _, err := repo.GetUserUsageRanking(context.Background(), pagination.PaginationParams{}, usagestats.UserUsageRankingByTokens, start, end)
-
-	require.Error(t, err)
-	require.True(t, errors.Is(err, service.ErrUsageRankingQueryTimeout))
-	require.NoError(t, mock.ExpectationsWereMet())
 }

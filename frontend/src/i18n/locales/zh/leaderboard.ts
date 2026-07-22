@@ -8,10 +8,6 @@ export default {
     totalUsers: '上榜用户',
     refresh: '刷新排行',
     failedToLoad: '加载排行榜失败',
-    rateLimited: '排行榜请求过于频繁，请稍后重试。',
-    timedOut: '排行榜查询超时，请稍后重试。',
-    rangeTooLarge: '请选择不超过 31 天的日期范围。',
-    invalidRange: '结束日期必须不早于开始日期。',
     empty: '暂无排行榜数据',
     columns: {
       rank: '排名',

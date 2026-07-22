@@ -46,10 +46,6 @@
         </button>
       </div>
 
-      <p v-if="loadError" class="leaderboard-error" role="alert" aria-live="polite">
-        {{ loadError }}
-      </p>
-
       <section class="leaderboard-table-card" :aria-busy="loading">
         <header class="leaderboard-table-header">
           <h2>{{ t('leaderboard.tableTitle') }}</h2>
@@ -133,10 +129,7 @@ import Icon from '@/components/icons/Icon.vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { useAppStore } from '@/stores/app'
-import { extractApiErrorMessage } from '@/utils/apiError'
 
-const MAX_PAGE_SIZE = 100
-const MAX_RANGE_DAYS = 31
 const DAY_MILLIS = 24 * 60 * 60 * 1000
 
 const { t, locale } = useI18n()
@@ -151,19 +144,16 @@ const getLast24HoursRangeDates = () => {
   return { start: formatLocalDate(start), end: formatLocalDate(end) }
 }
 
-const clampPageSize = (value: number): number => Math.min(Math.max(Math.floor(value) || 20, 1), MAX_PAGE_SIZE)
-
 const defaultRange = getLast24HoursRangeDates()
 const startDate = ref(defaultRange.start)
 const endDate = ref(defaultRange.end)
 const rankBy = ref<UsageRankingMetric>('cost')
 const rows = ref<UsageRankingItem[]>([])
 const loading = ref(false)
-const loadError = ref('')
 
 const pagination = reactive({
   page: 1,
-  page_size: clampPageSize(getPersistedPageSize(20)),
+  page_size: getPersistedPageSize(),
   total: 0,
 })
 
@@ -187,46 +177,8 @@ const avatarText = (value: string): string => {
   return first ? first.toUpperCase() : '#'
 }
 
-const parseCalendarDate = (value: string): number | null => {
-  const parts = value.split('-').map(Number)
-  if (parts.length !== 3 || parts.some((part) => !Number.isInteger(part))) return null
-
-  const [year, month, day] = parts
-  const date = new Date(Date.UTC(year, month - 1, day))
-  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null
-  return date.getTime()
-}
-
-const dateRangeError = (): string | null => {
-  const start = parseCalendarDate(startDate.value)
-  const end = parseCalendarDate(endDate.value)
-  if (start === null || end === null || end < start) return t('leaderboard.invalidRange')
-  if (Math.floor((end - start) / DAY_MILLIS) + 1 > MAX_RANGE_DAYS) return t('leaderboard.rangeTooLarge')
-  return null
-}
-
-const displayError = (message: string) => {
-  loadError.value = message
-  appStore.showError(message)
-}
-
-const errorMessageFor = (error: unknown): string => {
-  const errorLike = error as { status?: number; response?: { status?: number } }
-  const status = errorLike?.status ?? errorLike?.response?.status
-  if (status === 429) return t('leaderboard.rateLimited')
-  if (status === 504) return t('leaderboard.timedOut')
-  return extractApiErrorMessage(error, t('leaderboard.failedToLoad'))
-}
-
 const loadRanking = async () => {
-  const rangeError = dateRangeError()
-  if (rangeError) {
-    displayError(rangeError)
-    return
-  }
-
   loading.value = true
-  loadError.value = ''
   try {
     const response = await usageAPI.getRanking({
       rank_by: rankBy.value,
@@ -237,12 +189,13 @@ const loadRanking = async () => {
     })
     rows.value = response.items
     pagination.total = response.total
-    pagination.page = Math.max(response.page, 1)
-    pagination.page_size = clampPageSize(response.page_size)
+    pagination.page = response.page
+    pagination.page_size = response.page_size
   } catch (error) {
+    console.error('[LeaderboardView] loadRanking failed:', error)
     rows.value = []
     pagination.total = 0
-    displayError(errorMessageFor(error))
+    appStore.showError(t('leaderboard.failedToLoad'))
   } finally {
     loading.value = false
   }
@@ -263,12 +216,12 @@ const onDateRangeChange = (range: { startDate: string; endDate: string }) => {
 }
 
 const handlePageChange = (page: number) => {
-  pagination.page = Math.max(page, 1)
+  pagination.page = page
   void loadRanking()
 }
 
 const handlePageSizeChange = (pageSize: number) => {
-  pagination.page_size = clampPageSize(pageSize)
+  pagination.page_size = pageSize
   pagination.page = 1
   void loadRanking()
 }
@@ -353,16 +306,6 @@ onMounted(() => {
 .leaderboard-refresh:disabled {
   cursor: not-allowed;
   opacity: 0.55;
-}
-
-.leaderboard-error {
-  margin-bottom: 16px;
-  padding: 10px 12px;
-  border: 1px solid rgba(190, 45, 45, 0.35);
-  border-radius: 4px;
-  background: rgba(190, 45, 45, 0.07);
-  color: #9f1f1f;
-  font-size: 14px;
 }
 
 .leaderboard-table-card {

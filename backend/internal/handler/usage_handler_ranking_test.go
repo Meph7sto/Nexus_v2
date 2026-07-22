@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -43,17 +42,14 @@ func (s *usageRankingRepoCapture) GetUserUsageRanking(
 	return s.rows, s.result, s.err
 }
 
-func newUsageRankingTestRouter(repo *usageRankingRepoCapture, userID *int64, role string) *gin.Engine {
+func newUsageRankingTestRouter(repo *usageRankingRepoCapture, role string) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	usageService := service.NewUsageService(repo, nil, nil, nil)
 	usageHandler := NewUsageHandler(usageService, nil, nil, nil)
 	router := gin.New()
-	if userID != nil {
+	if role != "" {
 		router.Use(func(c *gin.Context) {
-			c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: *userID})
-			if role != "" {
-				c.Set(string(middleware2.ContextKeyUserRole), role)
-			}
+			c.Set(string(middleware2.ContextKeyUserRole), role)
 			c.Next()
 		})
 	}
@@ -68,34 +64,16 @@ func rankingRequest(router *gin.Engine, target string) *httptest.ResponseRecorde
 	return rec
 }
 
-func TestUsageRankingRequiresAuthenticatedSubject(t *testing.T) {
-	router := newUsageRankingTestRouter(&usageRankingRepoCapture{}, nil, "")
-
-	rec := rankingRequest(router, "/usage/ranking")
-
-	require.Equal(t, http.StatusUnauthorized, rec.Code)
-}
-
-func TestUsageRankingRequiresAuthenticatedUserID(t *testing.T) {
-	userID := int64(0)
-	router := newUsageRankingTestRouter(&usageRankingRepoCapture{}, &userID, "")
-
-	rec := rankingRequest(router, "/usage/ranking")
-
-	require.Equal(t, http.StatusUnauthorized, rec.Code)
-}
-
 func TestUsageRankingDefaultsToTokensAndClampsPageSize(t *testing.T) {
-	userID := int64(42)
 	repo := &usageRankingRepoCapture{}
-	router := newUsageRankingTestRouter(repo, &userID, "")
+	router := newUsageRankingTestRouter(repo, "")
 
 	rec := rankingRequest(router, "/usage/ranking?page=2&page_size=101&start_date=2026-03-01&end_date=2026-03-01&timezone=UTC")
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Equal(t, usagestats.UserUsageRankingByTokens, repo.rankBy)
 	require.Equal(t, 2, repo.params.Page)
-	require.Equal(t, usagestats.UserUsageRankingMaxPageSize, repo.params.PageSize)
+	require.Equal(t, 100, repo.params.PageSize)
 }
 
 func TestUsageRankingIdentityVisibility(t *testing.T) {
@@ -111,11 +89,10 @@ func TestUsageRankingIdentityVisibility(t *testing.T) {
 
 	for _, tc := range roles {
 		t.Run(tc.name, func(t *testing.T) {
-			userID := int64(42)
 			repo := &usageRankingRepoCapture{rows: []usagestats.UserUsageRankingItem{{
 				Rank: 1, UserID: 7, Nickname: "Alice", Email: "alice@example.test",
 			}}}
-			router := newUsageRankingTestRouter(repo, &userID, tc.role)
+			router := newUsageRankingTestRouter(repo, tc.role)
 
 			rec := rankingRequest(router, "/usage/ranking?rank_by=cost&start_date=2026-03-01&end_date=2026-03-01&timezone=UTC")
 
@@ -132,60 +109,72 @@ func TestUsageRankingIdentityVisibility(t *testing.T) {
 	}
 }
 
-func TestUsageRankingValidatesNaturalDaysAndTimezone(t *testing.T) {
-	userID := int64(42)
+func TestUsageRankingKeepsNexusDateRangeAndTimezoneSemantics(t *testing.T) {
+	t.Run("accepts a range longer than 31 days", func(t *testing.T) {
+		repo := &usageRankingRepoCapture{}
+		router := newUsageRankingTestRouter(repo, "")
+
+		rec := rankingRequest(router, "/usage/ranking?start_date=2026-03-08&end_date=2026-04-08&timezone=America/New_York")
+
+		require.Equal(t, http.StatusOK, rec.Code)
+		loc, err := time.LoadLocation("America/New_York")
+		require.NoError(t, err)
+		require.Equal(t, time.Date(2026, 3, 8, 0, 0, 0, 0, loc), repo.startTime)
+		require.Equal(t, time.Date(2026, 4, 9, 0, 0, 0, 0, loc), repo.endTime)
+	})
+
+	t.Run("falls back for an invalid timezone", func(t *testing.T) {
+		repo := &usageRankingRepoCapture{}
+		router := newUsageRankingTestRouter(repo, "")
+
+		rec := rankingRequest(router, "/usage/ranking?timezone=Not/AZone")
+
+		require.Equal(t, http.StatusOK, rec.Code)
+		require.False(t, repo.startTime.IsZero())
+		require.False(t, repo.endTime.IsZero())
+	})
+
+	t.Run("rejects an inverted date range", func(t *testing.T) {
+		repo := &usageRankingRepoCapture{}
+		router := newUsageRankingTestRouter(repo, "")
+
+		rec := rankingRequest(router, "/usage/ranking?start_date=2026-04-01&end_date=2026-03-31")
+
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+}
+
+func TestUsageRankingKeepsNexusPaginationFallbacks(t *testing.T) {
 	cases := []struct {
-		name string
-		path string
-		code int
+		name         string
+		query        string
+		wantPage     int
+		wantPageSize int
 	}{
-		{
-			name: "31 days across daylight saving time",
-			path: "/usage/ranking?start_date=2026-03-08&end_date=2026-04-07&timezone=America/New_York",
-			code: http.StatusOK,
-		},
-		{
-			name: "32 natural days",
-			path: "/usage/ranking?start_date=2026-03-08&end_date=2026-04-08&timezone=America/New_York",
-			code: http.StatusBadRequest,
-		},
-		{name: "invalid timezone", path: "/usage/ranking?timezone=Not/AZone", code: http.StatusBadRequest},
-		{name: "end before start", path: "/usage/ranking?start_date=2026-04-01&end_date=2026-03-31", code: http.StatusBadRequest},
-		{name: "invalid rank", path: "/usage/ranking?rank_by=other", code: http.StatusBadRequest},
-		{name: "invalid page", path: "/usage/ranking?page=0", code: http.StatusBadRequest},
-		{name: "invalid page size", path: "/usage/ranking?page_size=zero", code: http.StatusBadRequest},
+		{name: "invalid page", query: "?page=0", wantPage: 1, wantPageSize: 20},
+		{name: "invalid page size", query: "?page_size=zero", wantPage: 1, wantPageSize: 20},
+		{name: "oversized page size", query: "?page_size=1001", wantPage: 1, wantPageSize: 20},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := &usageRankingRepoCapture{}
-			router := newUsageRankingTestRouter(repo, &userID, "")
+			router := newUsageRankingTestRouter(repo, "")
 
-			rec := rankingRequest(router, tc.path)
+			rec := rankingRequest(router, "/usage/ranking"+tc.query)
 
-			require.Equal(t, tc.code, rec.Code)
-			if tc.code == http.StatusOK {
-				loc, err := time.LoadLocation("America/New_York")
-				require.NoError(t, err)
-				require.Equal(t, time.Date(2026, 3, 8, 0, 0, 0, 0, loc), repo.startTime)
-				require.Equal(t, time.Date(2026, 4, 8, 0, 0, 0, 0, loc), repo.endTime)
-			}
+			require.Equal(t, http.StatusOK, rec.Code)
+			require.Equal(t, tc.wantPage, repo.params.Page)
+			require.Equal(t, tc.wantPageSize, repo.params.PageSize)
 		})
 	}
-}
 
-func TestUsageRankingMapsQueryTimeoutToGatewayTimeout(t *testing.T) {
-	userID := int64(42)
-	repo := &usageRankingRepoCapture{err: service.ErrUsageRankingQueryTimeout}
-	router := newUsageRankingTestRouter(repo, &userID, "")
+	t.Run("invalid rank remains rejected", func(t *testing.T) {
+		repo := &usageRankingRepoCapture{}
+		router := newUsageRankingTestRouter(repo, "")
 
-	rec := rankingRequest(router, "/usage/ranking?start_date=2026-03-01&end_date=2026-03-01")
+		rec := rankingRequest(router, "/usage/ranking?rank_by=other")
 
-	require.Equal(t, http.StatusGatewayTimeout, rec.Code)
-
-	var body struct {
-		Code int `json:"code"`
-	}
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
-	require.Equal(t, http.StatusGatewayTimeout, body.Code)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+	})
 }
