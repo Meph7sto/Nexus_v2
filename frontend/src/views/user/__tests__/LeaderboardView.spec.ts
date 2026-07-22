@@ -110,27 +110,21 @@ describe('LeaderboardView', () => {
     }))
   })
 
-  it('accepts a 31-day natural-date range and rejects a 32-day range before requesting', async () => {
+  it('sends date ranges longer than 31 days to the Nexus-compatible API', async () => {
     const wrapper = mountView()
     await flushPromises()
 
-    await wrapper.find('[data-testid="range-31"]').trigger('click')
-    await flushPromises()
-    expect(getRanking).toHaveBeenLastCalledWith(expect.objectContaining({
-      start_date: '2026-03-08',
-      end_date: '2026-04-07',
-      page: 1,
-    }))
-
-    const callsBeforeInvalidRange = getRanking.mock.calls.length
     await wrapper.find('[data-testid="range-32"]').trigger('click')
     await flushPromises()
 
-    expect(getRanking).toHaveBeenCalledTimes(callsBeforeInvalidRange)
-    expect(wrapper.text()).toContain('leaderboard.rangeTooLarge')
+    expect(getRanking).toHaveBeenLastCalledWith(expect.objectContaining({
+      start_date: '2026-03-08',
+      end_date: '2026-04-08',
+      page: 1,
+    }))
   })
 
-  it('caps a pagination page-size change at 100', async () => {
+  it('passes the selected page size through to the API', async () => {
     const wrapper = mountView()
     await flushPromises()
 
@@ -139,11 +133,11 @@ describe('LeaderboardView', () => {
 
     expect(getRanking).toHaveBeenLastCalledWith(expect.objectContaining({
       page: 1,
-      page_size: 100,
+      page_size: 200,
     }))
   })
 
-  it('shows specific retry messages for rate limiting and query timeouts', async () => {
+  it('uses the standard load error for request failures', async () => {
     const wrapper = mountView()
     await flushPromises()
     getRanking.mockRejectedValueOnce({ status: 429 })
@@ -151,14 +145,6 @@ describe('LeaderboardView', () => {
     await wrapper.find('.leaderboard-refresh').trigger('click')
     await flushPromises()
 
-    expect(showError).toHaveBeenCalledWith('leaderboard.rateLimited')
-    expect(wrapper.text()).toContain('leaderboard.rateLimited')
-
-    getRanking.mockRejectedValueOnce({ status: 504 })
-    await wrapper.find('.leaderboard-refresh').trigger('click')
-    await flushPromises()
-
-    expect(showError).toHaveBeenCalledWith('leaderboard.timedOut')
-    expect(wrapper.text()).toContain('leaderboard.timedOut')
+    expect(showError).toHaveBeenCalledWith('leaderboard.failedToLoad')
   })
 })
