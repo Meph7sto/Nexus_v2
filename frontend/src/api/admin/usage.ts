@@ -92,6 +92,30 @@ export interface AdminUsageQueryParams extends UsageQueryParams {
   status_code?: number | null
 }
 
+export interface UsageInteractionDetail {
+  id: number
+  usage_log_id: number
+  request_id: string
+  created_at: string
+  capture_status: 'complete' | 'partial' | 'failed'
+  capture_error?: string | null
+  request_content: Record<string, unknown>
+  response_content: Record<string, unknown>
+  request_parameters: Record<string, unknown>
+  routing_context: Record<string, unknown>
+  raw_available: boolean
+  raw_request_json?: Record<string, unknown> | null
+  raw_response_json?: Record<string, unknown> | null
+  redaction_applied: boolean
+  redaction_keys: string[]
+}
+
+export interface UsageInteractionResponse {
+  exists: boolean
+  reason?: 'not_recorded' | 'cleaned_up' | 'missing_unexpected'
+  interaction?: UsageInteractionDetail
+}
+
 // ==================== API Functions ====================
 
 /**
@@ -107,6 +131,28 @@ export async function list(
     params,
     signal: options?.signal
   })
+  return data
+}
+
+export async function getInteraction(
+  usageLogId: number,
+  options: { signal?: AbortSignal } = {}
+): Promise<UsageInteractionResponse> {
+  const { data } = await apiClient.get<UsageInteractionResponse>(
+    `/admin/usage/${usageLogId}/interaction`,
+    { signal: options.signal }
+  )
+  return data
+}
+
+export async function getInteractionRaw(
+  usageLogId: number,
+  options: { signal?: AbortSignal } = {}
+): Promise<UsageInteractionResponse> {
+  const { data } = await apiClient.get<UsageInteractionResponse>(
+    `/admin/usage/${usageLogId}/interaction/raw`,
+    { signal: options.signal }
+  )
   return data
 }
 
@@ -206,6 +252,8 @@ export async function cancelCleanupTask(taskId: number): Promise<{ id: number; s
 
 export const adminUsageAPI = {
   list,
+  getInteraction,
+  getInteractionRaw,
   getStats,
   searchUsers,
   searchApiKeys,

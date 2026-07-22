@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -21,10 +22,13 @@ import (
 
 // UsageHandler handles admin usage-related requests
 type UsageHandler struct {
-	usageService   *service.UsageService
-	apiKeyService  *service.APIKeyService
-	adminService   service.AdminService
-	cleanupService *service.UsageCleanupService
+	usageService       *service.UsageService
+	apiKeyService      *service.APIKeyService
+	adminService       service.AdminService
+	cleanupService     *service.UsageCleanupService
+	interactionService *service.UsageInteractionService
+	totpService        *service.TotpService
+	userService        *service.UserService
 }
 
 // NewUsageHandler creates a new admin usage handler
@@ -40,6 +44,103 @@ func NewUsageHandler(
 		adminService:   adminService,
 		cleanupService: cleanupService,
 	}
+}
+
+func (h *UsageHandler) SetUsageInteractionService(interactionService *service.UsageInteractionService) {
+	if h != nil {
+		h.interactionService = interactionService
+	}
+}
+
+func (h *UsageHandler) SetUsageInteractionStepUpServices(totpService *service.TotpService, userService *service.UserService) {
+	if h == nil {
+		return
+	}
+	h.totpService = totpService
+	h.userService = userService
+}
+
+// GetInteraction returns redacted, structured capture metadata. Raw payloads
+// remain on the dedicated step-up protected endpoint.
+func (h *UsageHandler) GetInteraction(c *gin.Context) {
+	middleware.SetAuditAction(c, "admin.usage_interactions.read")
+	if h == nil || h.interactionService == nil {
+		middleware.SetAuditExtra(c, map[string]any{"result": "unavailable"})
+		response.Error(c, http.StatusServiceUnavailable, "Usage interaction service unavailable")
+		return
+	}
+	usageLogID, ok := parseUsageInteractionID(c)
+	if !ok {
+		middleware.SetAuditExtra(c, map[string]any{"result": "invalid"})
+		return
+	}
+
+	interaction, err := h.interactionService.GetByUsageLogID(c.Request.Context(), usageLogID, false)
+	if errors.Is(err, service.ErrUsageInteractionNotFound) {
+		middleware.SetAuditExtra(c, map[string]any{"result": "not_recorded", "usage_log_id": usageLogID})
+		response.Success(c, gin.H{"exists": false, "reason": "not_recorded"})
+		return
+	}
+	if err != nil {
+		middleware.SetAuditExtra(c, map[string]any{"result": "failed", "usage_log_id": usageLogID})
+		response.ErrorFrom(c, err)
+		return
+	}
+	middleware.SetAuditExtra(c, map[string]any{
+		"result":         "success",
+		"usage_log_id":   usageLogID,
+		"interaction_id": interaction.ID,
+		"raw_available":  interaction.RawAvailable,
+	})
+	response.Success(c, gin.H{"exists": true, "interaction": interaction})
+}
+
+// GetInteractionRaw exposes separately retained raw payloads only after an
+// unconditional human administrator step-up check.
+func (h *UsageHandler) GetInteractionRaw(c *gin.Context) {
+	middleware.SetAuditAction(c, "admin.usage_interactions.raw.read")
+	if h == nil || h.interactionService == nil || h.totpService == nil || h.userService == nil {
+		middleware.SetAuditExtra(c, map[string]any{"result": "unavailable"})
+		response.Error(c, http.StatusServiceUnavailable, "Usage interaction service unavailable")
+		return
+	}
+	if !middleware.EnforceStepUpAlways(c, h.totpService, h.userService) {
+		middleware.SetAuditExtra(c, map[string]any{"result": "step_up_required"})
+		return
+	}
+	usageLogID, ok := parseUsageInteractionID(c)
+	if !ok {
+		middleware.SetAuditExtra(c, map[string]any{"result": "invalid"})
+		return
+	}
+
+	interaction, err := h.interactionService.GetByUsageLogID(c.Request.Context(), usageLogID, true)
+	if errors.Is(err, service.ErrUsageInteractionNotFound) {
+		middleware.SetAuditExtra(c, map[string]any{"result": "not_recorded", "usage_log_id": usageLogID})
+		response.Success(c, gin.H{"exists": false, "reason": "not_recorded"})
+		return
+	}
+	if err != nil {
+		middleware.SetAuditExtra(c, map[string]any{"result": "failed", "usage_log_id": usageLogID})
+		response.ErrorFrom(c, err)
+		return
+	}
+	middleware.SetAuditExtra(c, map[string]any{
+		"result":         "success",
+		"usage_log_id":   usageLogID,
+		"interaction_id": interaction.ID,
+		"raw_available":  interaction.RawAvailable,
+	})
+	response.Success(c, gin.H{"exists": true, "interaction": interaction})
+}
+
+func parseUsageInteractionID(c *gin.Context) (int64, bool) {
+	usageLogID, err := strconv.ParseInt(strings.TrimSpace(c.Param("id")), 10, 64)
+	if err != nil || usageLogID <= 0 {
+		response.BadRequest(c, "Invalid usage id")
+		return 0, false
+	}
+	return usageLogID, true
 }
 
 // CreateUsageCleanupTaskRequest represents cleanup task creation request
@@ -192,9 +293,27 @@ func (h *UsageHandler) List(c *gin.Context) {
 		return
 	}
 
+	interactionIDs := make(map[int64]struct{})
+	if h.interactionService != nil && len(records) > 0 {
+		usageLogIDs := make([]int64, 0, len(records))
+		for i := range records {
+			usageLogIDs = append(usageLogIDs, records[i].ID)
+		}
+		available, availabilityErr := h.interactionService.ExistingUsageLogIDs(c.Request.Context(), usageLogIDs)
+		if availabilityErr != nil {
+			// Availability is strictly a navigation hint. A failed lookup must not
+			// make the normal usage list unavailable.
+			logger.LegacyPrintf("handler.admin.usage", "lookup usage interaction availability failed: %v", availabilityErr)
+		} else {
+			interactionIDs = available
+		}
+	}
+
 	out := make([]dto.AdminUsageLog, 0, len(records))
 	for i := range records {
-		out = append(out, *dto.UsageLogFromServiceAdmin(&records[i]))
+		record := dto.UsageLogFromServiceAdmin(&records[i])
+		_, record.InteractionAvailable = interactionIDs[records[i].ID]
+		out = append(out, *record)
 	}
 	response.Paginated(c, out, result.Total, page, pageSize)
 }

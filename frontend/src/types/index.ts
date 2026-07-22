@@ -60,6 +60,8 @@ export type AdminPermissionResource =
   | 'channel_monitor'
   | 'subscriptions'
   | 'usage'
+  | 'usage_interactions'
+  | 'usage_interaction_raw'
   | 'risk_control'
   | 'prompt_audit'
   | 'audit_logs'
@@ -1530,6 +1532,7 @@ export interface UsageLogAccountSummary {
 }
 
 export interface AdminUsageLog extends UsageLog {
+  interaction_available?: boolean
   upstream_model?: string | null
   model_mapping_chain?: string | null
 

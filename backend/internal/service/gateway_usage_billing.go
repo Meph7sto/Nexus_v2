@@ -50,6 +50,7 @@ type RecordUsageInput struct {
 	ForceCacheBilling  bool               // 强制缓存计费：将 input_tokens 转为 cache_read 计费（用于粘性会话切换）
 	APIKeyService      APIKeyQuotaUpdater // 可选：用于更新API Key配额
 	QuotaPlatform      string             // user×platform 配额计量平台：handler 在请求 ctx 内经 QuotaPlatform() 算定后传入（后扣运行在 worker 池 background ctx 上，取不到 ForcePlatform）
+	Interaction        *UsageInteractionCapture
 
 	ChannelUsageFields // 渠道映射信息（由 handler 在 Forward 前解析）
 }
@@ -544,6 +545,59 @@ func writeUsageLogBestEffort(ctx context.Context, repo UsageLogRepository, usage
 	}
 }
 
+// writeUsageLogWithInteractionBestEffort preserves the existing batched usage
+// write when interaction recording is disabled. When it is enabled, Create is
+// used so the interaction can reference the durable usage-log ID. Neither
+// interaction persistence nor its settings lookup can affect billing.
+func writeUsageLogWithInteractionBestEffort(
+	ctx context.Context,
+	repo UsageLogRepository,
+	usageLog *UsageLog,
+	interactionService *UsageInteractionService,
+	capture *UsageInteractionCapture,
+	logKey string,
+) {
+	if repo == nil || usageLog == nil {
+		return
+	}
+	if interactionService == nil {
+		writeUsageLogBestEffort(ctx, repo, usageLog, logKey)
+		return
+	}
+
+	enabled, err := interactionService.RecordingEnabled(ctx)
+	if err != nil {
+		logger.LegacyPrintf(logKey, "Check usage interaction recording failed: %v", err)
+		writeUsageLogBestEffort(ctx, repo, usageLog, logKey)
+		return
+	}
+	if !enabled {
+		writeUsageLogBestEffort(ctx, repo, usageLog, logKey)
+		return
+	}
+
+	usageCtx, usageCancel := detachedBillingContext(ctx)
+	defer usageCancel()
+	inserted, err := repo.Create(usageCtx, usageLog)
+	if err != nil {
+		logger.LegacyPrintf(logKey, "Create usage log for interaction failed: %v", err)
+		return
+	}
+	if !inserted {
+		return
+	}
+	if usageLog.ID <= 0 {
+		logger.LegacyPrintf(logKey, "Create usage log for interaction returned no ID")
+		return
+	}
+
+	interactionCtx, interactionCancel := detachedBillingContext(context.Background())
+	defer interactionCancel()
+	if err := interactionService.RecordForUsageLog(interactionCtx, usageLog, capture, nil); err != nil {
+		logger.LegacyPrintf(logKey, "Record usage interaction failed: %v", err)
+	}
+}
+
 // recordUsageOpts 内部选项，参数化普通计费与长上下文计费的差异点。
 type recordUsageOpts struct {
 	// 长上下文计费（仅 Gemini 路径需要）
@@ -567,6 +621,7 @@ func (s *GatewayService) RecordUsage(ctx context.Context, input *RecordUsageInpu
 		ForceCacheBilling:  input.ForceCacheBilling,
 		APIKeyService:      input.APIKeyService,
 		QuotaPlatform:      input.QuotaPlatform,
+		Interaction:        input.Interaction,
 		ChannelUsageFields: input.ChannelUsageFields,
 	}, &recordUsageOpts{})
 }
@@ -588,6 +643,7 @@ type RecordUsageLongContextInput struct {
 	ForceCacheBilling     bool               // 强制缓存计费：将 input_tokens 转为 cache_read 计费（用于粘性会话切换）
 	APIKeyService         APIKeyQuotaUpdater // API Key 配额服务（可选）
 	QuotaPlatform         string             // user×platform 配额计量平台：handler 在请求 ctx 内经 QuotaPlatform() 算定后传入（后扣运行在 worker 池 background ctx 上，取不到 ForcePlatform）
+	Interaction           *UsageInteractionCapture
 
 	ChannelUsageFields // 渠道映射信息（由 handler 在 Forward 前解析）
 }
@@ -608,6 +664,7 @@ func (s *GatewayService) RecordUsageWithLongContext(ctx context.Context, input *
 		ForceCacheBilling:  input.ForceCacheBilling,
 		APIKeyService:      input.APIKeyService,
 		QuotaPlatform:      input.QuotaPlatform,
+		Interaction:        input.Interaction,
 		ChannelUsageFields: input.ChannelUsageFields,
 	}, &recordUsageOpts{
 		LongContextThreshold:  input.LongContextThreshold,
@@ -630,6 +687,7 @@ type recordUsageCoreInput struct {
 	ForceCacheBilling  bool
 	APIKeyService      APIKeyQuotaUpdater
 	QuotaPlatform      string
+	Interaction        *UsageInteractionCapture
 	ChannelUsageFields
 }
 
@@ -721,7 +779,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	}
 
 	if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
-		writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.gateway")
+		writeUsageLogWithInteractionBestEffort(ctx, s.usageLogRepo, usageLog, s.usageInteractionService, input.Interaction, "service.gateway")
 		logger.LegacyPrintf("service.gateway", "[SIMPLE MODE] Usage recorded (not billed): user=%d, tokens=%d", usageLog.UserID, usageLog.TotalTokens())
 		s.deferredService.ScheduleLastUsedUpdate(account.ID)
 		return nil
@@ -751,7 +809,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	if billingErr != nil {
 		return billingErr
 	}
-	writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.gateway")
+	writeUsageLogWithInteractionBestEffort(ctx, s.usageLogRepo, usageLog, s.usageInteractionService, input.Interaction, "service.gateway")
 
 	return nil
 }

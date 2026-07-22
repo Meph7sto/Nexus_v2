@@ -543,6 +543,10 @@ type UsageLog struct {
 type AdminUsageLog struct {
 	UsageLog
 
+	// InteractionAvailable only signals that a separate, permission-gated
+	// interaction record exists. It never embeds interaction content.
+	InteractionAvailable bool `json:"interaction_available"`
+
 	// UpstreamModel is the actual model sent to the upstream provider after mapping.
 	// Omitted when no mapping was applied (requested model was used as-is).
 	UpstreamModel *string `json:"upstream_model,omitempty"`

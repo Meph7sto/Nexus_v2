@@ -227,6 +227,18 @@
           <span class="text-sm text-gray-600 ">{{ formatDateTime(value) }}</span>
         </template>
 
+        <template #cell-actions="{ row }">
+          <button
+            v-if="showInteractionLink && row.interaction_available"
+            type="button"
+            data-test="usage-interaction-link"
+            class="btn btn-secondary btn-sm whitespace-nowrap"
+            @click="$emit('openInteraction', row.id)"
+          >
+            {{ t('usage.interactionDetails') }}
+          </button>
+        </template>
+
         <template #cell-user_agent="{ row }">
           <span v-if="row.user_agent" class="text-sm text-gray-600  block max-w-[320px] truncate" :title="row.user_agent">{{ formatUserAgent(row.user_agent) }}</span>
           <span v-else class="text-sm text-gray-400 ">-</span>
@@ -528,6 +540,7 @@ interface Props {
   defaultSortOrder?: 'asc' | 'desc'
   showAccountBilling?: boolean
   showUpstreamEndpoint?: boolean
+  showInteractionLink?: boolean
   /** 嵌入统一卡片内使用：去掉自身卡片外观 */
   flat?: boolean
 }
@@ -539,12 +552,14 @@ const props = withDefaults(defineProps<Props>(), {
   defaultSortOrder: 'asc',
   showAccountBilling: true,
   showUpstreamEndpoint: true,
+  showInteractionLink: false,
   flat: false
 })
 const emit = defineEmits<{
   userClick: [userID: number, email?: string]
   sort: [key: string, order: 'asc' | 'desc']
   ipGeoBatchFailed: []
+  openInteraction: [usageLogID: number]
 }>()
 const { t } = useI18n()
 const showAccountBilling = props.showAccountBilling

@@ -780,6 +780,12 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		tokenEventCount := 0
 		terminalEventCount := 0
 		replayCollector := &openAIWSToolCallReplayCollector{}
+		captureResponseBody := s != nil && s.usageInteractionService != nil && s.usageInteractionService.CaptureEnabled(ctx)
+		var responseBody []byte
+		if captureResponseBody {
+			responseBody = make([]byte, 0, 4096)
+		}
+		responseBodyTruncated := false
 		firstEventType := ""
 		lastEventType := ""
 		needModelReplace := false
@@ -928,6 +934,13 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 						upstreamMessage = corrected
 					}
 				}
+				if captureResponseBody {
+					var truncated bool
+					responseBody, truncated = appendUsageInteractionResponseBytes(responseBody, upstreamMessage)
+					responseBodyTruncated = responseBodyTruncated || truncated
+					responseBody, truncated = appendUsageInteractionResponseBytes(responseBody, []byte("\n"))
+					responseBodyTruncated = responseBodyTruncated || truncated
+				}
 				replayCollector.AddEvent(eventType, upstreamMessage)
 				if err := writeClientMessage(upstreamMessage); err != nil {
 					if isOpenAIWSClientDisconnectError(err) {
@@ -992,6 +1005,8 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 					OpenAIWSMode:          true,
 					UpstreamTerminalEvent: terminalEvent,
 					ResponseHeaders:       lease.HandshakeHeaders(),
+					ResponseBody:          append([]byte(nil), responseBody...),
+					ResponseBodyTruncated: responseBodyTruncated,
 					Duration:              time.Since(turnStart),
 					FirstTokenMs:          firstTokenMs,
 				}

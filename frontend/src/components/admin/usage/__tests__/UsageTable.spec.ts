@@ -363,6 +363,61 @@ describe('admin UsageTable tooltip', () => {
   })
 })
 
+describe('admin UsageTable interaction action', () => {
+  const interactionTableStub = {
+    props: ['data'],
+    template: `
+      <div>
+        <div v-for="row in data" :key="row.id">
+          <slot name="cell-actions" :row="row" />
+        </div>
+      </div>
+    `,
+  }
+
+  it('shows a detail action only when a retained interaction exists', async () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{ id: 42, interaction_available: true }],
+        loading: false,
+        columns: [],
+        showInteractionLink: true,
+      },
+      global: {
+        stubs: {
+          DataTable: interactionTableStub,
+          EmptyState: true,
+          Icon: true,
+        },
+      },
+    })
+
+    await wrapper.get('[data-test="usage-interaction-link"]').trigger('click')
+
+    expect(wrapper.emitted('openInteraction')?.[0]).toEqual([42])
+  })
+
+  it('does not show a detail action for a usage row without an interaction', () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{ id: 42, interaction_available: false }],
+        loading: false,
+        columns: [],
+        showInteractionLink: true,
+      },
+      global: {
+        stubs: {
+          DataTable: interactionTableStub,
+          EmptyState: true,
+          Icon: true,
+        },
+      },
+    })
+
+    expect(wrapper.find('[data-test="usage-interaction-link"]').exists()).toBe(false)
+  })
+})
+
 describe('admin UsageTable IP geolocation batch toolbar', () => {
   const DataTableStubWithIp = {
     props: ['data'],

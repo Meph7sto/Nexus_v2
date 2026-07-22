@@ -231,7 +231,10 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyOpenAIAdvancedSchedulerWeightPreviousResponse:      "",
 		SettingKeyOpenAIAdvancedSchedulerWeightSessionSticky:         "",
 
-		SettingKeyAllowUserViewErrorRequests: "false",
+		SettingKeyAllowUserViewErrorRequests:       "false",
+		SettingKeyUsageInteractionRecordingEnabled: "false",
+		SettingKeyUsageInteractionStoreRawEnabled:  "false",
+		SettingKeyUsageInteractionRetentionDays:    "7",
 	}
 
 	return s.settingRepo.SetMultiple(ctx, defaults)
@@ -852,6 +855,12 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	}
 
 	result.AllowUserViewErrorRequests = settings[SettingKeyAllowUserViewErrorRequests] == "true" // default false
+	result.UsageInteractionRecordingEnabled = settings[SettingKeyUsageInteractionRecordingEnabled] == "true"
+	result.UsageInteractionStoreRawEnabled = settings[SettingKeyUsageInteractionStoreRawEnabled] == "true"
+	result.UsageInteractionRetentionDays = 7
+	if days, err := strconv.Atoi(strings.TrimSpace(settings[SettingKeyUsageInteractionRetentionDays])); err == nil && days >= 0 && days <= maxUsageInteractionRetentionDays {
+		result.UsageInteractionRetentionDays = days
+	}
 
 	return result
 }

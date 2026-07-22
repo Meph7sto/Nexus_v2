@@ -61,6 +61,7 @@ type SettingHandler struct {
 	notificationEmailService *service.NotificationEmailService
 	totpService              *service.TotpService
 	userService              *service.UserService
+	usageInteractionService  *service.UsageInteractionService
 }
 
 // NewSettingHandler 创建系统设置处理器
@@ -89,6 +90,12 @@ func (h *SettingHandler) SetNotificationEmailService(notificationEmailService *s
 func (h *SettingHandler) SetStepUpDeps(totpService *service.TotpService, userService *service.UserService) {
 	h.totpService = totpService
 	h.userService = userService
+}
+
+func (h *SettingHandler) SetUsageInteractionService(interactions *service.UsageInteractionService) {
+	if h != nil {
+		h.usageInteractionService = interactions
+	}
 }
 
 // GetSettings 获取所有系统设置
@@ -346,7 +353,10 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 
 		AffiliateEnabled: settings.AffiliateEnabled,
 
-		AllowUserViewErrorRequests: settings.AllowUserViewErrorRequests,
+		AllowUserViewErrorRequests:       settings.AllowUserViewErrorRequests,
+		UsageInteractionRecordingEnabled: settings.UsageInteractionRecordingEnabled,
+		UsageInteractionStoreRawEnabled:  settings.UsageInteractionStoreRawEnabled,
+		UsageInteractionRetentionDays:    settings.UsageInteractionRetentionDays,
 	}
 
 	// OpenAI fast policy (stored under a dedicated setting key)

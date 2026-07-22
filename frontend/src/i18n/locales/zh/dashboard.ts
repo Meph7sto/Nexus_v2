@@ -309,6 +309,7 @@ export default {
     path: '路径',
     inboundEndpoint: '入站端点',
     upstreamEndpoint: '上游端点',
+    interactionDetails: '交互详情',
     type: '类型',
     tokens: 'Token',
     cost: '费用',

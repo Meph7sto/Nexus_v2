@@ -264,6 +264,12 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
 	tokenEventCount := 0
 	terminalEventCount := 0
 	replayCollector := &openAIWSToolCallReplayCollector{}
+	captureResponseBody := s != nil && s.usageInteractionService != nil && s.usageInteractionService.CaptureEnabled(ctx)
+	var responseBody []byte
+	if captureResponseBody {
+		responseBody = make([]byte, 0, 4096)
+	}
+	responseBodyTruncated := false
 	firstEventType := ""
 	lastEventType := ""
 	upstreamTerminalEvent := ""
@@ -294,6 +300,8 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
 			OpenAIWSMode:          true,
 			UpstreamTerminalEvent: upstreamTerminalEvent,
 			ResponseHeaders:       cloneHeader(resp.Header),
+			ResponseBody:          append([]byte(nil), responseBody...),
+			ResponseBodyTruncated: responseBodyTruncated,
 			Duration:              time.Since(turnStart),
 			FirstTokenMs:          firstTokenMs,
 		}
@@ -371,6 +379,13 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
 			}
 		}
 		replayCollector.AddEvent(eventType, upstreamMessage)
+		if captureResponseBody {
+			var truncated bool
+			responseBody, truncated = appendUsageInteractionResponseBytes(responseBody, upstreamMessage)
+			responseBodyTruncated = responseBodyTruncated || truncated
+			responseBody, truncated = appendUsageInteractionResponseBytes(responseBody, []byte("\n"))
+			responseBodyTruncated = responseBodyTruncated || truncated
+		}
 
 		if !clientDisconnected {
 			if err := writeClientMessage(upstreamMessage); err != nil {

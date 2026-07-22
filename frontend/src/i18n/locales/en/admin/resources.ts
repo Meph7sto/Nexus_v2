@@ -547,6 +547,29 @@ export default {
       clickToViewBalance: 'Click to view balance history',
       failedToLoadUser: 'Failed to load user info',
       userDeletedBadge: 'Deleted',
+      interaction: {
+        title: 'Usage Interaction Detail',
+        description: 'Review captured request, response, routing, and raw payload details',
+        redacted: 'Redacted',
+        notFound: 'No captured interaction exists for this usage record.',
+        failedToLoad: 'Failed to load interaction details',
+        failedToLoadRaw: 'Failed to load raw interaction data',
+        tabs: {
+          input: 'Input',
+          output: 'Output',
+          parameters: 'Parameters',
+          routing: 'Routing',
+          raw: 'Raw'
+        },
+        sections: {
+          input: 'Input Content',
+          output: 'Output Content',
+          parameters: 'Request Parameters',
+          routing: 'Routing Context',
+          rawRequest: 'Raw Request',
+          rawResponse: 'Raw Response'
+        }
+      },
       tokenRanking: {
         subtitle: 'Per-user token usage for the current filters and time range',
         rowHint: "Click to view this user's usage details",

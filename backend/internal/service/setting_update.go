@@ -73,6 +73,9 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	if err := s.normalizeOpenAIAdvancedSchedulerOverrides(settings); err != nil {
 		return nil, err
 	}
+	if settings.UsageInteractionRetentionDays < 0 || settings.UsageInteractionRetentionDays > maxUsageInteractionRetentionDays {
+		return nil, infraerrors.BadRequest("INVALID_USAGE_INTERACTION_RETENTION_DAYS", "usage interaction retention days must be between 0 and 3650")
+	}
 	settings.PaymentVisibleMethodAlipaySource = alipaySource
 	settings.PaymentVisibleMethodWxpaySource = wxpaySource
 	settings.WeChatConnectAppID = strings.TrimSpace(settings.WeChatConnectAppID)
@@ -422,6 +425,9 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	}
 
 	updates[SettingKeyAllowUserViewErrorRequests] = strconv.FormatBool(settings.AllowUserViewErrorRequests)
+	updates[SettingKeyUsageInteractionRecordingEnabled] = strconv.FormatBool(settings.UsageInteractionRecordingEnabled)
+	updates[SettingKeyUsageInteractionStoreRawEnabled] = strconv.FormatBool(settings.UsageInteractionStoreRawEnabled)
+	updates[SettingKeyUsageInteractionRetentionDays] = strconv.Itoa(settings.UsageInteractionRetentionDays)
 
 	return updates, nil
 }

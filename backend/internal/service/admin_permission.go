@@ -44,6 +44,8 @@ const (
 	AdminResourceChannelMonitor         AdminPermissionResource = "channel_monitor"
 	AdminResourceSubscriptions          AdminPermissionResource = "subscriptions"
 	AdminResourceUsage                  AdminPermissionResource = "usage"
+	AdminResourceUsageInteractions      AdminPermissionResource = "usage_interactions"
+	AdminResourceUsageInteractionRaw    AdminPermissionResource = "usage_interaction_raw"
 	AdminResourceRiskControl            AdminPermissionResource = "risk_control"
 	AdminResourcePromptAudit            AdminPermissionResource = "prompt_audit"
 	AdminResourceAuditLogs              AdminPermissionResource = "audit_logs"
@@ -105,6 +107,8 @@ var adminPermissionDefinitions = []AdminPermissionDefinition{
 	{AdminResourceChannelMonitor, "Channel Monitor", allAdminPermissionActions, false},
 	{AdminResourceSubscriptions, "Subscriptions", allAdminPermissionActions, false},
 	{AdminResourceUsage, "Usage", []AdminPermissionAction{AdminActionView, AdminActionCreate, AdminActionExecute}, false},
+	{AdminResourceUsageInteractions, "Usage Interactions", []AdminPermissionAction{AdminActionView}, false},
+	{AdminResourceUsageInteractionRaw, "Usage Interaction Raw", []AdminPermissionAction{AdminActionView}, true},
 	{AdminResourceRiskControl, "Risk Control", allAdminPermissionActions, false},
 	{AdminResourcePromptAudit, "Prompt Audit", allAdminPermissionActions, false},
 	{AdminResourceAuditLogs, "Audit Logs", []AdminPermissionAction{AdminActionView, AdminActionExecute}, false},

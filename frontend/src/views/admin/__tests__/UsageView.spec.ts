@@ -69,6 +69,15 @@ vi.mock('@/stores/app', () => ({
   }),
 }))
 
+vi.mock('@/composables/useAdminPermissionGate', async () => {
+  const { computed } = await import('vue')
+  return {
+    useAdminPermissionGate: () => ({
+      can: () => computed(() => true),
+    }),
+  }
+})
+
 vi.mock('@/utils/format', () => ({
   formatReasoningEffort: (value: string | null | undefined) => value ?? '-',
 }))
@@ -86,7 +95,10 @@ vi.mock('vue-i18n', async () => {
 vi.mock('vue-router', () => ({
   useRoute: () => ({
     query: {}
-  })
+  }),
+  useRouter: () => ({
+    push: vi.fn(),
+  }),
 }))
 
 const AppLayoutStub = { template: '<div><slot /></div>' }

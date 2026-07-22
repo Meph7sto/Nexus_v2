@@ -304,6 +304,7 @@ export default {
     path: 'Path',
     inboundEndpoint: 'Inbound Endpoint',
     upstreamEndpoint: 'Upstream Endpoint',
+    interactionDetails: 'Interaction Details',
     type: 'Type',
     tokens: 'Tokens',
     cost: 'Cost',

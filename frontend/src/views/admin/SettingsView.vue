@@ -5267,6 +5267,49 @@
                 <span class="toggle-slider"></span>
               </label>
             </div>
+            <div class="flex items-center justify-between">
+              <div>
+                <label class="text-sm font-medium text-gray-700 ">
+                  {{ t('admin.settings.usageInteractions.recordingEnabled') }}
+                </label>
+                <p class="text-xs text-gray-500 ">
+                  {{ t('admin.settings.usageInteractions.recordingEnabledHint') }}
+                </p>
+              </div>
+              <label class="toggle">
+                <input v-model="form.usage_interaction_recording_enabled" type="checkbox" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div class="flex items-center justify-between">
+              <div>
+                <label class="text-sm font-medium text-gray-700 ">
+                  {{ t('admin.settings.usageInteractions.storeRawEnabled') }}
+                </label>
+                <p class="text-xs text-gray-500 ">
+                  {{ t('admin.settings.usageInteractions.storeRawEnabledHint') }}
+                </p>
+              </div>
+              <label class="toggle">
+                <input v-model="form.usage_interaction_store_raw_enabled" type="checkbox" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div>
+              <label class="text-sm font-medium text-gray-700 ">
+                {{ t('admin.settings.usageInteractions.retentionDays') }}
+              </label>
+              <input
+                v-model.number="form.usage_interaction_retention_days"
+                type="number"
+                min="0"
+                max="3650"
+                class="input mt-1 max-w-xs"
+              />
+              <p class="mt-1 text-xs text-gray-500 ">
+                {{ t('admin.settings.usageInteractions.retentionDaysHint') }}
+              </p>
+            </div>
           </div>
         </div>
         </div>
@@ -7595,6 +7638,7 @@ import {
   defaultWeChatConnectScopesForMode,
   deriveWeChatConnectStoredMode,
   normalizeDefaultSubscriptionSettings,
+  normalizeUsageInteractionRetentionDays,
   resolveWeChatConnectModeCapabilities,
 } from "@/api/admin/settings";
 import type {
@@ -8545,6 +8589,9 @@ const form = reactive<SettingsForm>({
   affiliate_enabled: false,
   // Allow user view error requests
   allow_user_view_error_requests: false,
+  usage_interaction_recording_enabled: false,
+  usage_interaction_store_raw_enabled: false,
+  usage_interaction_retention_days: 7,
 });
 
 type OpenAIAdvancedSchedulerOverrideKey =
@@ -9317,6 +9364,9 @@ async function loadSettings() {
         (form as Record<string, unknown>)[key] = value;
       }
     }
+    form.usage_interaction_retention_days = normalizeUsageInteractionRetentionDays(
+      settings.usage_interaction_retention_days,
+    );
     if (!form.claude_oauth_system_prompt_blocks?.trim()) {
       form.claude_oauth_system_prompt_blocks =
         defaultClaudeOAuthSystemPromptBlocks;
@@ -9946,6 +9996,13 @@ async function saveSettings() {
       // Affiliate (邀请返利) feature switch
       affiliate_enabled: form.affiliate_enabled,
       allow_user_view_error_requests: form.allow_user_view_error_requests,
+      usage_interaction_recording_enabled:
+        form.usage_interaction_recording_enabled,
+      usage_interaction_store_raw_enabled:
+        form.usage_interaction_store_raw_enabled,
+      usage_interaction_retention_days: normalizeUsageInteractionRetentionDays(
+        form.usage_interaction_retention_days,
+      ),
     };
 
     // 仅当 openai_fast_policy_settings 已成功从后端加载时才回写，

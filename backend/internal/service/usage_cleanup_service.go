@@ -24,10 +24,11 @@ const (
 
 // UsageCleanupService 负责创建与执行使用记录清理任务
 type UsageCleanupService struct {
-	repo        UsageCleanupRepository
-	timingWheel *TimingWheelService
-	dashboard   *DashboardAggregationService
-	cfg         *config.Config
+	repo         UsageCleanupRepository
+	timingWheel  *TimingWheelService
+	dashboard    *DashboardAggregationService
+	interactions *UsageInteractionService
+	cfg          *config.Config
 
 	running   int32
 	startOnce sync.Once
@@ -46,6 +47,12 @@ func NewUsageCleanupService(repo UsageCleanupRepository, timingWheel *TimingWhee
 		cfg:          cfg,
 		workerCtx:    workerCtx,
 		workerCancel: workerCancel,
+	}
+}
+
+func (s *UsageCleanupService) SetUsageInteractionService(interactions *UsageInteractionService) {
+	if s != nil {
+		s.interactions = interactions
 	}
 }
 
@@ -171,6 +178,7 @@ func (s *UsageCleanupService) runOnce() {
 	}
 	ctx, cancel := context.WithTimeout(parent, svc.taskTimeout())
 	defer cancel()
+	svc.cleanupExpiredInteractions(ctx)
 
 	task, err := svc.repo.ClaimNextPendingTask(ctx, int64(svc.taskTimeout().Seconds()))
 	if err != nil {
@@ -184,6 +192,20 @@ func (s *UsageCleanupService) runOnce() {
 
 	logger.LegacyPrintf("service.usage_cleanup", "[UsageCleanup] task claimed: task=%d status=%s created_by=%d deleted_rows=%d %s", task.ID, task.Status, task.CreatedBy, task.DeletedRows, describeUsageCleanupFilters(task.Filters))
 	svc.executeTask(ctx, task)
+}
+
+func (s *UsageCleanupService) cleanupExpiredInteractions(ctx context.Context) {
+	if s == nil || s.interactions == nil {
+		return
+	}
+	deleted, err := s.interactions.CleanupExpired(ctx, time.Now())
+	if err != nil {
+		logger.LegacyPrintf("service.usage_cleanup", "[UsageCleanup] interaction retention cleanup failed: %v", err)
+		return
+	}
+	if deleted > 0 {
+		logger.LegacyPrintf("service.usage_cleanup", "[UsageCleanup] interaction retention cleanup deleted_rows=%d", deleted)
+	}
 }
 
 func (s *UsageCleanupService) executeTask(ctx context.Context, task *UsageCleanupTask) {

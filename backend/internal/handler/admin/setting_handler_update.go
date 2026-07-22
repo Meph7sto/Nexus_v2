@@ -333,6 +333,10 @@ type UpdateSettingsRequest struct {
 	AuthSourceDingTalkPlatformQuotas map[string]*service.DefaultPlatformQuotaSetting `json:"auth_source_default_dingtalk_platform_quotas"`
 
 	AllowUserViewErrorRequests *bool `json:"allow_user_view_error_requests"`
+
+	UsageInteractionRecordingEnabled *bool `json:"usage_interaction_recording_enabled"`
+	UsageInteractionStoreRawEnabled  *bool `json:"usage_interaction_store_raw_enabled"`
+	UsageInteractionRetentionDays    *int  `json:"usage_interaction_retention_days"`
 }
 
 // UpdateSettings 更新系统设置
@@ -1377,6 +1381,24 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.AllowUserViewErrorRequests
 		}(),
+		UsageInteractionRecordingEnabled: func() bool {
+			if req.UsageInteractionRecordingEnabled != nil {
+				return *req.UsageInteractionRecordingEnabled
+			}
+			return previousSettings.UsageInteractionRecordingEnabled
+		}(),
+		UsageInteractionStoreRawEnabled: func() bool {
+			if req.UsageInteractionStoreRawEnabled != nil {
+				return *req.UsageInteractionStoreRawEnabled
+			}
+			return previousSettings.UsageInteractionStoreRawEnabled
+		}(),
+		UsageInteractionRetentionDays: func() int {
+			if req.UsageInteractionRetentionDays != nil {
+				return *req.UsageInteractionRetentionDays
+			}
+			return previousSettings.UsageInteractionRetentionDays
+		}(),
 		OpsMonitoringEnabled: func() bool {
 			if req.OpsMonitoringEnabled != nil {
 				return *req.OpsMonitoringEnabled
@@ -1688,6 +1710,9 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
+	if h.usageInteractionService != nil {
+		h.usageInteractionService.InvalidateSettingsCache()
+	}
 	if h.opsService != nil {
 		h.opsService.SetMonitoringEnabled(settings.OpsMonitoringEnabled)
 	}
@@ -1986,10 +2011,13 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 
 		AffiliateEnabled: updatedSettings.AffiliateEnabled,
 
-		RiskControlEnabled:          updatedSettings.RiskControlEnabled,
-		CyberSessionBlockEnabled:    updatedSettings.CyberSessionBlockEnabled,
-		CyberSessionBlockTTLSeconds: updatedSettings.CyberSessionBlockTTLSeconds,
-		AllowUserViewErrorRequests:  updatedSettings.AllowUserViewErrorRequests,
+		RiskControlEnabled:               updatedSettings.RiskControlEnabled,
+		CyberSessionBlockEnabled:         updatedSettings.CyberSessionBlockEnabled,
+		CyberSessionBlockTTLSeconds:      updatedSettings.CyberSessionBlockTTLSeconds,
+		AllowUserViewErrorRequests:       updatedSettings.AllowUserViewErrorRequests,
+		UsageInteractionRecordingEnabled: updatedSettings.UsageInteractionRecordingEnabled,
+		UsageInteractionStoreRawEnabled:  updatedSettings.UsageInteractionStoreRawEnabled,
+		UsageInteractionRetentionDays:    updatedSettings.UsageInteractionRetentionDays,
 	}
 	if fastPolicy, err := h.settingService.GetOpenAIFastPolicySettings(c.Request.Context()); err != nil {
 		slog.Error("openai_fast_policy_settings_get_failed", "error", err)

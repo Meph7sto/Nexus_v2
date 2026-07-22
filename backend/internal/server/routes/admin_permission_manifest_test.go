@@ -53,3 +53,17 @@ func TestAdminRoutePermissionManifestMapsOpsStorageView(t *testing.T) {
 	require.Equal(t, service.AdminResourceOps, permission.Resource)
 	require.Equal(t, service.AdminActionView, permission.Action)
 }
+
+func TestAdminRoutePermissionManifestSeparatesUsageInteractionContentAndRaw(t *testing.T) {
+	structured, ok := AdminRoutePermissionFor(http.MethodGet, "/api/v1/admin/usage/:id/interaction")
+	require.True(t, ok)
+	require.Equal(t, service.AdminResourceUsageInteractions, structured.Resource)
+	require.Equal(t, service.AdminActionView, structured.Action)
+	require.False(t, structured.HumanOnly)
+
+	raw, ok := AdminRoutePermissionFor(http.MethodGet, "/api/v1/admin/usage/:id/interaction/raw")
+	require.True(t, ok)
+	require.Equal(t, service.AdminResourceUsageInteractionRaw, raw.Resource)
+	require.Equal(t, service.AdminActionView, raw.Action)
+	require.True(t, raw.HumanOnly)
+}

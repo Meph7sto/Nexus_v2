@@ -544,6 +544,29 @@ export default {
       clickToViewBalance: '点击查看充值记录',
       failedToLoadUser: '加载用户信息失败',
       userDeletedBadge: '已删除',
+      interaction: {
+        title: '用量交互详情',
+        description: '查看已捕获的请求、响应、路由与原始载荷详情',
+        redacted: '已脱敏',
+        notFound: '该使用记录没有已捕获的交互详情。',
+        failedToLoad: '加载交互详情失败',
+        failedToLoadRaw: '加载原始交互数据失败',
+        tabs: {
+          input: '输入',
+          output: '输出',
+          parameters: '参数',
+          routing: '路由',
+          raw: '原始'
+        },
+        sections: {
+          input: '输入内容',
+          output: '输出内容',
+          parameters: '请求参数',
+          routing: '路由上下文',
+          rawRequest: '原始请求',
+          rawResponse: '原始响应'
+        }
+      },
       tokenRanking: {
         subtitle: '按当前筛选与时间范围统计每个用户的 Token 用量',
         rowHint: '点击查看该用户的用量明细',

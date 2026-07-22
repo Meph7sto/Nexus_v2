@@ -225,6 +225,9 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 		admin+"/usage", admin+"/usage/stats", admin+"/usage/search-users", admin+"/usage/search-api-keys", admin+"/usage/cleanup-tasks")
 	add(service.AdminResourceUsage, service.AdminActionCreate, http.MethodPost, admin+"/usage/cleanup-tasks")
 	add(service.AdminResourceUsage, service.AdminActionExecute, http.MethodPost, admin+"/usage/cleanup-tasks/:id/cancel")
+	add(service.AdminResourceUsageInteractions, service.AdminActionView, http.MethodGet, admin+"/usage/:id/interaction")
+	add(service.AdminResourceUsageInteractionRaw, service.AdminActionView, http.MethodGet, admin+"/usage/:id/interaction/raw")
+	humanOnly(http.MethodGet, admin+"/usage/:id/interaction/raw")
 
 	add(service.AdminResourceErrorPassthroughRules, service.AdminActionView, http.MethodGet, admin+"/error-passthrough-rules", admin+"/error-passthrough-rules/:id")
 	add(service.AdminResourceErrorPassthroughRules, service.AdminActionCreate, http.MethodPost, admin+"/error-passthrough-rules")
