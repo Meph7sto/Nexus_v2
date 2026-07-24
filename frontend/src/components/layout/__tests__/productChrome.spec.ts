@@ -9,9 +9,12 @@ const read = (path: string) => readFileSync(resolve(dir, path), 'utf8')
 
 const headerSource = read('../AppHeader.vue')
 const layoutSource = read('../AppLayout.vue')
+const sidebarSource = read('../AppSidebar.vue')
+const authLayoutSource = read('../AuthLayout.vue')
 const homeSource = read('../../../views/HomeView.vue')
 const keyUsageSource = read('../../../views/KeyUsageView.vue')
 const packageSource = read('../../../../package.json')
+const indexSource = read('../../../../index.html')
 const enMiscSource = read('../../../i18n/locales/en/misc.ts')
 const zhMiscSource = read('../../../i18n/locales/zh/misc.ts')
 
@@ -26,6 +29,13 @@ describe('Nexus product chrome', () => {
     for (const source of [headerSource, homeSource, keyUsageSource]) {
       expect(source).not.toContain('github.com/Wei-Shaw/sub2api')
       expect(source).not.toContain('githubUrl')
+    }
+  })
+
+  it('keeps the Nexus PNG as the built-in product icon', () => {
+    for (const source of [indexSource, sidebarSource, authLayoutSource, homeSource, keyUsageSource]) {
+      expect(source).toContain('/logo.png')
+      expect(source).not.toContain('/logo.svg')
     }
   })
 
