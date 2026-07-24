@@ -14,8 +14,8 @@ const props = withDefaults(defineProps<Props>(), {
     <div :class="['rounded-lg bg-white shadow-sm ring-1 ring-gray-900/5  ', props.fullscreen ? 'p-8' : 'p-6']">
       <div class="flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 pb-4 ">
         <div class="space-y-2">
-          <div class="h-6 w-44 animate-pulse rounded bg-gray-200 "></div>
-          <div class="h-3 w-80 animate-pulse rounded bg-gray-100 "></div>
+          <div class="h-6 w-44 animate-pulse rounded bg-gray-200 dark:bg-dark-700"></div>
+          <div class="h-3 w-80 max-w-full animate-pulse rounded bg-gray-100 dark:bg-dark-700/70"></div>
         </div>
         <div v-if="!props.fullscreen" class="flex flex-wrap items-center gap-3">
           <div class="h-9 w-[140px] animate-pulse rounded-lg bg-gray-200 "></div>
@@ -91,8 +91,8 @@ const props = withDefaults(defineProps<Props>(), {
       <div class="mt-6 space-y-3">
         <div v-for="i in 6" :key="i" class="flex items-center justify-between gap-4 rounded-lg bg-gray-50 p-4 ">
           <div class="flex-1 space-y-2">
-            <div class="h-3 w-56 animate-pulse rounded bg-gray-200 "></div>
-            <div class="h-3 w-80 animate-pulse rounded bg-gray-100 "></div>
+            <div class="h-3 w-56 animate-pulse rounded bg-gray-200 dark:bg-dark-700"></div>
+            <div class="h-3 w-80 max-w-full animate-pulse rounded bg-gray-100 dark:bg-dark-700/70"></div>
           </div>
           <div class="h-7 w-20 animate-pulse rounded-lg bg-gray-200 "></div>
         </div>

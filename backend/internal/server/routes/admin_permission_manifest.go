@@ -107,25 +107,34 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 	add(service.AdminResourceGroups, service.AdminActionView, http.MethodGet,
 		admin+"/groups", admin+"/groups/all", admin+"/groups/usage-summary", admin+"/groups/capacity-summary",
 		admin+"/groups/:id/models-list-candidates", admin+"/groups/:id", admin+"/groups/:id/stats",
-		admin+"/groups/:id/rate-multipliers")
-	add(service.AdminResourceGroups, service.AdminActionCreate, http.MethodPost, admin+"/groups", admin+"/groups/:id/duplicate")
+		admin+"/groups/:id/rate-multipliers", admin+"/groups/:id/composite-routes")
+	add(service.AdminResourceGroups, service.AdminActionCreate, http.MethodPost,
+		admin+"/groups", admin+"/groups/:id/duplicate", admin+"/groups/:id/composite-routes")
+	add(service.AdminResourceGroups, service.AdminActionExecute, http.MethodPost,
+		admin+"/groups/:id/composite-routes/preview")
 	add(service.AdminResourceGroups, service.AdminActionUpdate, http.MethodPut,
-		admin+"/groups/sort-order", admin+"/groups/:id", admin+"/groups/:id/rate-multipliers", admin+"/groups/:id/rpm-overrides")
+		admin+"/groups/sort-order", admin+"/groups/:id", admin+"/groups/:id/rate-multipliers", admin+"/groups/:id/rpm-overrides",
+		admin+"/groups/:id/composite-routes/:route_id")
 	add(service.AdminResourceGroups, service.AdminActionDelete, http.MethodDelete,
-		admin+"/groups/:id", admin+"/groups/:id/rate-multipliers", admin+"/groups/:id/rpm-overrides")
+		admin+"/groups/:id", admin+"/groups/:id/rate-multipliers", admin+"/groups/:id/rpm-overrides",
+		admin+"/groups/:id/composite-routes/:route_id")
 
 	add(service.AdminResourceAccounts, service.AdminActionView, http.MethodGet,
 		admin+"/accounts", admin+"/accounts/upstream-billing-probe/settings", admin+"/accounts/:id", admin+"/accounts/:id/stats",
 		admin+"/accounts/:id/usage", admin+"/accounts/:id/today-stats", admin+"/accounts/:id/temp-unschedulable",
 		admin+"/accounts/:id/models", admin+"/accounts/antigravity/default-model-mapping", admin+"/openai/accounts/:id/quota",
-		admin+"/openai/quota-summary",
+		admin+"/openai/quota-summary", admin+"/accounts/ollama-cloud-usage/settings", admin+"/accounts/:id/ollama-cloud-usage",
 		admin+"/gemini/oauth/capabilities", admin+"/grok/accounts/:id/quota", admin+"/grok/runtime-sanity")
 	add(service.AdminResourceAccounts, service.AdminActionExport, http.MethodGet, admin+"/accounts/data")
 	add(service.AdminResourceAccounts, service.AdminActionCreate, http.MethodPost,
 		admin+"/accounts", admin+"/accounts/batch", admin+"/accounts/data", admin+"/openai/create-from-oauth",
 		admin+"/openai/create-from-codex-pat", admin+"/grok/oauth/create-from-oauth", admin+"/grok/sso-to-oauth")
 	add(service.AdminResourceAccounts, service.AdminActionUpdate, http.MethodPut,
-		admin+"/accounts/:id", admin+"/accounts/:id/upstream-billing-probe", admin+"/accounts/upstream-billing-probe/settings")
+		admin+"/accounts/:id", admin+"/accounts/:id/upstream-billing-probe", admin+"/accounts/upstream-billing-probe/settings",
+		admin+"/accounts/ollama-cloud-usage/settings", admin+"/accounts/:id/ollama-cloud-usage/session",
+		admin+"/accounts/:id/ollama-cloud-usage/auto-refresh")
+	add(service.AdminResourceAccounts, service.AdminActionUpdate, http.MethodDelete,
+		admin+"/accounts/:id/ollama-cloud-usage/session")
 	add(service.AdminResourceAccounts, service.AdminActionDelete, http.MethodDelete,
 		admin+"/accounts/:id", admin+"/accounts/:id/temp-unschedulable")
 	add(service.AdminResourceAccounts, service.AdminActionExecute, http.MethodPost,
@@ -144,7 +153,10 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 		admin+"/openai/accounts/:id/reset-quota", admin+"/gemini/oauth/auth-url", admin+"/gemini/oauth/exchange-code",
 		admin+"/antigravity/oauth/auth-url", admin+"/antigravity/oauth/exchange-code", admin+"/antigravity/oauth/refresh-token",
 		admin+"/grok/oauth/auth-url", admin+"/grok/oauth/exchange-code", admin+"/grok/oauth/refresh-token",
-		admin+"/grok/oauth/reconcile", admin+"/grok/accounts/:id/refresh", admin+"/grok/accounts/:id/reset-quota")
+		admin+"/grok/oauth/reconcile", admin+"/grok/accounts/:id/refresh", admin+"/grok/accounts/:id/reset-quota",
+		admin+"/accounts/:id/ollama-cloud-usage/refresh")
+	humanOnly(http.MethodPut, admin+"/accounts/:id/ollama-cloud-usage/session")
+	humanOnly(http.MethodDelete, admin+"/accounts/:id/ollama-cloud-usage/session")
 
 	add(service.AdminResourceAnnouncements, service.AdminActionView, http.MethodGet, admin+"/announcements", admin+"/announcements/:id", admin+"/announcements/:id/read-status")
 	add(service.AdminResourceAnnouncements, service.AdminActionCreate, http.MethodPost, admin+"/announcements")
@@ -202,12 +214,16 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 		admin+"/data-management/s3/profiles/:profile_id/activate", admin+"/data-management/backups")
 
 	add(service.AdminResourceBackups, service.AdminActionView, http.MethodGet,
-		admin+"/backups/s3-config", admin+"/backups/schedule", admin+"/backups", admin+"/backups/:id")
+		admin+"/backups/s3-config", admin+"/backups/schedule", admin+"/backups", admin+"/backups/:id",
+		admin+"/backups/image-storage")
 	add(service.AdminResourceBackups, service.AdminActionExport, http.MethodGet, admin+"/backups/:id/download-url")
-	add(service.AdminResourceBackups, service.AdminActionUpdate, http.MethodPut, admin+"/backups/s3-config", admin+"/backups/schedule")
+	add(service.AdminResourceBackups, service.AdminActionUpdate, http.MethodPut,
+		admin+"/backups/s3-config", admin+"/backups/schedule", admin+"/backups/image-storage")
 	add(service.AdminResourceBackups, service.AdminActionDelete, http.MethodDelete, admin+"/backups/:id")
 	add(service.AdminResourceBackups, service.AdminActionExecute, http.MethodPost,
-		admin+"/backups/s3-config/test", admin+"/backups", admin+"/backups/:id/restore")
+		admin+"/backups/s3-config/test", admin+"/backups", admin+"/backups/:id/restore",
+		admin+"/backups/image-storage/test")
+	humanOnly(http.MethodPut, admin+"/backups/image-storage")
 
 	add(service.AdminResourceSystem, service.AdminActionView, http.MethodGet,
 		admin+"/system/version", admin+"/system/check-updates", admin+"/system/rollback-versions")

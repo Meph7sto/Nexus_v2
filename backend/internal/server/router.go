@@ -34,6 +34,7 @@ func SetupRouter(
 	opsService *service.OpsService,
 	settingService *service.SettingService,
 	adminPermissionRepo service.AdminPermissionRepository,
+	compositeResolver *service.CompositeRouteResolver,
 	cfg *config.Config,
 	redisClient *redis.Client,
 ) *gin.Engine {
@@ -58,7 +59,7 @@ func SetupRouter(
 	// 应用中间件
 	r.Use(middleware2.RequestLogger())
 	// 将客户端 IP + UA 注入 request context，供 token 签发/会话绑定/审计日志统一读取。
-	// IP 取值与 API Key IP 限制共用 server.trusted_proxies 信任链。
+	// 解析模式按请求快照：兼容开关开启时信任原始转发头，关闭时使用 server.trusted_proxies。
 	r.Use(middleware2.SessionBindingContext(cfg))
 	r.Use(middleware2.Logger())
 	r.Use(middleware2.CORS(cfg.CORS))
@@ -90,7 +91,7 @@ func SetupRouter(
 	}
 
 	// 注册路由
-	registerRoutes(r, handlers, jwtAuth, adminAuth, adminPermission, apiKeyAuth, auditLog, stepUpAuth, apiKeyService, subscriptionService, opsService, settingService, adminPermissionRepo, cfg, redisClient)
+	registerRoutes(r, handlers, jwtAuth, adminAuth, adminPermission, apiKeyAuth, auditLog, stepUpAuth, apiKeyService, subscriptionService, opsService, settingService, adminPermissionRepo, compositeResolver, cfg, redisClient)
 	if err := routes.ValidateAdminRouteManifest(r.Routes()); err != nil {
 		panic("invalid admin RBAC route manifest: " + err.Error())
 	}
@@ -113,6 +114,7 @@ func registerRoutes(
 	opsService *service.OpsService,
 	settingService *service.SettingService,
 	adminPermissionRepo service.AdminPermissionRepository,
+	compositeResolver *service.CompositeRouteResolver,
 	cfg *config.Config,
 	redisClient *redis.Client,
 ) {
@@ -126,7 +128,7 @@ func registerRoutes(
 	routes.RegisterAuthRoutes(v1, h, jwtAuth, auditLog, redisClient, settingService)
 	routes.RegisterUserRoutes(v1, h, jwtAuth, auditLog, settingService)
 	routes.RegisterAdminRoutes(v1, h, adminAuth, adminPermission, auditLog, stepUpAuth)
-	routes.RegisterGatewayRoutes(r, h, apiKeyAuth, apiKeyService, subscriptionService, opsService, settingService, cfg)
+	routes.RegisterGatewayRoutes(r, h, apiKeyAuth, apiKeyService, subscriptionService, opsService, settingService, compositeResolver, cfg)
 	routes.RegisterPaymentRoutes(v1, h.Payment, h.PaymentWebhook, h.Admin.Payment, jwtAuth, adminAuth, adminPermission, auditLog, settingService)
 
 	handler.RegisterPageRoutes(v1, cfg.Pricing.DataDir, gin.HandlerFunc(jwtAuth), gin.HandlerFunc(adminAuth), adminPermission, settingService, adminPermissionRepo)

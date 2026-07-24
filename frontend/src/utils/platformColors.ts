@@ -5,7 +5,7 @@
  * instead of defining their own color mappings.
  */
 
-export type Platform = 'anthropic' | 'openai' | 'antigravity' | 'gemini' | 'grok'
+export type Platform = 'anthropic' | 'openai' | 'antigravity' | 'gemini' | 'grok' | 'composite'
 
 // ── Badge (bg + text + border, for inline badges with border) ───────
 const BADGE: Record<Platform, string> = {
@@ -14,6 +14,7 @@ const BADGE: Record<Platform, string> = {
   antigravity: 'bg-purple-500/10 text-purple-600 border-purple-500/30 ',
   gemini: 'bg-blue-500/10 text-blue-600 border-blue-500/30 ',
   grok: 'bg-zinc-800/10 text-zinc-800 border-zinc-800/30   ',
+  composite: 'bg-cyan-500/10 text-cyan-700 border-cyan-500/30',
 }
 const BADGE_DEFAULT = 'bg-slate-500/10 text-slate-600 border-slate-500/30 '
 
@@ -24,6 +25,7 @@ const BADGE_LIGHT: Record<Platform, string> = {
   antigravity: 'bg-purple-500/10 text-purple-600  ',
   gemini: 'bg-blue-500/10 text-blue-600  ',
   grok: 'bg-zinc-800/10 text-zinc-800  ',
+  composite: 'bg-cyan-500/10 text-cyan-700',
 }
 
 // ── Border ──────────────────────────────────────────────────────────
@@ -33,6 +35,7 @@ const BORDER: Record<Platform, string> = {
   antigravity: 'border-purple-500/20 ',
   gemini: 'border-blue-500/20 ',
   grok: 'border-zinc-800/20 ',
+  composite: 'border-cyan-500/20',
 }
 const BORDER_DEFAULT = 'border-gray-200 '
 
@@ -43,6 +46,7 @@ const ACCENT_BAR: Record<Platform, string> = {
   antigravity: 'bg-purple-400',
   gemini: 'bg-blue-400',
   grok: 'bg-zinc-700',
+  composite: 'bg-cyan-600',
 }
 const ACCENT_BAR_DEFAULT = 'bg-primary-400'
 
@@ -53,6 +57,7 @@ const TEXT: Record<Platform, string> = {
   antigravity: 'text-purple-600 ',
   gemini: 'text-blue-600 ',
   grok: 'text-zinc-800 ',
+  composite: 'text-cyan-700',
 }
 const TEXT_DEFAULT = 'text-primary-600 '
 
@@ -63,6 +68,7 @@ const ICON: Record<Platform, string> = {
   antigravity: 'text-purple-500 ',
   gemini: 'text-blue-500 ',
   grok: 'text-zinc-800 ',
+  composite: 'text-cyan-600',
 }
 const ICON_DEFAULT = 'text-primary-500 '
 
@@ -73,6 +79,7 @@ const BUTTON: Record<Platform, string> = {
   antigravity: 'bg-purple-500 text-white hover:bg-purple-600 active:bg-purple-700  ',
   gemini: 'bg-blue-500 text-white hover:bg-blue-600 active:bg-blue-700  ',
   grok: 'bg-zinc-800 text-white hover:bg-zinc-900 active:bg-black  ',
+  composite: 'bg-cyan-700 text-white hover:bg-cyan-800 active:bg-cyan-900',
 }
 const BUTTON_DEFAULT = 'bg-primary-500 text-white hover:bg-primary-600  '
 
@@ -83,13 +90,46 @@ const DISCOUNT: Record<Platform, string> = {
   antigravity: 'bg-purple-100 text-purple-700  ',
   gemini: 'bg-blue-100 text-blue-700  ',
   grok: 'bg-zinc-100 text-zinc-800  ',
+  composite: 'bg-cyan-100 text-cyan-800',
 }
 const DISCOUNT_DEFAULT = 'bg-red-100 text-red-700  '
 
-// Public API
+// ── Header gradient (subscription confirm) ─────────────────────────
+const GRADIENT: Record<Platform, string> = {
+  anthropic: 'from-orange-500 to-orange-500',
+  openai: 'from-emerald-500 to-emerald-500',
+  antigravity: 'from-purple-500 to-purple-500',
+  gemini: 'from-blue-500 to-blue-500',
+  grok: 'from-zinc-800 to-zinc-800',
+  composite: 'from-cyan-700 to-cyan-700',
+}
+const GRADIENT_DEFAULT = 'from-primary-500 to-primary-600'
+
+// ── Header text (light text on gradient bg) ────────────────────────
+const GRADIENT_TEXT: Record<Platform, string> = {
+  anthropic: 'text-orange-100',
+  openai: 'text-emerald-100',
+  antigravity: 'text-purple-100',
+  gemini: 'text-blue-100',
+  grok: 'text-zinc-100',
+  composite: 'text-cyan-100',
+}
+const GRADIENT_TEXT_DEFAULT = 'text-primary-100'
+
+const GRADIENT_SUBTEXT: Record<Platform, string> = {
+  anthropic: 'text-orange-200',
+  openai: 'text-emerald-200',
+  antigravity: 'text-purple-200',
+  gemini: 'text-blue-200',
+  grok: 'text-zinc-300',
+  composite: 'text-cyan-200',
+}
+const GRADIENT_SUBTEXT_DEFAULT = 'text-primary-200'
+
+// ── Public API ──────────────────────────────────────────────────────
 
 function isPlatform(p: string): p is Platform {
-  return p === 'anthropic' || p === 'openai' || p === 'antigravity' || p === 'gemini' || p === 'grok'
+  return p === 'anthropic' || p === 'openai' || p === 'antigravity' || p === 'gemini' || p === 'grok' || p === 'composite'
 }
 
 export function platformBadgeClass(p: string): string {
@@ -124,6 +164,18 @@ export function platformDiscountClass(p: string): string {
   return isPlatform(p) ? DISCOUNT[p] : DISCOUNT_DEFAULT
 }
 
+export function platformGradientClass(p: string): string {
+  return isPlatform(p) ? GRADIENT[p] : GRADIENT_DEFAULT
+}
+
+export function platformGradientTextClass(p: string): string {
+  return isPlatform(p) ? GRADIENT_TEXT[p] : GRADIENT_TEXT_DEFAULT
+}
+
+export function platformGradientSubtextClass(p: string): string {
+  return isPlatform(p) ? GRADIENT_SUBTEXT[p] : GRADIENT_SUBTEXT_DEFAULT
+}
+
 export function platformLabel(p: string): string {
   switch (p) {
     case 'anthropic': return 'Anthropic'
@@ -131,6 +183,7 @@ export function platformLabel(p: string): string {
     case 'antigravity': return 'Antigravity'
     case 'gemini': return 'Gemini'
     case 'grok': return 'Grok'
+    case 'composite': return 'Composite'
     default: return p || 'API'
   }
 }

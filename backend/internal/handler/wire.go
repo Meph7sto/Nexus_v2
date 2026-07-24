@@ -48,10 +48,12 @@ func ProvideAdminHandlers(
 	usageInteractionService *service.UsageInteractionService,
 	totpService *service.TotpService,
 	userService *service.UserService,
+	ollamaCloudUsage *service.OllamaCloudUsageService,
 ) *AdminHandlers {
 	accountHandler.SetUpstreamBillingProbeService(upstreamBillingProbe)
 	usageHandler.SetUsageInteractionService(usageInteractionService)
 	usageHandler.SetUsageInteractionStepUpServices(totpService, userService)
+	accountHandler.SetOllamaCloudUsageService(ollamaCloudUsage)
 	return &AdminHandlers{
 		Dashboard:              dashboardHandler,
 		User:                   userHandler,
