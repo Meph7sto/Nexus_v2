@@ -60,6 +60,7 @@ export type AdminPermissionResource =
   | 'channel_monitor'
   | 'subscriptions'
   | 'usage'
+  | 'monthly_ledger'
   | 'usage_interactions'
   | 'usage_interaction_raw'
   | 'risk_control'

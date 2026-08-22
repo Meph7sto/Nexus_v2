@@ -625,6 +625,18 @@ export const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/monthly-ledger',
+    name: 'AdminMonthlyLedger',
+    component: () => import('@/views/admin/MonthlyLedgerView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Monthly Ledger',
+      titleKey: 'admin.monthlyLedger.title',
+      descriptionKey: 'admin.monthlyLedger.description'
+    }
+  },
+  {
     path: '/admin/usage',
     name: 'AdminUsage',
     component: () => import('@/views/admin/UsageView.vue'),

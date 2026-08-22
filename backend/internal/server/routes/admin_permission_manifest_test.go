@@ -67,3 +67,25 @@ func TestAdminRoutePermissionManifestSeparatesUsageInteractionContentAndRaw(t *t
 	require.Equal(t, service.AdminActionView, raw.Action)
 	require.True(t, raw.HumanOnly)
 }
+
+func TestAdminRoutePermissionManifestMapsMonthlyLedgerActions(t *testing.T) {
+	tests := []struct {
+		method string
+		path   string
+		action service.AdminPermissionAction
+	}{
+		{http.MethodGet, "/api/v1/admin/monthly-ledger", service.AdminActionView},
+		{http.MethodGet, "/api/v1/admin/monthly-ledger/:month/users/:user_id/payments", service.AdminActionView},
+		{http.MethodPost, "/api/v1/admin/monthly-ledger/:month/users/:user_id/payments", service.AdminActionCreate},
+		{http.MethodPut, "/api/v1/admin/monthly-ledger/:month/users/:user_id/multiplier", service.AdminActionUpdate},
+		{http.MethodPut, "/api/v1/admin/monthly-ledger/payments/:id", service.AdminActionUpdate},
+		{http.MethodDelete, "/api/v1/admin/monthly-ledger/payments/:id", service.AdminActionDelete},
+	}
+
+	for _, tt := range tests {
+		permission, ok := AdminRoutePermissionFor(tt.method, tt.path)
+		require.True(t, ok, "%s %s", tt.method, tt.path)
+		require.Equal(t, service.AdminResourceMonthlyLedger, permission.Resource)
+		require.Equal(t, tt.action, permission.Action)
+	}
+}

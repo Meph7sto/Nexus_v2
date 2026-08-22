@@ -132,6 +132,7 @@ export default {
 
   // Navigation
   nav: {
+    monthlyLedger: 'Monthly Ledger',
     dashboard: 'Dashboard',
     announcements: 'Announcements',
     apiKeys: 'API Keys',

@@ -146,6 +146,26 @@ func TestPromptAuditMutationAuditRoutesHaveStableActionsAndOmitBodies(t *testing
 	}
 }
 
+func TestMonthlyLedgerMutationAuditRoutesHaveStableActions(t *testing.T) {
+	expected := map[string]string{
+		"PUT /api/v1/admin/monthly-ledger/:month/users/:user_id/multiplier": "admin.monthly_ledger.multiplier.update",
+		"POST /api/v1/admin/monthly-ledger/:month/users/:user_id/payments":  "admin.monthly_ledger.payment.create",
+		"PUT /api/v1/admin/monthly-ledger/payments/:id":                     "admin.monthly_ledger.payment.update",
+		"DELETE /api/v1/admin/monthly-ledger/payments/:id":                  "admin.monthly_ledger.payment.delete",
+	}
+	for route, action := range expected {
+		require.Equal(t, action, auditActionOverrides[route])
+	}
+
+	for _, key := range []string{
+		"ledger_user_id", "ledger_month", "ledger_payment_id",
+		"old_amount", "new_amount", "old_multiplier", "new_multiplier",
+	} {
+		_, allowed := auditExtraAllowedKeys[key]
+		require.Truef(t, allowed, "%s must be persisted in the audit details", key)
+	}
+}
+
 // Ollama 会话保存的请求体整体就是浏览器 Cookie 明文，键级脱敏清单曾漏掉裸键
 // "session"，必须走整体不入库路径，防止会话凭证长期留存在 audit_logs。
 func TestOllamaCloudUsageSessionRouteOmitsAuditBody(t *testing.T) {

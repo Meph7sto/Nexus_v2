@@ -44,6 +44,7 @@ const (
 	AdminResourceChannelMonitor         AdminPermissionResource = "channel_monitor"
 	AdminResourceSubscriptions          AdminPermissionResource = "subscriptions"
 	AdminResourceUsage                  AdminPermissionResource = "usage"
+	AdminResourceMonthlyLedger          AdminPermissionResource = "monthly_ledger"
 	AdminResourceUsageInteractions      AdminPermissionResource = "usage_interactions"
 	AdminResourceUsageInteractionRaw    AdminPermissionResource = "usage_interaction_raw"
 	AdminResourceRiskControl            AdminPermissionResource = "risk_control"
@@ -107,6 +108,7 @@ var adminPermissionDefinitions = []AdminPermissionDefinition{
 	{AdminResourceChannelMonitor, "Channel Monitor", allAdminPermissionActions, false},
 	{AdminResourceSubscriptions, "Subscriptions", allAdminPermissionActions, false},
 	{AdminResourceUsage, "Usage", []AdminPermissionAction{AdminActionView, AdminActionCreate, AdminActionExecute}, false},
+	{AdminResourceMonthlyLedger, "Monthly Ledger", []AdminPermissionAction{AdminActionView, AdminActionCreate, AdminActionUpdate, AdminActionDelete}, false},
 	{AdminResourceUsageInteractions, "Usage Interactions", []AdminPermissionAction{AdminActionView}, false},
 	{AdminResourceUsageInteractionRaw, "Usage Interaction Raw", []AdminPermissionAction{AdminActionView}, true},
 	{AdminResourceRiskControl, "Risk Control", allAdminPermissionActions, false},

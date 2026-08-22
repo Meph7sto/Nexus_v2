@@ -7,6 +7,7 @@ import ops from './ops'
 import settings from './settings'
 import audit from './audit'
 import promptAudit from './promptAudit'
+import monthlyLedger from './monthlyLedger'
 
 export default {
   ...overview,
@@ -18,4 +19,5 @@ export default {
   ...settings,
   ...audit,
   ...promptAudit,
+  ...monthlyLedger,
 }

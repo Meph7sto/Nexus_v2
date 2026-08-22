@@ -25,6 +25,7 @@ func RegisterAdminRoutes(
 	{
 		// 仪表盘
 		registerDashboardRoutes(admin, h)
+		registerMonthlyLedgerRoutes(admin, h)
 
 		// 用户管理
 		registerUserManagementRoutes(admin, h)
@@ -113,6 +114,18 @@ func RegisterAdminRoutes(
 
 		// 操作审计日志
 		registerAuditLogRoutes(admin, h, stepUpAuth)
+	}
+}
+
+func registerMonthlyLedgerRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	ledger := admin.Group("/monthly-ledger")
+	{
+		ledger.GET("", h.Admin.MonthlyLedger.List)
+		ledger.GET("/:month/users/:user_id/payments", h.Admin.MonthlyLedger.ListPayments)
+		ledger.PUT("/:month/users/:user_id/multiplier", h.Admin.MonthlyLedger.SetMultiplier)
+		ledger.POST("/:month/users/:user_id/payments", h.Admin.MonthlyLedger.CreatePayment)
+		ledger.PUT("/payments/:id", h.Admin.MonthlyLedger.UpdatePayment)
+		ledger.DELETE("/payments/:id", h.Admin.MonthlyLedger.DeletePayment)
 	}
 }
 

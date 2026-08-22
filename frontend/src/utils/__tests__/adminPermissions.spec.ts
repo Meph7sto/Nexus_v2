@@ -32,6 +32,17 @@ describe('admin permissions', () => {
     expect(canAdmin({ role: 'user', admin_permissions: [{ resource: 'users', actions: ['view'] }] }, 'users', 'view')).toBe(false)
   })
 
+  it('treats monthly ledger as an independently grantable resource', () => {
+    const principal = {
+      role: 'admin' as const,
+      admin_permissions: [{ resource: 'monthly_ledger' as const, actions: ['view', 'create'] as const }],
+    }
+
+    expect(canAdmin(principal, 'monthly_ledger', 'view')).toBe(true)
+    expect(canAdmin(principal, 'monthly_ledger', 'create')).toBe(true)
+    expect(canAdmin(principal, 'monthly_ledger', 'update')).toBe(false)
+  })
+
   it('chooses the first explicitly mapped page a limited administrator can view', () => {
     expect(getFirstAllowedAdminRoute({
       role: 'admin',

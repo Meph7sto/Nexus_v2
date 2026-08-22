@@ -132,6 +132,7 @@ export default {
 
   // Navigation
   nav: {
+    monthlyLedger: '月度账本',
     dashboard: '仪表盘',
     announcements: '公告',
     apiKeys: 'API 密钥',

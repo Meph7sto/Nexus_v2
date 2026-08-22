@@ -33,6 +33,7 @@ import adminPaymentAPI from './payment'
 import affiliatesAPI from './affiliates'
 import riskControlAPI from './riskControl'
 import auditAPI from './audit'
+import monthlyLedgerAPI from './monthlyLedger'
 
 /**
  * Unified admin API object for convenient access
@@ -67,7 +68,8 @@ export const adminAPI = {
   payment: adminPaymentAPI,
   affiliates: affiliatesAPI,
   riskControl: riskControlAPI,
-  audit: auditAPI
+  audit: auditAPI,
+  monthlyLedger: monthlyLedgerAPI
 }
 
 export {
@@ -100,7 +102,8 @@ export {
   adminPaymentAPI,
   affiliatesAPI,
   riskControlAPI,
-  auditAPI
+  auditAPI,
+  monthlyLedgerAPI
 }
 
 export default adminAPI
@@ -112,3 +115,12 @@ export type { ErrorPassthroughRule, CreateRuleRequest, UpdateRuleRequest } from 
 export type { BackupAgentHealth, DataManagementConfig } from './dataManagement'
 export type { TLSFingerprintProfile, CreateProfileRequest, UpdateProfileRequest } from './tlsFingerprintProfile'
 export type { ContentModerationConfig, ContentModerationLog, ModerationMode } from './riskControl'
+export type {
+  MonthlyLedgerListParams,
+  MonthlyLedgerListResponse,
+  MonthlyLedgerPayment,
+  MonthlyLedgerPaymentInput,
+  MonthlyLedgerRow,
+  MonthlyLedgerStatus,
+  MonthlyLedgerSummary,
+} from './monthlyLedger'

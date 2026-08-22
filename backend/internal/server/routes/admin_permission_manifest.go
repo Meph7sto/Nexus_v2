@@ -241,6 +241,14 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 		admin+"/usage", admin+"/usage/stats", admin+"/usage/search-users", admin+"/usage/search-api-keys", admin+"/usage/cleanup-tasks")
 	add(service.AdminResourceUsage, service.AdminActionCreate, http.MethodPost, admin+"/usage/cleanup-tasks")
 	add(service.AdminResourceUsage, service.AdminActionExecute, http.MethodPost, admin+"/usage/cleanup-tasks/:id/cancel")
+	add(service.AdminResourceMonthlyLedger, service.AdminActionView, http.MethodGet,
+		admin+"/monthly-ledger", admin+"/monthly-ledger/:month/users/:user_id/payments")
+	add(service.AdminResourceMonthlyLedger, service.AdminActionCreate, http.MethodPost,
+		admin+"/monthly-ledger/:month/users/:user_id/payments")
+	add(service.AdminResourceMonthlyLedger, service.AdminActionUpdate, http.MethodPut,
+		admin+"/monthly-ledger/:month/users/:user_id/multiplier", admin+"/monthly-ledger/payments/:id")
+	add(service.AdminResourceMonthlyLedger, service.AdminActionDelete, http.MethodDelete,
+		admin+"/monthly-ledger/payments/:id")
 	add(service.AdminResourceUsageInteractions, service.AdminActionView, http.MethodGet, admin+"/usage/:id/interaction")
 	add(service.AdminResourceUsageInteractionRaw, service.AdminActionView, http.MethodGet, admin+"/usage/:id/interaction/raw")
 	humanOnly(http.MethodGet, admin+"/usage/:id/interaction/raw")
