@@ -22,8 +22,8 @@ func TestAdminRoutePermissionManifestCoversRegisteredRoutes(t *testing.T) {
 	stepUp := middleware.StepUpAuthMiddleware(func(c *gin.Context) { c.Next() })
 	permissions := allowAllAdminPermissionsForRouteTest()
 
-	RegisterAdminRoutes(v1, handlers, adminAuth, permissions, auditLog, stepUp)
-	RegisterPaymentRoutes(v1, nil, nil, (*adminhandler.PaymentHandler)(nil), middleware.JWTAuthMiddleware(func(c *gin.Context) { c.Next() }), adminAuth, permissions, auditLog, nil)
+	RegisterAdminRoutes(v1, handlers, adminAuth, permissions, auditLog, stepUp, nil, nil)
+	RegisterPaymentRoutes(v1, nil, nil, (*adminhandler.PaymentHandler)(nil), middleware.JWTAuthMiddleware(func(c *gin.Context) { c.Next() }), adminAuth, permissions, auditLog, nil, nil)
 	handler.RegisterPageRoutes(v1, t.TempDir(), gin.HandlerFunc(func(c *gin.Context) { c.Next() }), gin.HandlerFunc(adminAuth), permissions, nil, nil)
 
 	require.NoError(t, ValidateAdminRouteManifest(router.Routes()))
@@ -52,6 +52,42 @@ func TestAdminRoutePermissionManifestMapsOpsStorageView(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, service.AdminResourceOps, permission.Resource)
 	require.Equal(t, service.AdminActionView, permission.Action)
+}
+
+func TestAdminRoutePermissionManifestMapsUpstreamAdminRoutes(t *testing.T) {
+	tests := []struct {
+		method   string
+		path     string
+		resource service.AdminPermissionResource
+		action   service.AdminPermissionAction
+	}{
+		{http.MethodGet, "/api/v1/admin/groups/live-capability", service.AdminResourceGroups, service.AdminActionView},
+		{http.MethodPost, "/api/v1/admin/accounts/usage/batch", service.AdminResourceAccounts, service.AdminActionView},
+		{http.MethodPost, "/api/v1/admin/accounts/batch-delete", service.AdminResourceAccounts, service.AdminActionDelete},
+		{http.MethodPost, "/api/v1/admin/openai/accounts/:id/quota/refresh", service.AdminResourceAccounts, service.AdminActionExecute},
+		{http.MethodGet, "/api/v1/admin/grok/oauth/capabilities", service.AdminResourceAccounts, service.AdminActionView},
+		{http.MethodPost, "/api/v1/admin/grok/oauth/sso-token", service.AdminResourceAccounts, service.AdminActionExecute},
+		{http.MethodPost, "/api/v1/admin/grok/oauth/password", service.AdminResourceAccounts, service.AdminActionExecute},
+		{http.MethodGet, "/api/v1/admin/cn-providers/accounts/:id/quota", service.AdminResourceAccounts, service.AdminActionView},
+		{http.MethodGet, "/api/v1/admin/cn-providers/accounts/:id/balance", service.AdminResourceAccounts, service.AdminActionView},
+		{http.MethodGet, "/api/v1/admin/settings/panel-rate-limit", service.AdminResourceSettings, service.AdminActionView},
+		{http.MethodPut, "/api/v1/admin/settings/panel-rate-limit", service.AdminResourceSettings, service.AdminActionUpdate},
+		{http.MethodGet, "/api/v1/admin/channel-monitor-v2/config", service.AdminResourceChannelMonitor, service.AdminActionView},
+		{http.MethodPut, "/api/v1/admin/channel-monitor-v2/config", service.AdminResourceChannelMonitor, service.AdminActionUpdate},
+		{http.MethodGet, "/api/v1/admin/channel-monitor-v2/dimensions", service.AdminResourceChannelMonitor, service.AdminActionView},
+		{http.MethodGet, "/api/v1/admin/channel-monitor-v2/snapshot", service.AdminResourceChannelMonitor, service.AdminActionView},
+		{http.MethodGet, "/api/v1/admin/channel-monitor-v2/models", service.AdminResourceChannelMonitor, service.AdminActionView},
+		{http.MethodGet, "/api/v1/admin/channel-monitor-v2/matrix", service.AdminResourceChannelMonitor, service.AdminActionView},
+		{http.MethodGet, "/api/v1/admin/channel-monitor-v2/errors", service.AdminResourceChannelMonitor, service.AdminActionView},
+		{http.MethodGet, "/api/v1/admin/channel-monitor-v2/users", service.AdminResourceChannelMonitor, service.AdminActionView},
+	}
+
+	for _, test := range tests {
+		permission, ok := AdminRoutePermissionFor(test.method, test.path)
+		require.Truef(t, ok, "%s %s", test.method, test.path)
+		require.Equal(t, test.resource, permission.Resource, test.path)
+		require.Equal(t, test.action, permission.Action, test.path)
+	}
 }
 
 func TestAdminRoutePermissionManifestSeparatesUsageInteractionContentAndRaw(t *testing.T) {

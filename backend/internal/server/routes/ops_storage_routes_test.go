@@ -67,7 +67,7 @@ func TestOpsStorageRouteRequiresOpsView(t *testing.T) {
 	auditLog := servermiddleware.AuditLogMiddleware(func(c *gin.Context) { c.Next() })
 	stepUp := servermiddleware.StepUpAuthMiddleware(func(c *gin.Context) { c.Next() })
 	permissions := servermiddleware.NewAdminPermissionMiddleware(opsStoragePermissionRepository{})
-	RegisterAdminRoutes(router.Group("/api/v1"), handlers, adminAuth, permissions, auditLog, stepUp)
+	RegisterAdminRoutes(router.Group("/api/v1"), handlers, adminAuth, permissions, auditLog, stepUp, nil, nil)
 
 	for _, testCase := range []struct {
 		name       string

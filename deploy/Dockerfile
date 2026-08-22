@@ -7,7 +7,7 @@
 # =============================================================================
 
 ARG NODE_IMAGE=node:24-alpine
-ARG GOLANG_IMAGE=golang:1.26.5-alpine
+ARG GOLANG_IMAGE=golang:1.26.6-alpine
 ARG ALPINE_IMAGE=alpine:3.20
 ARG GOPROXY=https://goproxy.cn,direct
 ARG GOSUMDB=sum.golang.google.cn
@@ -98,8 +98,9 @@ RUN addgroup -g 1000 nexus && \
 # Set working directory
 WORKDIR /app
 
-# Copy binary from builder
+# Copy binary and runtime fallback resources from builder
 COPY --from=backend-builder /app/nexus /app/nexus
+COPY --from=backend-builder --chown=nexus:nexus /app/backend/resources /app/resources
 
 # Create data directory
 RUN mkdir -p /app/data && chown -R nexus:nexus /app

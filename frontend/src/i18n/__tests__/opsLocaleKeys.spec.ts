@@ -29,12 +29,26 @@ describe('ops locale key completeness', () => {
     'admin.ops.storage.loadFailed',
     'admin.ops.storage.status.unavailable',
     'admin.ops.storage.status.unconfigured',
+    'admin.ops.errorDetail.upstreamStatus',
+    'admin.ops.errorDetail.rootCause',
+    'admin.ops.errorDetail.diagnosticPayloads',
+    'admin.ops.errorDetail.payloads.client',
+    'admin.ops.errorDetail.payloads.upstream_message',
+    'admin.ops.errorDetail.payloads.upstream_detail',
+    'admin.ops.errorDetail.payloads.upstream_events',
   ]
 
   for (const key of requiredKeys) {
     it(`en and zh locales both have ${key}`, () => {
       expect(flattenKeys(en)).toContain(key)
       expect(flattenKeys(zh)).toContain(key)
+    })
+  }
+
+  for (const key of requiredKeys) {
+    it(`zh locale has ${key}`, () => {
+      const zhKeys = flattenKeys(zh)
+      expect(zhKeys).toContain(key)
     })
   }
 })

@@ -2,6 +2,7 @@ package service
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -16,7 +17,7 @@ func (s *UsageInteractionService) UsageInteractionCaptureMiddleware() gin.Handle
 		if c == nil {
 			return
 		}
-		if c.Request == nil || c.Request.Method != http.MethodPost {
+		if c.Request == nil || c.Request.Method != http.MethodPost || usageInteractionCaptureExcludedPath(c.Request.URL.Path) {
 			c.Next()
 			return
 		}
@@ -25,6 +26,16 @@ func (s *UsageInteractionService) UsageInteractionCaptureMiddleware() gin.Handle
 			beginUsageInteractionResponseCapture(c)
 		}
 		c.Next()
+	}
+}
+
+func usageInteractionCaptureExcludedPath(path string) bool {
+	path = strings.TrimRight(strings.TrimSpace(path), "/")
+	switch path {
+	case "/v1/live", "/backend-api/codex/realtime/calls":
+		return true
+	default:
+		return false
 	}
 }
 

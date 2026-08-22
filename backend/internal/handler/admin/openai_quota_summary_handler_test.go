@@ -40,7 +40,7 @@ func TestOpenAIQuotaSummaryHandlerValidatesParameters(t *testing.T) {
 	} {
 		t.Run(rawURL, func(t *testing.T) {
 			stub := &openAIQuotaSummaryHandlerServiceStub{}
-			handler := NewOpenAIOAuthHandler(nil, stub, nil)
+			handler := NewOpenAIOAuthHandler(nil, stub, nil, nil)
 			router := gin.New()
 			router.GET("/api/v1/admin/openai/quota-summary", handler.QuotaSummary)
 
@@ -55,7 +55,7 @@ func TestOpenAIQuotaSummaryHandlerValidatesParameters(t *testing.T) {
 
 func TestOpenAIQuotaSummaryHandlerReturnsServiceUnavailableWithoutAdminService(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	handler := NewOpenAIOAuthHandler(nil, nil, nil)
+	handler := NewOpenAIOAuthHandler(nil, nil, nil, nil)
 	router := gin.New()
 	router.GET("/api/v1/admin/openai/quota-summary", handler.QuotaSummary)
 
@@ -75,7 +75,7 @@ func TestOpenAIQuotaSummaryHandlerReturnsEmptyResultAndForwardsFilters(t *testin
 			Groups:       []service.OpenAIQuotaSummaryGroup{},
 		},
 	}
-	handler := NewOpenAIOAuthHandler(nil, stub, nil)
+	handler := NewOpenAIOAuthHandler(nil, stub, nil, nil)
 	router := gin.New()
 	router.GET("/api/v1/admin/openai/quota-summary", handler.QuotaSummary)
 
@@ -104,7 +104,7 @@ func TestOpenAIQuotaSummaryHandlerReturnsEmptyResultAndForwardsFilters(t *testin
 func TestOpenAIQuotaSummaryHandlerReturnsServiceErrors(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	stub := &openAIQuotaSummaryHandlerServiceStub{err: errors.New("database unavailable")}
-	handler := NewOpenAIOAuthHandler(nil, stub, nil)
+	handler := NewOpenAIOAuthHandler(nil, stub, nil, nil)
 	router := gin.New()
 	router.GET("/api/v1/admin/openai/quota-summary", handler.QuotaSummary)
 

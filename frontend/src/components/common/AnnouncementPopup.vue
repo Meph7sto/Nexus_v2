@@ -2,7 +2,7 @@
   <Teleport to="body">
     <Transition name="popup-fade">
       <div
-        v-if="announcementStore.currentPopup"
+        v-if="displayedAnnouncement"
         class="modal-overlay announcement-popup-overlay z-[120]"
       >
         <div
@@ -27,13 +27,13 @@
 
               <!-- Title -->
               <h2 class="mb-2 text-2xl font-semibold leading-tight text-[var(--nx-text)]">
-                {{ announcementStore.currentPopup.title }}
+                {{ displayedAnnouncement.title }}
               </h2>
 
               <!-- Time -->
               <div class="flex items-center gap-1.5 text-sm text-[var(--nx-muted)]">
                 <Icon name="clock" size="sm" />
-                <time>{{ formatRelativeWithDateTime(announcementStore.currentPopup.created_at) }}</time>
+                <time>{{ formatRelativeWithDateTime(displayedAnnouncement.created_at) }}</time>
               </div>
             </div>
           </div>
@@ -56,11 +56,12 @@
             <div class="flex items-center justify-end">
               <button
                 @click="handleDismiss"
+                data-testid="announcement-popup-dismiss"
                 class="btn btn-primary"
               >
                 <span class="flex items-center gap-2">
-                  <Icon name="check" size="sm" :stroke-width="2" />
-                  {{ t('announcements.markRead') }}
+                  <Icon :name="preview ? 'x' : 'check'" size="sm" :stroke-width="2" />
+                  {{ preview ? t('common.close') : t('announcements.markRead') }}
                 </span>
               </button>
             </div>
@@ -72,16 +73,34 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, onBeforeUnmount, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { useAnnouncementStore } from '@/stores/announcements'
 import { formatRelativeWithDateTime } from '@/utils/format'
 import Icon from '@/components/icons/Icon.vue'
+import type { Announcement, UserAnnouncement } from '@/types'
+
+type PreviewAnnouncement = Pick<Announcement | UserAnnouncement, 'title' | 'content' | 'created_at'>
+
+const props = withDefaults(defineProps<{
+  announcement?: PreviewAnnouncement | null
+  preview?: boolean
+}>(), {
+  announcement: null,
+  preview: false,
+})
+
+const emit = defineEmits<{
+  close: []
+}>()
 
 const { t } = useI18n()
 const announcementStore = useAnnouncementStore()
+const displayedAnnouncement = computed(() => (
+  props.preview ? props.announcement : announcementStore.currentPopup
+))
 
 marked.setOptions({
   breaks: true,
@@ -89,25 +108,38 @@ marked.setOptions({
 })
 
 const renderedContent = computed(() => {
-  const content = announcementStore.currentPopup?.content
+  const content = displayedAnnouncement.value?.content
   if (!content) return ''
   const html = marked.parse(content) as string
   return DOMPurify.sanitize(html)
 })
 
 function handleDismiss() {
+  if (props.preview) {
+    emit('close')
+    return
+  }
   announcementStore.dismissPopup()
 }
 
 // Manage body overflow — only set, never unset (bell component handles restore)
 watch(
-  () => announcementStore.currentPopup,
+  displayedAnnouncement,
   (popup) => {
     if (popup) {
       document.body.style.overflow = 'hidden'
+    } else if (props.preview) {
+      document.body.style.overflow = ''
     }
-  }
+  },
+  { immediate: true },
 )
+
+onBeforeUnmount(() => {
+  if (props.preview) {
+    document.body.style.overflow = ''
+  }
+})
 </script>
 
 <style scoped>

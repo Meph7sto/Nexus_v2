@@ -107,7 +107,7 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 	add(service.AdminResourceGroups, service.AdminActionView, http.MethodGet,
 		admin+"/groups", admin+"/groups/all", admin+"/groups/usage-summary", admin+"/groups/capacity-summary",
 		admin+"/groups/:id/models-list-candidates", admin+"/groups/:id", admin+"/groups/:id/stats",
-		admin+"/groups/:id/rate-multipliers", admin+"/groups/:id/composite-routes")
+		admin+"/groups/:id/rate-multipliers", admin+"/groups/:id/composite-routes", admin+"/groups/live-capability")
 	add(service.AdminResourceGroups, service.AdminActionCreate, http.MethodPost,
 		admin+"/groups", admin+"/groups/:id/duplicate", admin+"/groups/:id/composite-routes")
 	add(service.AdminResourceGroups, service.AdminActionExecute, http.MethodPost,
@@ -124,7 +124,9 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 		admin+"/accounts/:id/usage", admin+"/accounts/:id/today-stats", admin+"/accounts/:id/temp-unschedulable",
 		admin+"/accounts/:id/models", admin+"/accounts/antigravity/default-model-mapping", admin+"/openai/accounts/:id/quota",
 		admin+"/openai/quota-summary", admin+"/accounts/ollama-cloud-usage/settings", admin+"/accounts/:id/ollama-cloud-usage",
-		admin+"/gemini/oauth/capabilities", admin+"/grok/accounts/:id/quota", admin+"/grok/runtime-sanity")
+		admin+"/gemini/oauth/capabilities", admin+"/grok/accounts/:id/quota", admin+"/grok/runtime-sanity",
+		admin+"/grok/oauth/capabilities", admin+"/cn-providers/accounts/:id/quota", admin+"/cn-providers/accounts/:id/balance")
+	add(service.AdminResourceAccounts, service.AdminActionView, http.MethodPost, admin+"/accounts/usage/batch")
 	add(service.AdminResourceAccounts, service.AdminActionExport, http.MethodGet, admin+"/accounts/data")
 	add(service.AdminResourceAccounts, service.AdminActionCreate, http.MethodPost,
 		admin+"/accounts", admin+"/accounts/batch", admin+"/accounts/data", admin+"/openai/create-from-oauth",
@@ -137,6 +139,7 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 		admin+"/accounts/:id/ollama-cloud-usage/session")
 	add(service.AdminResourceAccounts, service.AdminActionDelete, http.MethodDelete,
 		admin+"/accounts/:id", admin+"/accounts/:id/temp-unschedulable")
+	add(service.AdminResourceAccounts, service.AdminActionDelete, http.MethodPost, admin+"/accounts/batch-delete")
 	add(service.AdminResourceAccounts, service.AdminActionExecute, http.MethodPost,
 		admin+"/accounts/upstream-billing-probe/batch", admin+"/accounts/:id/duplicate", admin+"/accounts/check-mixed-channel",
 		admin+"/accounts/import/codex-session", admin+"/accounts/sync/crs", admin+"/accounts/sync/crs/preview",
@@ -154,6 +157,7 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 		admin+"/antigravity/oauth/auth-url", admin+"/antigravity/oauth/exchange-code", admin+"/antigravity/oauth/refresh-token",
 		admin+"/grok/oauth/auth-url", admin+"/grok/oauth/exchange-code", admin+"/grok/oauth/refresh-token",
 		admin+"/grok/oauth/reconcile", admin+"/grok/accounts/:id/refresh", admin+"/grok/accounts/:id/reset-quota",
+		admin+"/grok/oauth/sso-token", admin+"/grok/oauth/password", admin+"/openai/accounts/:id/quota/refresh",
 		admin+"/accounts/:id/ollama-cloud-usage/refresh")
 	humanOnly(http.MethodPut, admin+"/accounts/:id/ollama-cloud-usage/session")
 	humanOnly(http.MethodDelete, admin+"/accounts/:id/ollama-cloud-usage/session")
@@ -186,11 +190,12 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 	add(service.AdminResourceSettings, service.AdminActionView, http.MethodGet,
 		admin+"/settings", admin+"/settings/email-templates", admin+"/settings/email-templates/:event/:locale",
 		admin+"/settings/admin-api-key", admin+"/settings/overload-cooldown", admin+"/settings/rate-limit-429-cooldown",
-		admin+"/settings/stream-timeout", admin+"/settings/rectifier", admin+"/settings/beta-policy", admin+"/settings/web-search-emulation")
+		admin+"/settings/stream-timeout", admin+"/settings/rectifier", admin+"/settings/beta-policy", admin+"/settings/web-search-emulation",
+		admin+"/settings/panel-rate-limit")
 	add(service.AdminResourceSettings, service.AdminActionUpdate, http.MethodPut,
 		admin+"/settings", admin+"/settings/email-templates/:event/:locale", admin+"/settings/overload-cooldown",
 		admin+"/settings/rate-limit-429-cooldown", admin+"/settings/stream-timeout", admin+"/settings/rectifier",
-		admin+"/settings/beta-policy", admin+"/settings/web-search-emulation")
+		admin+"/settings/beta-policy", admin+"/settings/web-search-emulation", admin+"/settings/panel-rate-limit")
 	add(service.AdminResourceSettings, service.AdminActionExecute, http.MethodPost,
 		admin+"/settings/test-smtp", admin+"/settings/send-test-email", admin+"/settings/email-template-preview",
 		admin+"/settings/email-templates/:event/:locale/restore-official", admin+"/settings/admin-api-key/regenerate",
@@ -276,11 +281,14 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 	add(service.AdminResourceChannels, service.AdminActionDelete, http.MethodDelete, admin+"/channels/:id")
 	add(service.AdminResourceChannelMonitor, service.AdminActionView, http.MethodGet,
 		admin+"/channel-monitors", admin+"/channel-monitors/:id", admin+"/channel-monitors/:id/history",
-		admin+"/channel-monitor-templates", admin+"/channel-monitor-templates/:id", admin+"/channel-monitor-templates/:id/monitors")
+		admin+"/channel-monitor-templates", admin+"/channel-monitor-templates/:id", admin+"/channel-monitor-templates/:id/monitors",
+		admin+"/channel-monitor-v2/config", admin+"/channel-monitor-v2/dimensions", admin+"/channel-monitor-v2/snapshot",
+		admin+"/channel-monitor-v2/models", admin+"/channel-monitor-v2/matrix", admin+"/channel-monitor-v2/errors",
+		admin+"/channel-monitor-v2/users")
 	add(service.AdminResourceChannelMonitor, service.AdminActionCreate, http.MethodPost,
 		admin+"/channel-monitors", admin+"/channel-monitors/:id/duplicate", admin+"/channel-monitor-templates")
 	add(service.AdminResourceChannelMonitor, service.AdminActionUpdate, http.MethodPut,
-		admin+"/channel-monitors/:id", admin+"/channel-monitor-templates/:id")
+		admin+"/channel-monitors/:id", admin+"/channel-monitor-templates/:id", admin+"/channel-monitor-v2/config")
 	add(service.AdminResourceChannelMonitor, service.AdminActionDelete, http.MethodDelete,
 		admin+"/channel-monitors/:id", admin+"/channel-monitor-templates/:id")
 	add(service.AdminResourceChannelMonitor, service.AdminActionExecute, http.MethodPost,

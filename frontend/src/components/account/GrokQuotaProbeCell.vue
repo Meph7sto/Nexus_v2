@@ -48,12 +48,17 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
-import type { GrokQuotaProbeResult, GrokQuotaWindow } from '@/api/admin/grok'
+import type { GrokQuotaProbeResult } from '@/api/admin/grok'
 import type { Account } from '@/types'
 
-const props = defineProps<{
-  account: Account
-}>()
+const props = withDefaults(
+  defineProps<{
+    account: Account
+    /** When true, only show the probe button (+ errors). No duplicate weekly summary. */
+    compact?: boolean
+  }>(),
+  { compact: false }
+)
 
 const emit = defineEmits<{ probed: [result: GrokQuotaProbeResult] }>()
 
@@ -79,42 +84,16 @@ const extractErrorMessage = (e: unknown): string => {
   )
 }
 
-const formatWindow = (label: string, window?: GrokQuotaWindow | null): string | null => {
-  if (!window || window.limit == null || window.remaining == null) return null
-  return `${label} ${window.remaining}/${window.limit}`
-}
-
-const retryAfterLabel = computed(() => {
-  const seconds = data.value?.snapshot?.retry_after_seconds
-  if (seconds == null || seconds <= 0) return null
-  if (seconds < 60) return `${seconds}s`
-  return `${Math.ceil(seconds / 60)}m`
-})
-
 const summary = computed(() => {
-  const snapshot = data.value?.snapshot
-  if (!data.value) return ''
+  if (props.compact || !data.value) return ''
+  // Non-compact fallback (rarely used): brief weekly percent if present.
   const billing = data.value.billing
-  const parts: Array<string | null> = []
   if (billing?.period_type?.toLowerCase() === 'weekly' && billing.usage_percent != null) {
-    parts.push(t('admin.accounts.usageWindow.grokWeeklyUsage', {
+    return t('admin.accounts.usageWindow.grokWeeklyUsage', {
       percent: Math.round(Math.min(100, Math.max(0, billing.usage_percent)))
-    }))
+    })
   }
-  if (snapshot) {
-    parts.push(
-      formatWindow(t('admin.accounts.usageWindow.grokRequests'), snapshot.requests),
-      formatWindow(t('admin.accounts.usageWindow.grokTokens'), snapshot.tokens)
-    )
-  }
-  if (retryAfterLabel.value) {
-    parts.push(t('admin.accounts.usageWindow.grokRetryAfter', { time: retryAfterLabel.value }))
-  }
-  if (snapshot?.entitlement_status) {
-    parts.push(snapshot.entitlement_status)
-  }
-  const visibleParts = parts.filter((part): part is string => Boolean(part))
-  return visibleParts.length > 0 ? visibleParts.join(' | ') : t('admin.accounts.usageWindow.grokNoHeaders')
+  return ''
 })
 
 const truncatedError = computed(() => {

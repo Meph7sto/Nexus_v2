@@ -42,8 +42,9 @@ RUN addgroup -g 1000 nexus && \
 
 WORKDIR /app
 
-# Copy pre-built binary from GoReleaser
+# Copy the pre-built binary and runtime fallback resources from GoReleaser
 COPY nexus /app/nexus
+COPY --chown=nexus:nexus backend/resources /app/resources
 
 # Create data directory
 RUN mkdir -p /app/data && chown -R nexus:nexus /app

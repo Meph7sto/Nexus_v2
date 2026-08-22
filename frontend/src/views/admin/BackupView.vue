@@ -208,6 +208,7 @@
                 <th class="py-2 pr-4">{{ t('admin.backup.columns.status') }}</th>
                 <th class="py-2 pr-4">{{ t('admin.backup.columns.fileName') }}</th>
                 <th class="py-2 pr-4">{{ t('admin.backup.columns.size') }}</th>
+                <th class="py-2 pr-4">{{ t('admin.backup.columns.parts') }}</th>
                 <th class="py-2 pr-4">{{ t('admin.backup.columns.expiresAt') }}</th>
                 <th class="py-2 pr-4">{{ t('admin.backup.columns.triggeredBy') }}</th>
                 <th class="py-2 pr-4">{{ t('admin.backup.columns.startedAt') }}</th>
@@ -229,6 +230,7 @@
                 </td>
                 <td class="py-3 pr-4 text-xs">{{ record.file_name }}</td>
                 <td class="py-3 pr-4 text-xs">{{ formatSize(record.size_bytes) }}</td>
+                <td class="py-3 pr-4 text-xs">{{ record.parts?.length || (record.status === 'running' ? '-' : 1) }}</td>
                 <td class="py-3 pr-4 text-xs">
                   {{ record.expires_at ? formatDate(record.expires_at) : t('admin.backup.neverExpire') }}
                 </td>
@@ -260,8 +262,9 @@
                       </button>
                     </AdminPermissionGate>
                     <AdminPermissionGate resource="backups" action="delete">
-                      <button
-                        type="button"
+                    <button
+                      v-if="record.status !== 'running'"
+                      type="button"
                         class="btn btn-danger btn-xs"
                         @click="removeBackup(record.id)"
                       >
@@ -272,7 +275,7 @@
                 </td>
               </tr>
               <tr v-if="backups.length === 0">
-                <td colspan="8" class="py-6 text-center text-sm text-gray-500 ">
+                <td colspan="9" class="py-6 text-center text-sm text-gray-500 ">
                   {{ t('admin.backup.empty') }}
                 </td>
               </tr>
@@ -365,6 +368,36 @@
         </div>
       </transition>
     </teleport>
+    <!-- 分卷下载链接 -->
+    <BaseDialog
+      :show="downloadPartsModalOpen"
+      :title="t('admin.backup.actions.downloadParts')"
+      width="normal"
+      :close-on-click-outside="true"
+      @close="closeDownloadParts"
+    >
+      <p class="mb-4 text-sm text-[var(--nx-muted)]">{{ t('admin.backup.actions.downloadPartsHint') }}</p>
+      <div class="space-y-2">
+        <div
+          v-for="part in downloadParts"
+          :key="part.index"
+          class="flex items-center justify-between gap-3 rounded-lg border border-[var(--nx-border)] px-3 py-2"
+        >
+          <span class="text-sm text-[var(--nx-text)]">
+            {{ t('admin.backup.actions.partLabel', { index: part.index }) }}
+            <span class="ml-2 text-xs text-[var(--nx-muted)]">{{ formatSize(part.size_bytes) }}</span>
+          </span>
+          <a :href="part.url" class="btn btn-secondary btn-xs" rel="noopener">
+            {{ t('admin.backup.actions.download') }}
+          </a>
+        </div>
+      </div>
+      <template #footer>
+        <button type="button" class="btn btn-primary btn-sm" @click="closeDownloadParts">
+          {{ t('common.close') }}
+        </button>
+      </template>
+    </BaseDialog>
     <TotpStepUpDialog :controller="backupStepUp" />
 </template>
 
@@ -378,11 +411,13 @@ import type {
   BackupS3Config,
   BackupScheduleConfig,
   BackupRecord,
+  BackupDownloadPart,
   ImageStorageConfig,
 } from '@/api/admin/backup'
 import { useStepUp, isStepUpBlocked, isStepUpCancelled, stepUpBlockReason } from '@/composables/useStepUp'
 import TotpStepUpDialog from '@/components/auth/TotpStepUpDialog.vue'
 import AdminPermissionGate from '@/components/admin/AdminPermissionGate.vue'
+import BaseDialog from '@/components/common/BaseDialog.vue'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -449,6 +484,8 @@ const loadingBackups = ref(false)
 const creatingBackup = ref(false)
 const restoringId = ref('')
 const manualExpireDays = ref(14)
+const downloadParts = ref<BackupDownloadPart[]>([])
+const downloadPartsModalOpen = ref(false)
 
 // Polling
 const pollingTimer = ref<ReturnType<typeof setInterval> | null>(null)
@@ -737,6 +774,14 @@ async function downloadBackup(id: string) {
   if (!authStore.canAdmin('backups', 'export')) return
   try {
     const result = await backupStepUp.run(() => adminAPI.backup.getDownloadURL(id))
+    if (result.parts && result.parts.length > 0) {
+      downloadParts.value = result.parts
+      downloadPartsModalOpen.value = true
+      return
+    }
+    if (!result.url) {
+      throw new Error(t('admin.backup.actions.downloadFailed'))
+    }
     // 预签名 URL 带 attachment disposition，同页 anchor 导航直接触发下载；
     // 不用 window.open：step-up 弹窗 await 会耗尽瞬态用户激活，新标签页会被浏览器拦截。
     const link = document.createElement('a')
@@ -748,6 +793,11 @@ async function downloadBackup(id: string) {
     if (reportStepUpBlocked(error)) return
     appStore.showError((error as { message?: string })?.message || t('errors.networkError'))
   }
+}
+
+function closeDownloadParts() {
+  downloadPartsModalOpen.value = false
+  downloadParts.value = []
 }
 
 async function restoreBackup(id: string) {

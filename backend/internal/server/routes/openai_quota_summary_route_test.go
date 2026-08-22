@@ -56,7 +56,7 @@ func TestOpenAIQuotaSummaryRoutePermissionMatrix(t *testing.T) {
 	permissionRepo := &openAIQuotaSummaryPermissionRepoStub{allowedUserIDs: map[int64]bool{3: true}}
 	router := gin.New()
 	handlers := &handler.Handlers{Admin: &handler.AdminHandlers{
-		OpenAIOAuth: adminhandler.NewOpenAIOAuthHandler(nil, serviceStub, nil),
+		OpenAIOAuth: adminhandler.NewOpenAIOAuthHandler(nil, serviceStub, nil, nil),
 	}}
 	adminAuth := servermiddleware.AdminAuthMiddleware(func(c *gin.Context) {
 		switch c.GetHeader("X-Test-Role") {
@@ -84,6 +84,8 @@ func TestOpenAIQuotaSummaryRoutePermissionMatrix(t *testing.T) {
 		servermiddleware.NewAdminPermissionMiddleware(permissionRepo),
 		servermiddleware.AuditLogMiddleware(func(c *gin.Context) { c.Next() }),
 		servermiddleware.StepUpAuthMiddleware(func(c *gin.Context) { c.Next() }),
+		nil,
+		nil,
 	)
 
 	for _, testCase := range []struct {

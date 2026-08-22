@@ -11,6 +11,7 @@ const headerSource = read('../AppHeader.vue')
 const layoutSource = read('../AppLayout.vue')
 const sidebarSource = read('../AppSidebar.vue')
 const authLayoutSource = read('../AuthLayout.vue')
+const plazaNavSource = read('../../modelPlaza/PlazaNavBar.vue')
 const homeSource = read('../../../views/HomeView.vue')
 const keyUsageSource = read('../../../views/KeyUsageView.vue')
 const packageSource = read('../../../../package.json')
@@ -33,10 +34,15 @@ describe('Nexus product chrome', () => {
   })
 
   it('keeps the Nexus PNG as the built-in product icon', () => {
-    for (const source of [indexSource, sidebarSource, authLayoutSource, homeSource, keyUsageSource]) {
+    for (const source of [indexSource, sidebarSource, authLayoutSource, plazaNavSource, homeSource, keyUsageSource]) {
       expect(source).toContain('/logo.png')
       expect(source).not.toContain('/logo.svg')
     }
+  })
+
+  it('keeps the public model plaza navigation on Nexus surface tokens', () => {
+    expect(plazaNavSource).toContain('border-[var(--nx-border)] bg-[var(--nx-surface)]')
+    expect(plazaNavSource).not.toContain('backdrop-blur')
   })
 
   it('does not ship onboarding UI or its runtime dependency', () => {

@@ -38,6 +38,29 @@ func TestUsageInteractionCaptureMiddlewareCapturesActualDownstreamOutput(t *test
 	require.Equal(t, "visible to the client", capture.ResponseContent["output"])
 }
 
+func TestUsageInteractionCaptureMiddlewareExcludesLiveEndpoints(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	interactions := NewUsageInteractionService(nil, &usageInteractionTestSettingRepository{values: usageInteractionTestSettings(true, false, "7")})
+
+	for _, path := range []string{"/v1/live", "/backend-api/codex/realtime/calls"} {
+		t.Run(path, func(t *testing.T) {
+			router := gin.New()
+			router.Use(interactions.UsageInteractionCaptureMiddleware())
+			var capture *UsageInteractionCapture
+			router.POST(path, func(c *gin.Context) {
+				c.JSON(http.StatusOK, gin.H{"status": "connected"})
+				capture = BuildUsageInteractionCaptureFromContext(c, []byte(`{"model":"live"}`), nil)
+			})
+
+			recording := httptest.NewRecorder()
+			router.ServeHTTP(recording, httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"model":"live"}`)))
+
+			require.Equal(t, http.StatusOK, recording.Code)
+			require.Nil(t, capture)
+		})
+	}
+}
+
 func TestUsageInteractionCaptureEnforcesPayloadLimit(t *testing.T) {
 	response := []byte(`{"output":"` + strings.Repeat("x", maxUsageInteractionPayloadBytes) + `"}`)
 	capture := BuildUsageInteractionCapture([]byte(`{"input":"keep"}`), response, nil)
@@ -154,6 +177,33 @@ func TestUsageInteractionPersistenceFailureDoesNotBlockUsageLog(t *testing.T) {
 	require.True(t, interactionRepo.created)
 }
 
+func TestUsageInteractionNilCaptureKeepsLegacyUsageWrite(t *testing.T) {
+	usageRepo := &usageInteractionTestUsageLogRepository{nextID: 78}
+	interactionRepo := &usageInteractionTestRepository{}
+	interactions := NewUsageInteractionService(interactionRepo, &usageInteractionTestSettingRepository{values: usageInteractionTestSettings(true, false, "7")})
+	usageLog := &UsageLog{RequestID: "req-without-capture", UserID: 2, APIKeyID: 3, AccountID: 4}
+
+	writeUsageLogWithInteractionBestEffort(context.Background(), usageRepo, usageLog, interactions, nil, "service.usage_interaction_test")
+
+	require.Equal(t, 1, usageRepo.createCalls)
+	require.False(t, interactionRepo.created)
+}
+
+func TestUsageInteractionUsageCreateFailureFallsBackToBestEffort(t *testing.T) {
+	usageRepo := &usageInteractionFallbackUsageLogRepository{}
+	interactionRepo := &usageInteractionTestRepository{}
+	interactions := NewUsageInteractionService(interactionRepo, &usageInteractionTestSettingRepository{values: usageInteractionTestSettings(true, false, "7")})
+
+	writeUsageLogWithInteractionBestEffort(context.Background(), usageRepo, &UsageLog{RequestID: "req-fallback"}, interactions, &UsageInteractionCapture{
+		RequestContent:  map[string]any{"prompt": "keep"},
+		ResponseContent: map[string]any{"output": "delivered"},
+	}, "service.usage_interaction_test")
+
+	require.Equal(t, 1, usageRepo.createCalls)
+	require.Equal(t, 1, usageRepo.bestEffortCalls)
+	require.False(t, interactionRepo.created)
+}
+
 type usageInteractionTestRepository struct {
 	created          bool
 	input            UsageInteractionInput
@@ -233,6 +283,22 @@ type usageInteractionTestUsageLogRepository struct {
 	UsageLogRepository
 	nextID      int64
 	createCalls int
+}
+
+type usageInteractionFallbackUsageLogRepository struct {
+	UsageLogRepository
+	createCalls     int
+	bestEffortCalls int
+}
+
+func (r *usageInteractionFallbackUsageLogRepository) Create(context.Context, *UsageLog) (bool, error) {
+	r.createCalls++
+	return false, errors.New("usage log sync create failed")
+}
+
+func (r *usageInteractionFallbackUsageLogRepository) CreateBestEffort(context.Context, *UsageLog) error {
+	r.bestEffortCalls++
+	return nil
 }
 
 func (r *usageInteractionTestUsageLogRepository) Create(_ context.Context, usageLog *UsageLog) (bool, error) {

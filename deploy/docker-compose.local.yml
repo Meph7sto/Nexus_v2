@@ -27,6 +27,8 @@ services:
     image: weishaw/nexus:latest
     container_name: nexus
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     ulimits:
       nofile:
         soft: 100000

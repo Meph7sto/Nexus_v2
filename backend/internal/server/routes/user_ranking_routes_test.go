@@ -30,7 +30,7 @@ func TestRegisterUserRoutesProtectsUsageRankingWithJWT(t *testing.T) {
 		c.AbortWithStatus(http.StatusUnauthorized)
 	})
 	auditLog := servermiddleware.AuditLogMiddleware(func(c *gin.Context) { c.Next() })
-	RegisterUserRoutes(v1, handlers, jwtAuth, auditLog, nil)
+	RegisterUserRoutes(v1, handlers, jwtAuth, auditLog, nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/usage/ranking", nil)
 	rec := httptest.NewRecorder()

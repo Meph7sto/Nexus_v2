@@ -277,6 +277,10 @@ func (r *monthlyLedgerRepository) CreatePayment(ctx context.Context, payment *se
 	if r == nil || r.db == nil {
 		return service.ErrMonthlyLedgerRepositoryNotReady
 	}
+	billingMonth, err := time.Parse("2006-01", strings.TrimSpace(payment.BillingMonth))
+	if err != nil {
+		return service.ErrMonthlyLedgerInvalidMonth
+	}
 	query := `
 		INSERT INTO monthly_ledger_payments (
 			user_id, billing_month, amount, paid_at, note, created_by, updated_by,
@@ -286,8 +290,8 @@ func (r *monthlyLedgerRepository) CreatePayment(ctx context.Context, payment *se
 		FROM users
 		WHERE id = $1 AND role = 'user'
 		RETURNING id, created_at, updated_at`
-	err := r.db.QueryRowContext(
-		ctx, query, payment.UserID, payment.BillingMonth, payment.Amount,
+	err = r.db.QueryRowContext(
+		ctx, query, payment.UserID, billingMonth.Format("2006-01-02"), payment.Amount,
 		payment.PaidAt, payment.Note, payment.CreatedBy, payment.CreatedAt,
 	).Scan(&payment.ID, &payment.CreatedAt, &payment.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {

@@ -82,7 +82,7 @@ func TestMonthlyLedgerRepositoryAggregatesAndFiltersLiveMonthlyLedger(t *testing
 		require.NoError(t, err)
 	}
 	insertUsage(partialUser, partialKey, 600, period.Start)
-	insertUsage(partialUser, partialKey, 999, period.Start.Add(-time.Nanosecond))
+	insertUsage(partialUser, partialKey, 999, period.Start.Add(-time.Microsecond))
 	insertUsage(partialUser, partialKey, 999, period.End)
 	insertUsage(settledUser, settledKey, 100, usageTime)
 	insertUsage(overpaidUser, overpaidKey, 50, usageTime)
