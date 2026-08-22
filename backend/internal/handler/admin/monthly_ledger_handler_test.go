@@ -17,8 +17,9 @@ import (
 )
 
 type monthlyLedgerHandlerRepoStub struct {
-	period  service.MonthlyLedgerPeriod
-	created *service.MonthlyLedgerPayment
+	period              service.MonthlyLedgerPeriod
+	paymentBillingMonth time.Time
+	created             *service.MonthlyLedgerPayment
 }
 
 func (s *monthlyLedgerHandlerRepoStub) List(_ context.Context, period service.MonthlyLedgerPeriod, _ service.MonthlyLedgerListParams) ([]service.MonthlyLedgerRow, *service.MonthlyLedgerSummary, *pagination.PaginationResult, error) {
@@ -34,7 +35,8 @@ func (s *monthlyLedgerHandlerRepoStub) SetMultiplier(context.Context, time.Time,
 	return 1, nil
 }
 
-func (s *monthlyLedgerHandlerRepoStub) CreatePayment(_ context.Context, payment *service.MonthlyLedgerPayment) error {
+func (s *monthlyLedgerHandlerRepoStub) CreatePayment(_ context.Context, billingMonth time.Time, payment *service.MonthlyLedgerPayment) error {
+	s.paymentBillingMonth = billingMonth
 	payment.ID = 41
 	copy := *payment
 	s.created = &copy
@@ -96,7 +98,14 @@ func TestMonthlyLedgerHandlerCreatesHistoricalPayment(t *testing.T) {
 	router.ServeHTTP(recorder, req)
 
 	require.Equal(t, http.StatusOK, recorder.Code)
+	var responseBody struct {
+		Data service.MonthlyLedgerPayment `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Equal(t, month, responseBody.Data.BillingMonth)
 	require.NotNil(t, repo.created)
+	require.Equal(t, month, repo.paymentBillingMonth.Format("2006-01"))
+	require.Equal(t, 1, repo.paymentBillingMonth.Day())
 	require.Equal(t, int64(7), repo.created.UserID)
 	require.Equal(t, int64(99), repo.created.CreatedBy)
 	require.Equal(t, 300.0, repo.created.Amount)

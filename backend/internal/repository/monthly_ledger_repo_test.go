@@ -76,6 +76,7 @@ func TestMonthlyLedgerCreatePaymentWritesMonthStartDate(t *testing.T) {
 
 	paidAt := time.Date(2026, 8, 2, 10, 0, 0, 0, time.UTC)
 	createdAt := paidAt.Add(time.Minute)
+	billingMonth := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
 	mock.ExpectQuery("INSERT INTO monthly_ledger_payments").
 		WithArgs(int64(7), "2026-07-01", 125.25, paidAt, "received", int64(99), createdAt).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at", "updated_at"}).
@@ -91,18 +92,8 @@ func TestMonthlyLedgerCreatePaymentWritesMonthStartDate(t *testing.T) {
 		CreatedAt:    createdAt,
 	}
 	repo := NewMonthlyLedgerRepository(db)
-	require.NoError(t, repo.CreatePayment(context.Background(), payment))
+	require.NoError(t, repo.CreatePayment(context.Background(), billingMonth, payment))
 	require.Equal(t, int64(42), payment.ID)
-	require.NoError(t, mock.ExpectationsWereMet())
-}
-
-func TestMonthlyLedgerCreatePaymentRejectsInvalidMonth(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = db.Close() })
-
-	repo := NewMonthlyLedgerRepository(db)
-	err = repo.CreatePayment(context.Background(), &service.MonthlyLedgerPayment{BillingMonth: "2026-13"})
-	require.ErrorIs(t, err, service.ErrMonthlyLedgerInvalidMonth)
+	require.Equal(t, "2026-07", payment.BillingMonth)
 	require.NoError(t, mock.ExpectationsWereMet())
 }

@@ -107,10 +107,17 @@ func TestMonthlyLedgerRepositoryAggregatesAndFiltersLiveMonthlyLedger(t *testing
 			PaidAt: period.End.Add(24 * time.Hour), CreatedBy: actor.ID,
 			CreatedAt: period.End.Add(24 * time.Hour),
 		}
-		require.NoError(t, repo.CreatePayment(ctx, payment))
+		require.NoError(t, repo.CreatePayment(ctx, period.Start, payment))
 		return payment
 	}
 	partialPayment := createPayment(partialUser, 125.25)
+	require.Equal(t, "2026-07", partialPayment.BillingMonth)
+	var storedBillingMonth string
+	require.NoError(t, integrationDB.QueryRowContext(ctx,
+		"SELECT billing_month::text FROM monthly_ledger_payments WHERE id = $1",
+		partialPayment.ID,
+	).Scan(&storedBillingMonth))
+	require.Equal(t, "2026-07-01", storedBillingMonth)
 	createPayment(settledUser, 100)
 	createPayment(overpaidUser, 70)
 	createPayment(paymentOnlyUser, 5)
@@ -180,13 +187,17 @@ func TestMonthlyLedgerRepositoryAggregatesAndFiltersLiveMonthlyLedger(t *testing
 	payments, err := repo.ListPayments(ctx, period.Start, partialUser.ID)
 	require.NoError(t, err)
 	require.Len(t, payments, 1)
+	require.Equal(t, "2026-07", payments[0].BillingMonth)
 	before, after, err := repo.UpdatePayment(ctx, partialPayment.ID, service.MonthlyLedgerPaymentUpdate{
 		Amount: 130, PaidAt: partialPayment.PaidAt.Add(time.Hour), Note: "updated",
 	}, actor.ID)
 	require.NoError(t, err)
 	require.InDelta(t, 125.25, before.Amount, 0.000001)
 	require.InDelta(t, 130, after.Amount, 0.000001)
+	require.Equal(t, "2026-07", before.BillingMonth)
+	require.Equal(t, "2026-07", after.BillingMonth)
 	deletedPayment, err := repo.DeletePayment(ctx, partialPayment.ID)
 	require.NoError(t, err)
 	require.InDelta(t, 130, deletedPayment.Amount, 0.000001)
+	require.Equal(t, "2026-07", deletedPayment.BillingMonth)
 }

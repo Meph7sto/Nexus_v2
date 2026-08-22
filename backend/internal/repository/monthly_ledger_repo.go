@@ -273,13 +273,9 @@ func (r *monthlyLedgerRepository) SetMultiplier(ctx context.Context, billingMont
 	return previous, nil
 }
 
-func (r *monthlyLedgerRepository) CreatePayment(ctx context.Context, payment *service.MonthlyLedgerPayment) error {
+func (r *monthlyLedgerRepository) CreatePayment(ctx context.Context, billingMonth time.Time, payment *service.MonthlyLedgerPayment) error {
 	if r == nil || r.db == nil {
 		return service.ErrMonthlyLedgerRepositoryNotReady
-	}
-	billingMonth, err := time.Parse("2006-01", strings.TrimSpace(payment.BillingMonth))
-	if err != nil {
-		return service.ErrMonthlyLedgerInvalidMonth
 	}
 	query := `
 		INSERT INTO monthly_ledger_payments (
@@ -290,7 +286,7 @@ func (r *monthlyLedgerRepository) CreatePayment(ctx context.Context, payment *se
 		FROM users
 		WHERE id = $1 AND role = 'user'
 		RETURNING id, created_at, updated_at`
-	err = r.db.QueryRowContext(
+	err := r.db.QueryRowContext(
 		ctx, query, payment.UserID, billingMonth.Format("2006-01-02"), payment.Amount,
 		payment.PaidAt, payment.Note, payment.CreatedBy, payment.CreatedAt,
 	).Scan(&payment.ID, &payment.CreatedAt, &payment.UpdatedAt)

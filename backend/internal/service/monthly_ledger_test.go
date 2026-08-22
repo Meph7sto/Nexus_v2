@@ -10,9 +10,10 @@ import (
 )
 
 type monthlyLedgerRepoStub struct {
-	listPeriod MonthlyLedgerPeriod
-	multiplier float64
-	payment    *MonthlyLedgerPayment
+	listPeriod          MonthlyLedgerPeriod
+	multiplier          float64
+	paymentBillingMonth time.Time
+	payment             *MonthlyLedgerPayment
 }
 
 func (s *monthlyLedgerRepoStub) List(_ context.Context, period MonthlyLedgerPeriod, _ MonthlyLedgerListParams) ([]MonthlyLedgerRow, *MonthlyLedgerSummary, *pagination.PaginationResult, error) {
@@ -30,7 +31,8 @@ func (s *monthlyLedgerRepoStub) SetMultiplier(_ context.Context, _ time.Time, _ 
 	return previous, nil
 }
 
-func (s *monthlyLedgerRepoStub) CreatePayment(_ context.Context, payment *MonthlyLedgerPayment) error {
+func (s *monthlyLedgerRepoStub) CreatePayment(_ context.Context, billingMonth time.Time, payment *MonthlyLedgerPayment) error {
+	s.paymentBillingMonth = billingMonth
 	copy := *payment
 	copy.ID = 17
 	s.payment = &copy
@@ -120,6 +122,7 @@ func TestMonthlyLedgerServiceCreatePaymentValidation(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(17), payment.ID)
 	require.Equal(t, "2026-07", payment.BillingMonth)
+	require.Equal(t, time.Date(2026, 7, 1, 0, 0, 0, 0, loc), repo.paymentBillingMonth)
 	require.Equal(t, int64(99), payment.CreatedBy)
 }
 

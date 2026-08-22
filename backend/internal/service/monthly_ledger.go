@@ -137,7 +137,7 @@ type MonthlyLedgerRepository interface {
 	List(ctx context.Context, period MonthlyLedgerPeriod, params MonthlyLedgerListParams) ([]MonthlyLedgerRow, *MonthlyLedgerSummary, *pagination.PaginationResult, error)
 	ListPayments(ctx context.Context, billingMonth time.Time, userID int64) ([]MonthlyLedgerPayment, error)
 	SetMultiplier(ctx context.Context, billingMonth time.Time, userID int64, multiplier float64, actorID int64) (float64, error)
-	CreatePayment(ctx context.Context, payment *MonthlyLedgerPayment) error
+	CreatePayment(ctx context.Context, billingMonth time.Time, payment *MonthlyLedgerPayment) error
 	UpdatePayment(ctx context.Context, paymentID int64, update MonthlyLedgerPaymentUpdate, actorID int64) (*MonthlyLedgerPayment, *MonthlyLedgerPayment, error)
 	DeletePayment(ctx context.Context, paymentID int64) (*MonthlyLedgerPayment, error)
 }
@@ -312,7 +312,7 @@ func (s *MonthlyLedgerService) CreatePayment(ctx context.Context, month string, 
 		PaidAt: input.PaidAt, Note: strings.TrimSpace(input.Note), CreatedBy: actorID,
 		UpdatedBy: actorID, CreatedAt: now, UpdatedAt: now,
 	}
-	if err := s.repo.CreatePayment(ctx, payment); err != nil {
+	if err := s.repo.CreatePayment(ctx, period.Start, payment); err != nil {
 		return nil, err
 	}
 	return payment, nil
