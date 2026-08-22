@@ -20,10 +20,10 @@ CREATE INDEX IF NOT EXISTS idx_monthly_ledger_usage_snapshots_month_user
 INSERT INTO monthly_ledger_usage_snapshots (user_id, billing_month, usage_amount)
 SELECT
   usage_logs.user_id,
-  date_trunc('month', created_at)::date AS billing_month,
+  date_trunc('month', usage_logs.created_at)::date AS billing_month,
   COALESCE(SUM(actual_cost), 0)::numeric AS usage_amount
 FROM usage_logs
 JOIN users ON users.id = usage_logs.user_id AND users.role = 'user'
-WHERE date_trunc('month', created_at) < date_trunc('month', NOW())
-GROUP BY usage_logs.user_id, date_trunc('month', created_at)::date
+WHERE date_trunc('month', usage_logs.created_at) < date_trunc('month', NOW())
+GROUP BY usage_logs.user_id, date_trunc('month', usage_logs.created_at)::date
 ON CONFLICT (user_id, billing_month) DO NOTHING;

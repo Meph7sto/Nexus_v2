@@ -34,10 +34,11 @@ func TestMonthlyLedgerUsageSnapshotMigrationBackfillsCompletedMonths(t *testing.
 		"create table if not exists monthly_ledger_usage_snapshots",
 		"unique (user_id, billing_month)",
 		"sum(actual_cost)",
-		"date_trunc('month', created_at)",
+		"date_trunc('month', usage_logs.created_at)",
 		"date_trunc('month', now())",
 		"on conflict (user_id, billing_month) do nothing",
 	} {
 		require.Contains(t, sql, fragment)
 	}
+	require.Equal(t, 3, strings.Count(sql, "date_trunc('month', usage_logs.created_at)"))
 }
