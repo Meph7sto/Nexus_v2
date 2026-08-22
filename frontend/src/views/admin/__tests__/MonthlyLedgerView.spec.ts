@@ -41,6 +41,7 @@ const response = (canRecordPayments = true) => ({
     username: 'Customer',
     deleted: false,
     usage_amount: 600,
+    pricing_usage_amount: 600,
     multiplier: 1,
     receivable_amount: 600,
     paid_amount: 0,
@@ -80,7 +81,8 @@ const mountView = () => mount(MonthlyLedgerView, {
       Icon: true,
       BaseDialog: {
         props: ['show'],
-        template: '<div v-if="show"><slot /><slot name="footer" /></div>',
+        emits: ['close'],
+        template: '<div v-if="show"><button data-test="close-dialog" @click="$emit(\'close\')">close</button><slot /><slot name="footer" /></div>',
       },
       ConfirmDialog: true,
     },
@@ -124,6 +126,26 @@ describe('MonthlyLedgerView', () => {
     expect(setMultiplier).toHaveBeenCalledWith('2026-07', 7, 0.5)
   })
 
+  it.each([
+    { pricingUsage: 1.005, displayUsage: 1.01, expected: '$0.50' },
+    { pricingUsage: 2.01, displayUsage: 2.01, expected: '$1.01' },
+    { pricingUsage: 0.29, displayUsage: 0.29, expected: '$0.15' },
+  ])('previews $pricingUsage × 0.5 with decimal half-up rounding', async ({ pricingUsage, displayUsage, expected }) => {
+    list.mockResolvedValue({
+      ...response(),
+      items: [{ ...response().items[0], usage_amount: displayUsage, pricing_usage_amount: pricingUsage }],
+    })
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('[data-test="edit-multiplier-7"]').trigger('click')
+    await wrapper.find('[data-test="multiplier-preset-0.5"]').trigger('click')
+
+    const amounts = wrapper.findAll('.amount-comparison strong')
+    expect(amounts[0].text()).toBe(`$${displayUsage.toFixed(2)}`)
+    expect(amounts[1].text()).toBe(expected)
+  })
+
   it('records a payment against the selected completed month', async () => {
     const wrapper = mountView()
     await flushPromises()
@@ -136,6 +158,127 @@ describe('MonthlyLedgerView', () => {
     await flushPromises()
 
     expect(createPayment).toHaveBeenCalledWith('2026-07', 7, expect.objectContaining({ amount: 600 }))
+  })
+
+  it('refreshes the latest allowed payment time whenever the dialog opens', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date('2026-08-22T12:00:00'))
+      const wrapper = mountView()
+      await flushPromises()
+
+      await wrapper.find('[data-test="payments-7"]').trigger('click')
+      await flushPromises()
+      const initialTime = wrapper.find<HTMLInputElement>('[data-test="payment-time"]')
+      expect(initialTime.attributes('max')).toBe(initialTime.element.value)
+
+      vi.setSystemTime(new Date('2026-08-22T14:00:00'))
+      await wrapper.find('[data-test="payments-7"]').trigger('click')
+      await flushPromises()
+      const refreshedTime = wrapper.find<HTMLInputElement>('[data-test="payment-time"]')
+      expect(refreshedTime.element.value).toBe('2026-08-22T14:00')
+      expect(refreshedTime.attributes('max')).toBe(refreshedTime.element.value)
+
+      wrapper.unmount()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('ignores an older payment response after another user is opened', async () => {
+    let resolveFirst!: (value: unknown[]) => void
+    let resolveSecond!: (value: unknown[]) => void
+    list.mockResolvedValue({
+      ...response(),
+      items: [
+        response().items[0],
+        { ...response().items[0], user_id: 8, email: 'second@example.test' },
+      ],
+      total: 2,
+    })
+    listPayments.mockImplementation((_month: string, userID: number) => new Promise((resolve) => {
+      if (userID === 7) resolveFirst = resolve
+      else resolveSecond = resolve
+    }))
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('[data-test="payments-7"]').trigger('click')
+    await wrapper.find('[data-test="payments-8"]').trigger('click')
+    resolveSecond([{ id: 80, user_id: 8, amount: 80, note: 'second payment', paid_at: '2026-08-01T12:00:00Z' }])
+    await flushPromises()
+    resolveFirst([{ id: 70, user_id: 7, amount: 70, note: 'stale first payment', paid_at: '2026-08-01T12:00:00Z' }])
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('second payment')
+    expect(wrapper.text()).not.toContain('stale first payment')
+  })
+
+  it('rebinds the active row before resetting the form after a partial payment', async () => {
+    const updated = response()
+    updated.items[0] = {
+      ...updated.items[0],
+      paid_amount: 200,
+      outstanding_amount: 400,
+      status: 'partial',
+      payment_count: 1,
+    }
+    updated.summary = {
+      ...updated.summary,
+      paid_amount: 200,
+      outstanding_amount: 400,
+      unpaid_count: 0,
+      partial_count: 1,
+    }
+    list.mockResolvedValueOnce(response())
+      .mockResolvedValueOnce({ ...updated, items: [], total: 0 })
+      .mockResolvedValue(updated)
+    listPayments.mockResolvedValueOnce([]).mockResolvedValueOnce([{
+      id: 1,
+      user_id: 7,
+      amount: 200,
+      note: 'partial payment',
+      paid_at: '2026-08-01T12:00:00Z',
+    }])
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('[data-test="payments-7"]').trigger('click')
+    await flushPromises()
+    await wrapper.find<HTMLInputElement>('[data-test="payment-amount"]').setValue(200)
+    await wrapper.find('form.payment-form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.find('.mb-3 .text-sm').text()).toBe('$200.00')
+    expect(wrapper.find<HTMLInputElement>('[data-test="payment-amount"]').element.value).toBe('400')
+    expect(list).toHaveBeenNthCalledWith(3, expect.objectContaining({ month: '2026-07', user_id: 7, status: '' }))
+  })
+
+  it('refreshes the ledger after a payment succeeds even if the dialog was closed in flight', async () => {
+    let resolveCreate!: (value: { id: number }) => void
+    createPayment.mockImplementation(() => new Promise((resolve) => { resolveCreate = resolve }))
+    const updated = response()
+    updated.items[0] = {
+      ...updated.items[0],
+      paid_amount: 200,
+      outstanding_amount: 400,
+      status: 'partial',
+      payment_count: 1,
+    }
+    list.mockResolvedValueOnce(response()).mockResolvedValue(updated)
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('[data-test="payments-7"]').trigger('click')
+    await flushPromises()
+    await wrapper.find<HTMLInputElement>('[data-test="payment-amount"]').setValue(200)
+    await wrapper.find('form.payment-form').trigger('submit')
+    await wrapper.find('[data-test="close-dialog"]').trigger('click')
+    resolveCreate({ id: 1 })
+    await flushPromises()
+
+    expect(list).toHaveBeenCalledTimes(2)
+    expect(wrapper.text()).toContain('$200.00')
   })
 
   it('disables adding payments for the current open month', async () => {

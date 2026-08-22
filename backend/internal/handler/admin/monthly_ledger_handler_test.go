@@ -18,12 +18,14 @@ import (
 
 type monthlyLedgerHandlerRepoStub struct {
 	period              service.MonthlyLedgerPeriod
+	listParams          service.MonthlyLedgerListParams
 	paymentBillingMonth time.Time
 	created             *service.MonthlyLedgerPayment
 }
 
-func (s *monthlyLedgerHandlerRepoStub) List(_ context.Context, period service.MonthlyLedgerPeriod, _ service.MonthlyLedgerListParams) ([]service.MonthlyLedgerRow, *service.MonthlyLedgerSummary, *pagination.PaginationResult, error) {
+func (s *monthlyLedgerHandlerRepoStub) List(_ context.Context, period service.MonthlyLedgerPeriod, params service.MonthlyLedgerListParams) ([]service.MonthlyLedgerRow, *service.MonthlyLedgerSummary, *pagination.PaginationResult, error) {
 	s.period = period
+	s.listParams = params
 	return []service.MonthlyLedgerRow{}, &service.MonthlyLedgerSummary{}, &pagination.PaginationResult{Page: 1, PageSize: 20, Pages: 1}, nil
 }
 
@@ -79,6 +81,23 @@ func TestMonthlyLedgerHandlerListDefaultsToPreviousMonth(t *testing.T) {
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.True(t, repo.period.CanRecordPayments)
 	require.Equal(t, repo.period.Start.AddDate(0, 1, 0), repo.period.End)
+}
+
+func TestMonthlyLedgerHandlerListParsesExactUserID(t *testing.T) {
+	repo := &monthlyLedgerHandlerRepoStub{}
+	router := setupMonthlyLedgerHandlerRouter(repo)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/monthly-ledger?user_id=7", nil))
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, int64(7), repo.listParams.UserID)
+}
+
+func TestMonthlyLedgerHandlerListRejectsInvalidExactUserID(t *testing.T) {
+	router := setupMonthlyLedgerHandlerRouter(&monthlyLedgerHandlerRepoStub{})
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/monthly-ledger?user_id=customer", nil))
+	require.Equal(t, http.StatusBadRequest, recorder.Code)
 }
 
 func TestMonthlyLedgerHandlerCreatesHistoricalPayment(t *testing.T) {

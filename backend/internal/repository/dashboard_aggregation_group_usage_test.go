@@ -193,6 +193,9 @@ func TestDashboardAggregationRepositoryCleanupUsageLogsNonPartitionedInvalidates
 	mock.ExpectBegin()
 	mock.ExpectQuery(`SELECT id FROM usage_group_rollup_state.*FOR UPDATE`).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+	mock.ExpectExec(`INSERT INTO monthly_ledger_usage_snapshots`).
+		WithArgs(cutoff, usageLogsCleanupBatchSize, "Asia/Shanghai").
+		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery(`(?s)DELETE FROM usage_logs.*RETURNING created_at`).
 		WithArgs(cutoff, usageLogsCleanupBatchSize).
 		WillReturnRows(sqlmock.NewRows([]string{"created_at"}).
@@ -242,6 +245,9 @@ func TestDashboardAggregationRepositoryCleanupUsageLogsPartitionedSortsAndInvali
 		mock.ExpectBegin()
 		mock.ExpectQuery(`SELECT id FROM usage_group_rollup_state.*FOR UPDATE`).
 			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+		mock.ExpectExec(`INSERT INTO monthly_ledger_usage_snapshots`).
+			WithArgs("Asia/Shanghai").
+			WillReturnResult(sqlmock.NewResult(0, 1))
 		mock.ExpectExec(`UPDATE usage_group_rollup_state`).
 			WithArgs(partition.start, "Asia/Shanghai").
 			WillReturnResult(sqlmock.NewResult(0, 1))
@@ -271,6 +277,9 @@ func TestDashboardAggregationRepositoryCleanupUsageLogsNonPartitionedFailureRoll
 	mock.ExpectBegin()
 	mock.ExpectQuery(`SELECT id FROM usage_group_rollup_state.*FOR UPDATE`).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+	mock.ExpectExec(`INSERT INTO monthly_ledger_usage_snapshots`).
+		WithArgs(cutoff, usageLogsCleanupBatchSize, "Asia/Shanghai").
+		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery(`(?s)SELECT ctid.*ORDER BY created_at ASC, id ASC.*DELETE FROM usage_logs.*RETURNING created_at`).
 		WithArgs(cutoff, usageLogsCleanupBatchSize).
 		WillReturnRows(sqlmock.NewRows([]string{"created_at"}).AddRow(deletedAt))
@@ -301,6 +310,9 @@ func TestDashboardAggregationRepositoryCleanupUsageLogsPartitionFailureRollsBack
 	mock.ExpectBegin()
 	mock.ExpectQuery(`SELECT id FROM usage_group_rollup_state.*FOR UPDATE`).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+	mock.ExpectExec(`INSERT INTO monthly_ledger_usage_snapshots`).
+		WithArgs("Asia/Shanghai").
+		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec(`UPDATE usage_group_rollup_state`).
 		WithArgs(aprilStart, "Asia/Shanghai").
 		WillReturnResult(sqlmock.NewResult(0, 1))

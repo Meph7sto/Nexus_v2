@@ -21,11 +21,26 @@ func NewMonthlyLedgerRepository(db *sql.DB) service.MonthlyLedgerRepository {
 }
 
 const monthlyLedgerBaseCTE = `
-WITH usage_by_user AS (
+WITH live_usage_by_user AS (
 	SELECT user_id, COALESCE(SUM(actual_cost), 0)::numeric AS usage_amount
 	FROM usage_logs
 	WHERE created_at >= $1 AND created_at < $2
 	GROUP BY user_id
+),
+snapshot_usage_by_user AS (
+	SELECT user_id, usage_amount
+	FROM monthly_ledger_usage_snapshots
+	WHERE $4 AND billing_month = $3
+),
+usage_by_user AS (
+	SELECT
+		COALESCE(live.user_id, snapshot.user_id) AS user_id,
+		CASE
+			WHEN $4 THEN COALESCE(snapshot.usage_amount, live.usage_amount, 0)
+			ELSE COALESCE(live.usage_amount, 0)
+		END::numeric AS usage_amount
+	FROM live_usage_by_user live
+	FULL JOIN snapshot_usage_by_user snapshot ON snapshot.user_id = live.user_id
 ),
 payments_by_user AS (
 	SELECT
@@ -49,6 +64,7 @@ amounts AS (
 		COALESCE(u.username, '') AS username,
 		(u.deleted_at IS NOT NULL) AS deleted,
 		ROUND(COALESCE(usage.usage_amount, 0), 2) AS usage_amount,
+		COALESCE(usage.usage_amount, 0)::numeric AS pricing_usage_amount,
 		COALESCE(mult.multiplier, 1)::numeric AS multiplier,
 		ROUND(COALESCE(usage.usage_amount, 0) * COALESCE(mult.multiplier, 1), 2) AS receivable_amount,
 		ROUND(COALESCE(payments.paid_amount, 0), 2) AS paid_amount,
@@ -79,10 +95,11 @@ filtered AS (
 	SELECT *
 	FROM ledger
 	WHERE (
-		$4 = '' OR email ILIKE '%' || $4 || '%' OR username ILIKE '%' || $4 || '%'
-		OR user_id::text = $4
+		$5 = '' OR email ILIKE '%' || $5 || '%' OR username ILIKE '%' || $5 || '%'
+		OR user_id::text = $5
 	)
-	AND ($5 = '' OR status = $5)
+	AND ($6 = '' OR status = $6)
+	AND ($7 = 0 OR user_id = $7)
 )
 `
 
@@ -91,7 +108,7 @@ func (r *monthlyLedgerRepository) List(ctx context.Context, period service.Month
 		return nil, nil, nil, service.ErrMonthlyLedgerRepositoryNotReady
 	}
 	pageParams := normalizeMonthlyLedgerPagination(params.Pagination)
-	baseArgs := []any{period.Start, period.End, period.Start.Format("2006-01-02"), params.Query, params.Status}
+	baseArgs := []any{period.Start, period.End, period.Start.Format("2006-01-02"), period.CanRecordPayments, params.Query, params.Status, params.UserID}
 	orderBy := monthlyLedgerOrderBy(pageParams.SortBy, pageParams.SortOrder)
 	query := monthlyLedgerBaseCTE + `,
 	summary AS (
@@ -116,7 +133,7 @@ func (r *monthlyLedgerRepository) List(ctx context.Context, period service.Month
 		SELECT filtered.*, ROW_NUMBER() OVER (ORDER BY ` + orderBy + `) AS row_position
 		FROM filtered
 		ORDER BY ` + orderBy + `
-		LIMIT $6 OFFSET $7
+		LIMIT $8 OFFSET $9
 	)
 	SELECT
 		summary.usage_amount, summary.receivable_amount, summary.paid_amount,
@@ -124,7 +141,7 @@ func (r *monthlyLedgerRepository) List(ctx context.Context, period service.Month
 		summary.unpaid_count, summary.partial_count, summary.settled_count,
 		summary.overpaid_count, summary.waived_count, filtered_count.total,
 		page_items.user_id, page_items.email, page_items.username, page_items.deleted,
-		page_items.usage_amount, page_items.multiplier, page_items.receivable_amount,
+		page_items.usage_amount, page_items.pricing_usage_amount, page_items.multiplier, page_items.receivable_amount,
 		page_items.paid_amount, page_items.outstanding_amount, page_items.overpaid_amount,
 		page_items.status, page_items.payment_count, page_items.last_paid_at
 	FROM summary
@@ -146,7 +163,7 @@ func (r *monthlyLedgerRepository) List(ctx context.Context, period service.Month
 		var userID, paymentCount sql.NullInt64
 		var email, username, status sql.NullString
 		var deleted sql.NullBool
-		var usageAmount, multiplier, receivableAmount sql.NullFloat64
+		var usageAmount, pricingUsageAmount, multiplier, receivableAmount sql.NullFloat64
 		var paidAmount, outstandingAmount, overpaidAmount sql.NullFloat64
 		var lastPaidAt sql.NullTime
 		if err := rows.Scan(
@@ -154,7 +171,7 @@ func (r *monthlyLedgerRepository) List(ctx context.Context, period service.Month
 			&rowSummary.OutstandingAmount, &rowSummary.OverpaidAmount, &rowSummary.UserCount,
 			&rowSummary.UnpaidCount, &rowSummary.PartialCount, &rowSummary.SettledCount,
 			&rowSummary.OverpaidCount, &rowSummary.WaivedCount, &rowTotal,
-			&userID, &email, &username, &deleted, &usageAmount, &multiplier,
+			&userID, &email, &username, &deleted, &usageAmount, &pricingUsageAmount, &multiplier,
 			&receivableAmount, &paidAmount, &outstandingAmount, &overpaidAmount,
 			&status, &paymentCount, &lastPaidAt,
 		); err != nil {
@@ -170,7 +187,8 @@ func (r *monthlyLedgerRepository) List(ctx context.Context, period service.Month
 		item := service.MonthlyLedgerRow{
 			UserID: userID.Int64, Email: email.String, Username: username.String,
 			Deleted: deleted.Bool, UsageAmount: usageAmount.Float64,
-			Multiplier: multiplier.Float64, ReceivableAmount: receivableAmount.Float64,
+			PricingUsageAmount: pricingUsageAmount.Float64,
+			Multiplier:         multiplier.Float64, ReceivableAmount: receivableAmount.Float64,
 			PaidAmount: paidAmount.Float64, OutstandingAmount: outstandingAmount.Float64,
 			OverpaidAmount: overpaidAmount.Float64, Status: status.String,
 			PaymentCount: paymentCount.Int64,

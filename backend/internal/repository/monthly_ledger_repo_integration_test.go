@@ -58,6 +58,7 @@ func TestMonthlyLedgerRepositoryAggregatesAndFiltersLiveMonthlyLedger(t *testing
 		for _, user := range users {
 			_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM monthly_ledger_payments WHERE user_id = $1", user.ID)
 			_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM monthly_ledger_multipliers WHERE user_id = $1", user.ID)
+			_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM monthly_ledger_usage_snapshots WHERE user_id = $1", user.ID)
 			_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM usage_logs WHERE user_id = $1", user.ID)
 			_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM api_keys WHERE user_id = $1", user.ID)
 			_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM users WHERE id = $1", user.ID)
@@ -68,9 +69,10 @@ func TestMonthlyLedgerRepositoryAggregatesAndFiltersLiveMonthlyLedger(t *testing
 	loc, err := time.LoadLocation("Asia/Shanghai")
 	require.NoError(t, err)
 	period := service.MonthlyLedgerPeriod{
-		Month: "2026-07",
-		Start: time.Date(2026, 7, 1, 0, 0, 0, 0, loc),
-		End:   time.Date(2026, 8, 1, 0, 0, 0, 0, loc),
+		Month:             "2026-07",
+		Start:             time.Date(2026, 7, 1, 0, 0, 0, 0, loc),
+		End:               time.Date(2026, 8, 1, 0, 0, 0, 0, loc),
+		CanRecordPayments: true,
 	}
 	usageTime := period.Start.Add(12 * time.Hour)
 	insertUsage := func(user *service.User, key *service.APIKey, amount float64, createdAt time.Time) {
@@ -200,4 +202,69 @@ func TestMonthlyLedgerRepositoryAggregatesAndFiltersLiveMonthlyLedger(t *testing
 	require.NoError(t, err)
 	require.InDelta(t, 130, deletedPayment.Amount, 0.000001)
 	require.Equal(t, "2026-07", deletedPayment.BillingMonth)
+}
+
+func TestMonthlyLedgerRepositoryKeepsCompletedMonthAfterManualUsageCleanup(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+	ledgerRepo := NewMonthlyLedgerRepository(integrationDB)
+	cleanupRepo := NewUsageCleanupRepository(client, integrationDB)
+	suffix := uuid.NewString()
+
+	user := mustCreateUser(t, client, &service.User{
+		Email: fmt.Sprintf("ledger-snapshot-%s@example.test", suffix),
+		Role:  service.RoleUser,
+	})
+	key := mustCreateApiKey(t, client, &service.APIKey{
+		UserID: user.ID,
+		Key:    "sk-ledger-snapshot-" + suffix,
+		Name:   "ledger-snapshot",
+	})
+	account := mustCreateAccount(t, client, &service.Account{Name: "ledger-snapshot-" + suffix})
+	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM monthly_ledger_usage_snapshots WHERE user_id = $1", user.ID)
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM usage_logs WHERE user_id = $1", user.ID)
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM api_keys WHERE user_id = $1", user.ID)
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM users WHERE id = $1", user.ID)
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM accounts WHERE id = $1", account.ID)
+	})
+
+	period := service.MonthlyLedgerPeriod{
+		Month:             "2026-07",
+		Start:             time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+		End:               time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
+		CanRecordPayments: true,
+	}
+	_, err := integrationDB.ExecContext(ctx, `
+		INSERT INTO usage_logs (user_id, api_key_id, account_id, model, actual_cost, created_at)
+		VALUES ($1, $2, $3, 'ledger-snapshot-test', 1.005, $4),
+		       ($1, $2, $3, 'ledger-snapshot-test', 2.000, $5)`,
+		user.ID, key.ID, account.ID, period.Start.Add(time.Hour), period.Start.Add(2*time.Hour),
+	)
+	require.NoError(t, err)
+
+	list := func() ([]service.MonthlyLedgerRow, *service.MonthlyLedgerSummary) {
+		items, summary, _, listErr := ledgerRepo.List(ctx, period, service.MonthlyLedgerListParams{
+			Pagination: pagination.PaginationParams{Page: 1, PageSize: 20},
+			Query:      user.Email,
+		})
+		require.NoError(t, listErr)
+		require.Len(t, items, 1)
+		return items, summary
+	}
+	beforeItems, beforeSummary := list()
+
+	deleted, err := cleanupRepo.DeleteUsageLogsBatch(ctx, service.UsageCleanupFilters{
+		StartTime: period.Start,
+		EndTime:   period.End.Add(-time.Nanosecond),
+		UserID:    &user.ID,
+	}, 100)
+	require.NoError(t, err)
+	require.Equal(t, int64(2), deleted)
+
+	afterItems, afterSummary := list()
+	require.Equal(t, beforeItems, afterItems)
+	require.Equal(t, beforeSummary, afterSummary)
+	require.InDelta(t, 3.005, afterItems[0].PricingUsageAmount, 0.000000001)
+	require.InDelta(t, 3.01, afterItems[0].UsageAmount, 0.000000001)
 }

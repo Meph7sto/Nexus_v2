@@ -95,6 +95,9 @@ func TestCalculateMonthlyLedgerAmounts(t *testing.T) {
 
 	amounts = CalculateMonthlyLedgerAmounts(1.005, 1, 0)
 	require.Equal(t, 1.01, amounts.ReceivableAmount)
+
+	amounts = CalculateMonthlyLedgerAmounts(1.005, 0.5, 0)
+	require.Equal(t, 0.5, amounts.ReceivableAmount)
 }
 
 func TestMonthlyLedgerServiceCreatePaymentValidation(t *testing.T) {

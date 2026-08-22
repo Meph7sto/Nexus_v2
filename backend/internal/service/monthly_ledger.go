@@ -51,19 +51,20 @@ type MonthlyLedgerAmounts struct {
 }
 
 type MonthlyLedgerRow struct {
-	UserID            int64      `json:"user_id"`
-	Email             string     `json:"email"`
-	Username          string     `json:"username"`
-	Deleted           bool       `json:"deleted"`
-	UsageAmount       float64    `json:"usage_amount"`
-	Multiplier        float64    `json:"multiplier"`
-	ReceivableAmount  float64    `json:"receivable_amount"`
-	PaidAmount        float64    `json:"paid_amount"`
-	OutstandingAmount float64    `json:"outstanding_amount"`
-	OverpaidAmount    float64    `json:"overpaid_amount"`
-	Status            string     `json:"status"`
-	PaymentCount      int64      `json:"payment_count"`
-	LastPaidAt        *time.Time `json:"last_paid_at,omitempty"`
+	UserID             int64      `json:"user_id"`
+	Email              string     `json:"email"`
+	Username           string     `json:"username"`
+	Deleted            bool       `json:"deleted"`
+	UsageAmount        float64    `json:"usage_amount"`
+	PricingUsageAmount float64    `json:"pricing_usage_amount"`
+	Multiplier         float64    `json:"multiplier"`
+	ReceivableAmount   float64    `json:"receivable_amount"`
+	PaidAmount         float64    `json:"paid_amount"`
+	OutstandingAmount  float64    `json:"outstanding_amount"`
+	OverpaidAmount     float64    `json:"overpaid_amount"`
+	Status             string     `json:"status"`
+	PaymentCount       int64      `json:"payment_count"`
+	LastPaidAt         *time.Time `json:"last_paid_at,omitempty"`
 }
 
 type MonthlyLedgerSummary struct {
@@ -84,6 +85,7 @@ type MonthlyLedgerListParams struct {
 	Pagination pagination.PaginationParams
 	Query      string
 	Status     string
+	UserID     int64
 }
 
 type MonthlyLedgerList struct {

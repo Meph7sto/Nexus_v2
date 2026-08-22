@@ -22,6 +22,10 @@ func NewMonthlyLedgerHandler(monthlyLedgerService *service.MonthlyLedgerService)
 
 func (h *MonthlyLedgerHandler) List(c *gin.Context) {
 	page, pageSize := response.ParsePagination(c)
+	userID, ok := parseOptionalMonthlyLedgerUserID(c)
+	if !ok {
+		return
+	}
 	result, err := h.service.List(c.Request.Context(), c.Query("month"), service.MonthlyLedgerListParams{
 		Pagination: pagination.PaginationParams{
 			Page: page, PageSize: pageSize,
@@ -30,12 +34,26 @@ func (h *MonthlyLedgerHandler) List(c *gin.Context) {
 		},
 		Query:  strings.TrimSpace(c.Query("q")),
 		Status: strings.TrimSpace(c.Query("status")),
+		UserID: userID,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
 	response.Success(c, result)
+}
+
+func parseOptionalMonthlyLedgerUserID(c *gin.Context) (int64, bool) {
+	raw := strings.TrimSpace(c.Query("user_id"))
+	if raw == "" {
+		return 0, true
+	}
+	userID, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || userID <= 0 {
+		response.Error(c, http.StatusBadRequest, "Invalid user_id")
+		return 0, false
+	}
+	return userID, true
 }
 
 func (h *MonthlyLedgerHandler) ListPayments(c *gin.Context) {

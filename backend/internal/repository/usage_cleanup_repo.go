@@ -336,6 +336,9 @@ func (r *usageCleanupRepository) deleteUsageLogsBatchWithRollupInvalidation(ctx 
 	if err := lockGroupUsageRollupState(ctx, tx); err != nil {
 		return rollback(err)
 	}
+	if err := snapshotMonthlyLedgerUsageForBatch(ctx, tx, whereClause, args); err != nil {
+		return rollback(err)
+	}
 	query := fmt.Sprintf(`
 		WITH target AS (
 			SELECT id

@@ -27,7 +27,7 @@ describe('monthly ledger admin API', () => {
     put.mockResolvedValue({ data: {} })
     remove.mockResolvedValue({ data: { id: 9 } })
 
-    await monthlyLedgerAPI.list({ month: '2026-07', page: 2 })
+    await monthlyLedgerAPI.list({ month: '2026-07', user_id: 7, page: 2 })
     await monthlyLedgerAPI.listPayments('2026-07', 7)
     await monthlyLedgerAPI.setMultiplier('2026-07', 7, 0.5)
     await monthlyLedgerAPI.createPayment('2026-07', 7, {
@@ -42,7 +42,7 @@ describe('monthly ledger admin API', () => {
     })
     await monthlyLedgerAPI.deletePayment(9)
 
-    expect(get).toHaveBeenNthCalledWith(1, '/admin/monthly-ledger', { params: { month: '2026-07', page: 2 } })
+    expect(get).toHaveBeenNthCalledWith(1, '/admin/monthly-ledger', { params: { month: '2026-07', user_id: 7, page: 2 } })
     expect(get).toHaveBeenNthCalledWith(2, '/admin/monthly-ledger/2026-07/users/7/payments')
     expect(put).toHaveBeenNthCalledWith(1, '/admin/monthly-ledger/2026-07/users/7/multiplier', { multiplier: 0.5 })
     expect(post).toHaveBeenCalledWith('/admin/monthly-ledger/2026-07/users/7/payments', expect.objectContaining({ amount: 300 }))

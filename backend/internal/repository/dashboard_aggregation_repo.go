@@ -296,6 +296,14 @@ func cleanupUsageLogsBatchWithRollupInvalidation(ctx context.Context, db *sql.DB
 	if err := lockGroupUsageRollupState(ctx, tx); err != nil {
 		return rollback(err)
 	}
+	if err := snapshotMonthlyLedgerUsageForBatch(
+		ctx,
+		tx,
+		"created_at < $1",
+		[]any{cutoff.UTC(), usageLogsCleanupBatchSize},
+	); err != nil {
+		return rollback(err)
+	}
 	rows, err := tx.QueryContext(ctx, `
 		WITH victims AS (
 			SELECT ctid
@@ -654,6 +662,9 @@ func dropUsageLogsPartitionWithRollupInvalidation(ctx context.Context, db *sql.D
 	}
 
 	if err := lockGroupUsageRollupState(ctx, tx); err != nil {
+		return rollback(err)
+	}
+	if err := snapshotMonthlyLedgerUsageForPartition(ctx, tx, name); err != nil {
 		return rollback(err)
 	}
 	if err := invalidateGroupUsageRollupsAt(ctx, tx, monthStart); err != nil {

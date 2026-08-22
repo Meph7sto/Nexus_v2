@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -421,6 +422,9 @@ func TestUsageCleanupRepositoryDeleteUsageLogsBatch(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectQuery(`SELECT id FROM usage_group_rollup_state.*FOR UPDATE`).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+	mock.ExpectExec(`INSERT INTO monthly_ledger_usage_snapshots`).
+		WithArgs(start, end, userID, "gpt-4", 2, "Asia/Shanghai").
+		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery("DELETE FROM usage_logs").
 		WithArgs(start, end, userID, "gpt-4", 2).
 		WillReturnRows(sqlmock.NewRows([]string{"created_at"}).AddRow(start.Add(time.Hour)).AddRow(start.Add(2 * time.Hour)))
@@ -449,6 +453,9 @@ func TestUsageCleanupRepositoryDeleteUsageLogsBatchAtomicallyInvalidatesGroupRol
 	mock.ExpectBegin()
 	mock.ExpectQuery(`SELECT id FROM usage_group_rollup_state.*FOR UPDATE`).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+	mock.ExpectExec(`INSERT INTO monthly_ledger_usage_snapshots`).
+		WithArgs(start, end, 2, "Asia/Shanghai").
+		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery(`(?s)DELETE FROM usage_logs.*RETURNING created_at`).
 		WithArgs(start, end, 2).
 		WillReturnRows(sqlmock.NewRows([]string{"created_at"}).
@@ -478,6 +485,9 @@ func TestUsageCleanupRepositoryDeleteUsageLogsBatchRollsBackWhenInvalidationFail
 	mock.ExpectBegin()
 	mock.ExpectQuery(`SELECT id FROM usage_group_rollup_state.*FOR UPDATE`).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+	mock.ExpectExec(`INSERT INTO monthly_ledger_usage_snapshots`).
+		WithArgs(start, end, 1, "Asia/Shanghai").
+		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery(`(?s)DELETE FROM usage_logs.*RETURNING created_at`).
 		WithArgs(start, end, 1).
 		WillReturnRows(sqlmock.NewRows([]string{"created_at"}).AddRow(deletedAt))
@@ -492,6 +502,7 @@ func TestUsageCleanupRepositoryDeleteUsageLogsBatchRollsBackWhenInvalidationFail
 }
 
 func TestUsageCleanupRepositoryDeleteUsageLogsBatchQueryError(t *testing.T) {
+	setUsageCleanupRollupTestTimezone(t)
 	db, mock := newSQLMock(t)
 	repo := &usageCleanupRepository{sql: db}
 
@@ -502,6 +513,9 @@ func TestUsageCleanupRepositoryDeleteUsageLogsBatchQueryError(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectQuery(`SELECT id FROM usage_group_rollup_state.*FOR UPDATE`).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+	mock.ExpectExec(`INSERT INTO monthly_ledger_usage_snapshots`).
+		WithArgs(start, end, 5, "Asia/Shanghai").
+		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery("DELETE FROM usage_logs").
 		WithArgs(start, end, 5).
 		WillReturnError(sql.ErrConnDone)
@@ -509,6 +523,30 @@ func TestUsageCleanupRepositoryDeleteUsageLogsBatchQueryError(t *testing.T) {
 
 	_, err := repo.DeleteUsageLogsBatch(context.Background(), filters, 5)
 	require.Error(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUsageCleanupRepositoryDeleteUsageLogsBatchRollsBackWhenLedgerSnapshotFails(t *testing.T) {
+	setUsageCleanupRollupTestTimezone(t)
+	db, mock := newSQLMock(t)
+	repo := &usageCleanupRepository{sql: db}
+	start := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+	end := start.Add(24 * time.Hour)
+	snapshotErr := errors.New("snapshot failed")
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(`SELECT id FROM usage_group_rollup_state.*FOR UPDATE`).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+	mock.ExpectExec(`INSERT INTO monthly_ledger_usage_snapshots`).
+		WithArgs(start, end, 10, "Asia/Shanghai").
+		WillReturnError(snapshotErr)
+	mock.ExpectRollback()
+
+	_, err := repo.DeleteUsageLogsBatch(context.Background(), service.UsageCleanupFilters{
+		StartTime: start,
+		EndTime:   end,
+	}, 10)
+	require.ErrorIs(t, err, snapshotErr)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 

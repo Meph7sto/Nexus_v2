@@ -328,7 +328,15 @@
         </div>
         <div>
           <label for="payment-time" class="input-label">{{ t('admin.monthlyLedger.payments.paidAt') }}</label>
-          <input id="payment-time" v-model="paymentForm.paidAt" data-test="payment-time" type="datetime-local" :max="nowForInput" class="input w-full" />
+          <input
+            id="payment-time"
+            v-model="paymentForm.paidAt"
+            data-test="payment-time"
+            type="datetime-local"
+            :max="nowForInput"
+            class="input w-full"
+            @focus="refreshPaymentTimeLimit"
+          />
         </div>
         <div>
           <label for="payment-note" class="input-label">{{ t('admin.monthlyLedger.payments.note') }}</label>
@@ -513,10 +521,42 @@ const multiplierDraft = ref('1')
 const multiplierError = ref('')
 const savingMultiplier = ref(false)
 const multiplierPresets = [0, 0.5, 0.8, 1]
+
+const decimalInteger = (value: number) => {
+  if (!Number.isFinite(value) || value < 0) return null
+  const [mantissa, exponentText = '0'] = value.toString().toLowerCase().split('e')
+  const [whole, fraction = ''] = mantissa.split('.')
+  const exponent = Number(exponentText)
+  let digits = `${whole}${fraction}`.replace(/^0+(?=\d)/, '')
+  let scale = fraction.length - exponent
+  if (scale < 0) {
+    digits += '0'.repeat(-scale)
+    scale = 0
+  }
+  return { integer: BigInt(digits || '0'), scale }
+}
+
+const roundNonNegativeDecimalProduct = (left: number, right: number, places = 2) => {
+  const leftDecimal = decimalInteger(left)
+  const rightDecimal = decimalInteger(right)
+  if (!leftDecimal || !rightDecimal) return 0
+  const product = leftDecimal.integer * rightDecimal.integer
+  const scale = leftDecimal.scale + rightDecimal.scale
+  let rounded: bigint
+  if (scale <= places) {
+    rounded = product * (10n ** BigInt(places - scale))
+  } else {
+    const divisor = 10n ** BigInt(scale - places)
+    rounded = product / divisor
+    if ((product % divisor) * 2n >= divisor) rounded += 1n
+  }
+  return Number(rounded) / (10 ** places)
+}
+
 const multiplierPreview = computed(() => {
   const multiplier = Number(multiplierDraft.value)
   if (!editingMultiplierRow.value || !Number.isFinite(multiplier)) return 0
-  return Math.round(editingMultiplierRow.value.usage_amount * multiplier * 100) / 100
+  return roundNonNegativeDecimalProduct(editingMultiplierRow.value.pricing_usage_amount, multiplier)
 })
 
 const openMultiplier = (row: MonthlyLedgerRow) => {
@@ -555,32 +595,49 @@ const paymentsLoading = ref(false)
 const editingPayment = ref<MonthlyLedgerPayment | null>(null)
 const savingPayment = ref(false)
 const paymentError = ref('')
-const nowForInput = computed(() => toDateTimeLocal(new Date()))
+const nowForInput = ref('')
 const paymentForm = reactive({ amount: 0, paidAt: '', note: '' })
+let paymentRequestSequence = 0
+
+const paymentDialogKey = () => activeRow.value
+  ? `${selectedMonth.value}:${activeRow.value.user_id}`
+  : ''
 
 const toDateTimeLocal = (date: Date) => {
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
   return local.toISOString().slice(0, 16)
 }
 
+const refreshPaymentTimeLimit = () => {
+  nowForInput.value = toDateTimeLocal(new Date())
+}
+
 const resetPaymentForm = () => {
   editingPayment.value = null
   paymentForm.amount = Number((activeRow.value?.outstanding_amount || 0).toFixed(2))
-  paymentForm.paidAt = toDateTimeLocal(new Date())
+  refreshPaymentTimeLimit()
+  paymentForm.paidAt = nowForInput.value
   paymentForm.note = ''
   paymentError.value = ''
 }
 
 const loadPayments = async () => {
-  if (!activeRow.value) return
+  const row = activeRow.value
+  const month = selectedMonth.value
+  if (!row) return
+  const key = `${month}:${row.user_id}`
+  const sequence = ++paymentRequestSequence
   paymentsLoading.value = true
   try {
-    payments.value = await adminAPI.monthlyLedger.listPayments(selectedMonth.value, activeRow.value.user_id)
+    const result = await adminAPI.monthlyLedger.listPayments(month, row.user_id)
+    if (sequence !== paymentRequestSequence || key !== paymentDialogKey()) return
+    payments.value = result
   } catch (error) {
+    if (sequence !== paymentRequestSequence || key !== paymentDialogKey()) return
     payments.value = []
     appStore.showError(errorMessage(error, t('admin.monthlyLedger.loadFailed')))
   } finally {
-    paymentsLoading.value = false
+    if (sequence === paymentRequestSequence && key === paymentDialogKey()) paymentsLoading.value = false
   }
 }
 
@@ -591,9 +648,42 @@ const openPayments = async (row: MonthlyLedgerRow, startAdding: boolean) => {
   if (!startAdding && !canCreate.value) paymentForm.amount = 0
   await loadPayments()
 }
-const closePayments = () => { showPaymentsDialog.value = false; activeRow.value = null; payments.value = []; resetPaymentForm() }
+const closePayments = () => {
+  paymentRequestSequence++
+  showPaymentsDialog.value = false
+  activeRow.value = null
+  payments.value = []
+  paymentsLoading.value = false
+  resetPaymentForm()
+}
+
+const refreshPaymentDialog = async (key: string, month: string, userID: number) => {
+  const paymentsRefresh = key === paymentDialogKey() ? loadPayments() : Promise.resolve()
+  await Promise.all([paymentsRefresh, loadLedger()])
+  if (key !== paymentDialogKey()) return
+  let refreshedRow = rows.value.find((row) => row.user_id === userID)
+  if (!refreshedRow) {
+    try {
+      const result = await adminAPI.monthlyLedger.list({
+        month,
+        user_id: userID,
+        status: '',
+        page: 1,
+        page_size: 1,
+      })
+      if (key !== paymentDialogKey()) return
+      refreshedRow = result.items.find((row) => row.user_id === userID)
+    } catch (error) {
+      if (key === paymentDialogKey()) appStore.showError(errorMessage(error, t('admin.monthlyLedger.loadFailed')))
+      return
+    }
+  }
+  if (refreshedRow) activeRow.value = refreshedRow
+  resetPaymentForm()
+}
 const editPayment = (payment: MonthlyLedgerPayment) => {
   if (!canUpdate.value) return
+  refreshPaymentTimeLimit()
   editingPayment.value = payment
   paymentForm.amount = payment.amount
   paymentForm.paidAt = toDateTimeLocal(new Date(payment.paid_at))
@@ -603,6 +693,8 @@ const editPayment = (payment: MonthlyLedgerPayment) => {
 
 const savePayment = async () => {
   const row = activeRow.value
+  const month = selectedMonth.value
+  const key = paymentDialogKey()
   const isEditing = Boolean(editingPayment.value)
   if ((isEditing && !canUpdate.value) || (!isEditing && !canCreate.value)) return
   const amount = Number(paymentForm.amount)
@@ -619,10 +711,9 @@ const savePayment = async () => {
   const input = { amount, paid_at: paidAt.toISOString(), note: paymentForm.note.trim() }
   try {
     if (editingPayment.value) await adminAPI.monthlyLedger.updatePayment(editingPayment.value.id, input)
-    else await adminAPI.monthlyLedger.createPayment(selectedMonth.value, row.user_id, input)
+    else await adminAPI.monthlyLedger.createPayment(month, row.user_id, input)
     appStore.showSuccess(t('admin.monthlyLedger.saved'))
-    resetPaymentForm()
-    await Promise.all([loadPayments(), loadLedger()])
+    await refreshPaymentDialog(key, month, row.user_id)
   } catch (error) {
     paymentError.value = errorMessage(error, t('admin.monthlyLedger.saveFailed'))
   } finally {
@@ -636,11 +727,14 @@ const requestDeletePayment = (payment: MonthlyLedgerPayment) => {
 }
 const confirmDeletePayment = async () => {
   if (!canDelete.value || !deletingPayment.value) return
+  const row = activeRow.value
+  const month = selectedMonth.value
+  const key = paymentDialogKey()
   try {
     await adminAPI.monthlyLedger.deletePayment(deletingPayment.value.id)
     deletingPayment.value = null
     appStore.showSuccess(t('admin.monthlyLedger.saved'))
-    await Promise.all([loadPayments(), loadLedger()])
+    if (row) await refreshPaymentDialog(key, month, row.user_id)
   } catch (error) {
     appStore.showError(errorMessage(error, t('admin.monthlyLedger.saveFailed')))
   }

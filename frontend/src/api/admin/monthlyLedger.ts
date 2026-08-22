@@ -8,6 +8,7 @@ export interface MonthlyLedgerRow {
   username: string
   deleted: boolean
   usage_amount: number
+  pricing_usage_amount: number
   multiplier: number
   receivable_amount: number
   paid_amount: number
@@ -67,6 +68,7 @@ export interface MonthlyLedgerPaymentInput {
 
 export interface MonthlyLedgerListParams {
   month?: string
+  user_id?: number
   q?: string
   status?: MonthlyLedgerStatus | ''
   page?: number

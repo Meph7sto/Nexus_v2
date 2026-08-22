@@ -24,3 +24,20 @@ func TestMonthlyLedgerMigrationDefinesFinancialConstraints(t *testing.T) {
 		require.Contains(t, sql, fragment)
 	}
 }
+
+func TestMonthlyLedgerUsageSnapshotMigrationBackfillsCompletedMonths(t *testing.T) {
+	raw, err := FS.ReadFile("229_monthly_ledger_usage_snapshots.sql")
+	require.NoError(t, err)
+	sql := strings.ToLower(string(raw))
+
+	for _, fragment := range []string{
+		"create table if not exists monthly_ledger_usage_snapshots",
+		"unique (user_id, billing_month)",
+		"sum(actual_cost)",
+		"date_trunc('month', created_at)",
+		"date_trunc('month', now())",
+		"on conflict (user_id, billing_month) do nothing",
+	} {
+		require.Contains(t, sql, fragment)
+	}
+}
