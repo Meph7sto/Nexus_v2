@@ -205,7 +205,7 @@ func (r *usageInteractionRepository) ExistingUsageLogIDs(ctx context.Context, us
 	if err != nil {
 		return nil, fmt.Errorf("list usage interaction availability: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		var usageLogID int64
