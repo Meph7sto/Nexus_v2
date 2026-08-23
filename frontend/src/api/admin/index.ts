@@ -123,6 +123,7 @@ export type {
   MonthlyLedgerListResponse,
   MonthlyLedgerPayment,
   MonthlyLedgerPaymentInput,
+  MonthlyLedgerMultipliersUpdate,
   MonthlyLedgerRow,
   MonthlyLedgerStatus,
   MonthlyLedgerSummary,

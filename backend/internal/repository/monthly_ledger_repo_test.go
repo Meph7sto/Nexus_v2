@@ -100,3 +100,41 @@ func TestMonthlyLedgerCreatePaymentWritesMonthStartDate(t *testing.T) {
 	require.Equal(t, "2026-07", payment.BillingMonth)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
+
+func TestMonthlyLedgerSetMultipliersUpdatesAllTargetsAtomically(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	billingMonth := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(`(?s)INSERT INTO monthly_ledger_multipliers.*SELECT DISTINCT unnest.*RETURNING user_id`).
+		WithArgs(sqlmock.AnyArg(), "2026-07-01", 0.5, int64(99)).
+		WillReturnRows(sqlmock.NewRows([]string{"user_id"}).AddRow(int64(7)).AddRow(int64(11)))
+	mock.ExpectCommit()
+
+	repo := NewMonthlyLedgerRepository(db)
+	updated, err := repo.SetMultipliers(context.Background(), billingMonth, []int64{7, 11}, 0.5, 99)
+	require.NoError(t, err)
+	require.Equal(t, int64(2), updated)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestMonthlyLedgerSetMultipliersRollsBackWhenTargetIsMissing(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	billingMonth := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(`(?s)INSERT INTO monthly_ledger_multipliers.*RETURNING user_id`).
+		WithArgs(sqlmock.AnyArg(), "2026-07-01", 0.5, int64(99)).
+		WillReturnRows(sqlmock.NewRows([]string{"user_id"}).AddRow(int64(7)))
+	mock.ExpectRollback()
+
+	repo := NewMonthlyLedgerRepository(db)
+	updated, err := repo.SetMultipliers(context.Background(), billingMonth, []int64{7, 404}, 0.5, 99)
+	require.ErrorIs(t, err, service.ErrMonthlyLedgerUserNotFound)
+	require.Zero(t, updated)
+	require.NoError(t, mock.ExpectationsWereMet())
+}

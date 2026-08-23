@@ -148,6 +148,7 @@ func TestPromptAuditMutationAuditRoutesHaveStableActionsAndOmitBodies(t *testing
 
 func TestMonthlyLedgerMutationAuditRoutesHaveStableActions(t *testing.T) {
 	expected := map[string]string{
+		"PUT /api/v1/admin/monthly-ledger/:month/multipliers":               "admin.monthly_ledger.multiplier.batch_update",
 		"PUT /api/v1/admin/monthly-ledger/:month/users/:user_id/multiplier": "admin.monthly_ledger.multiplier.update",
 		"POST /api/v1/admin/monthly-ledger/:month/users/:user_id/payments":  "admin.monthly_ledger.payment.create",
 		"PUT /api/v1/admin/monthly-ledger/payments/:id":                     "admin.monthly_ledger.payment.update",

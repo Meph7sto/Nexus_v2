@@ -147,6 +147,7 @@ var auditActionOverrides = map[string]string{
 	"POST /api/v1/admin/prompt-audit/events/batch-delete":               "admin.prompt_audit.events.batch_delete",
 	"POST /api/v1/admin/prompt-audit/events/delete-preview":             "admin.prompt_audit.events.delete_preview",
 	"POST /api/v1/admin/prompt-audit/events/delete-by-filter":           "admin.prompt_audit.events.filter_delete",
+	"PUT /api/v1/admin/monthly-ledger/:month/multipliers":               "admin.monthly_ledger.multiplier.batch_update",
 	"PUT /api/v1/admin/monthly-ledger/:month/users/:user_id/multiplier": "admin.monthly_ledger.multiplier.update",
 	"POST /api/v1/admin/monthly-ledger/:month/users/:user_id/payments":  "admin.monthly_ledger.payment.create",
 	"PUT /api/v1/admin/monthly-ledger/payments/:id":                     "admin.monthly_ledger.payment.update",

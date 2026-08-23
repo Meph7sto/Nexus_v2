@@ -30,6 +30,8 @@ var (
 	ErrMonthlyLedgerFuturePaymentTime  = infraerrors.BadRequest("MONTHLY_LEDGER_FUTURE_PAYMENT_TIME", "payment time cannot be in the future")
 	ErrMonthlyLedgerNoteTooLong        = infraerrors.BadRequest("MONTHLY_LEDGER_NOTE_TOO_LONG", "payment note cannot exceed 500 characters")
 	ErrMonthlyLedgerInvalidStatus      = infraerrors.BadRequest("MONTHLY_LEDGER_INVALID_STATUS", "invalid monthly ledger status")
+	ErrMonthlyLedgerNoUsersSelected    = infraerrors.BadRequest("MONTHLY_LEDGER_NO_USERS_SELECTED", "at least one user_id is required")
+	ErrMonthlyLedgerInvalidUserIDs     = infraerrors.BadRequest("MONTHLY_LEDGER_INVALID_USER_IDS", "user_ids must contain positive integers")
 	ErrMonthlyLedgerUserNotFound       = infraerrors.NotFound("MONTHLY_LEDGER_USER_NOT_FOUND", "regular user not found")
 	ErrMonthlyLedgerPaymentNotFound    = infraerrors.NotFound("MONTHLY_LEDGER_PAYMENT_NOT_FOUND", "monthly ledger payment not found")
 	ErrMonthlyLedgerRepositoryNotReady = infraerrors.ServiceUnavailable("MONTHLY_LEDGER_UNAVAILABLE", "monthly ledger is unavailable")
@@ -130,6 +132,12 @@ type MonthlyLedgerMultiplierChange struct {
 	Multiplier         float64 `json:"multiplier"`
 }
 
+type MonthlyLedgerMultipliersUpdate struct {
+	BillingMonth string  `json:"billing_month"`
+	Multiplier   float64 `json:"multiplier"`
+	UpdatedCount int64   `json:"updated_count"`
+}
+
 type MonthlyLedgerPaymentChange struct {
 	Before *MonthlyLedgerPayment `json:"before,omitempty"`
 	After  *MonthlyLedgerPayment `json:"after,omitempty"`
@@ -139,6 +147,7 @@ type MonthlyLedgerRepository interface {
 	List(ctx context.Context, period MonthlyLedgerPeriod, params MonthlyLedgerListParams) ([]MonthlyLedgerRow, *MonthlyLedgerSummary, *pagination.PaginationResult, error)
 	ListPayments(ctx context.Context, billingMonth time.Time, userID int64) ([]MonthlyLedgerPayment, error)
 	SetMultiplier(ctx context.Context, billingMonth time.Time, userID int64, multiplier float64, actorID int64) (float64, error)
+	SetMultipliers(ctx context.Context, billingMonth time.Time, userIDs []int64, multiplier float64, actorID int64) (int64, error)
 	CreatePayment(ctx context.Context, billingMonth time.Time, payment *MonthlyLedgerPayment) error
 	UpdatePayment(ctx context.Context, paymentID int64, update MonthlyLedgerPaymentUpdate, actorID int64) (*MonthlyLedgerPayment, *MonthlyLedgerPayment, error)
 	DeletePayment(ctx context.Context, paymentID int64) (*MonthlyLedgerPayment, error)
@@ -289,6 +298,43 @@ func (s *MonthlyLedgerService) SetMultiplier(ctx context.Context, month string, 
 		return nil, err
 	}
 	return &MonthlyLedgerMultiplierChange{UserID: userID, BillingMonth: period.Month, PreviousMultiplier: previous, Multiplier: multiplier}, nil
+}
+
+func (s *MonthlyLedgerService) SetMultipliers(ctx context.Context, month string, userIDs []int64, multiplier float64, actorID int64) (*MonthlyLedgerMultipliersUpdate, error) {
+	if s == nil || s.repo == nil {
+		return nil, ErrMonthlyLedgerRepositoryNotReady
+	}
+	period, err := s.resolvePeriod(month)
+	if err != nil {
+		return nil, err
+	}
+	if len(userIDs) == 0 {
+		return nil, ErrMonthlyLedgerNoUsersSelected
+	}
+	uniqueUserIDs := make([]int64, 0, len(userIDs))
+	seen := make(map[int64]struct{}, len(userIDs))
+	for _, userID := range userIDs {
+		if userID <= 0 {
+			return nil, ErrMonthlyLedgerInvalidUserIDs
+		}
+		if _, exists := seen[userID]; exists {
+			continue
+		}
+		seen[userID] = struct{}{}
+		uniqueUserIDs = append(uniqueUserIDs, userID)
+	}
+	if !validMoneyNumber(multiplier) || multiplier < 0 || !hasAtMostDecimalPlaces(multiplier, 4) {
+		return nil, ErrMonthlyLedgerInvalidMultiplier
+	}
+	updatedCount, err := s.repo.SetMultipliers(ctx, period.Start, uniqueUserIDs, multiplier, actorID)
+	if err != nil {
+		return nil, err
+	}
+	return &MonthlyLedgerMultipliersUpdate{
+		BillingMonth: period.Month,
+		Multiplier:   multiplier,
+		UpdatedCount: updatedCount,
+	}, nil
 }
 
 func (s *MonthlyLedgerService) CreatePayment(ctx context.Context, month string, userID int64, input MonthlyLedgerPaymentInput, actorID int64) (*MonthlyLedgerPayment, error) {

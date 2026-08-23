@@ -3,10 +3,11 @@ import { flushPromises, mount } from '@vue/test-utils'
 
 import MonthlyLedgerView from '../MonthlyLedgerView.vue'
 
-const { list, listPayments, setMultiplier, createPayment, updatePayment, deletePayment, showError, showSuccess, canAdmin } = vi.hoisted(() => ({
+const { list, listPayments, setMultiplier, setMultipliers, createPayment, updatePayment, deletePayment, showError, showSuccess, canAdmin } = vi.hoisted(() => ({
   list: vi.fn(),
   listPayments: vi.fn(),
   setMultiplier: vi.fn(),
+  setMultipliers: vi.fn(),
   createPayment: vi.fn(),
   updatePayment: vi.fn(),
   deletePayment: vi.fn(),
@@ -17,7 +18,7 @@ const { list, listPayments, setMultiplier, createPayment, updatePayment, deleteP
 
 vi.mock('@/api/admin', () => ({
   adminAPI: {
-    monthlyLedger: { list, listPayments, setMultiplier, createPayment, updatePayment, deletePayment },
+    monthlyLedger: { list, listPayments, setMultiplier, setMultipliers, createPayment, updatePayment, deletePayment },
   },
 }))
 
@@ -73,11 +74,11 @@ const response = (canRecordPayments = true) => ({
   can_record_payments: canRecordPayments,
 })
 
-const mountView = () => mount(MonthlyLedgerView, {
+const mountView = (paginationStub: unknown = true) => mount(MonthlyLedgerView, {
   global: {
     stubs: {
       AppLayout: { template: '<div><slot /></div>' },
-      Pagination: true,
+      Pagination: paginationStub,
       Icon: true,
       BaseDialog: {
         props: ['show'],
@@ -94,6 +95,7 @@ describe('MonthlyLedgerView', () => {
     list.mockReset().mockResolvedValue(response())
     listPayments.mockReset().mockResolvedValue([])
     setMultiplier.mockReset().mockResolvedValue({ multiplier: 0.5 })
+    setMultipliers.mockReset().mockResolvedValue({ billing_month: '2026-07', multiplier: 0.5, updated_count: 1 })
     createPayment.mockReset().mockResolvedValue({ id: 1 })
     updatePayment.mockReset().mockResolvedValue({ id: 1 })
     deletePayment.mockReset().mockResolvedValue({ id: 1 })
@@ -124,6 +126,190 @@ describe('MonthlyLedgerView', () => {
     await flushPromises()
 
     expect(setMultiplier).toHaveBeenCalledWith('2026-07', 7, 0.5)
+  })
+
+  it('keeps partial selections across pages and updates all selected users', async () => {
+    const secondRow = { ...response().items[0], user_id: 8, email: 'second@example.test' }
+    list
+      .mockResolvedValueOnce({ ...response(), total: 2, pages: 2 })
+      .mockResolvedValueOnce({ ...response(), items: [secondRow], total: 2, page: 2, pages: 2 })
+      .mockResolvedValue(response())
+    const PaginationStub = {
+      emits: ['update:page'],
+      template: '<button data-test="next-page" @click="$emit(\'update:page\', 2)">next</button>',
+    }
+    const wrapper = mountView(PaginationStub)
+    await flushPromises()
+
+    await wrapper.get('[data-test="select-user-7"]').trigger('change')
+    await wrapper.get('[data-test="next-page"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-test="select-user-8"]').trigger('change')
+    await wrapper.get('[data-test="open-bulk-multiplier"]').trigger('click')
+    await wrapper.get('[data-test="multiplier-preset-0.5"]').trigger('click')
+    await wrapper.get('[data-test="save-multiplier"]').trigger('click')
+    await flushPromises()
+
+    expect(setMultipliers).toHaveBeenCalledWith('2026-07', [7, 8], 0.5)
+    expect(showSuccess).toHaveBeenCalledWith('admin.monthlyLedger.bulk.saved')
+    expect(wrapper.get('[data-test="open-bulk-multiplier"]').attributes('disabled')).toBeDefined()
+  })
+
+  it('selects every row on the current page from the bulk action bar', async () => {
+    list.mockResolvedValue({
+      ...response(),
+      items: [response().items[0], { ...response().items[0], user_id: 8, email: 'second@example.test' }],
+      total: 3,
+    })
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-test="select-current-page"]').trigger('click')
+
+    expect(wrapper.get<HTMLInputElement>('[data-test="select-user-7"]').element.checked).toBe(true)
+    expect(wrapper.get<HTMLInputElement>('[data-test="select-user-8"]').element.checked).toBe(true)
+    expect(wrapper.get<HTMLInputElement>('[data-test="select-visible"]').element.checked).toBe(true)
+  })
+
+  it('selects every result matching the current month, search, and status filters', async () => {
+    const makeRow = (userID: number) => ({
+      ...response().items[0],
+      user_id: userID,
+      email: `customer-${userID}@example.test`,
+      status: 'partial' as const,
+    })
+    list.mockImplementation(async (params: { page?: number; page_size?: number }) => {
+      if (params.page_size === 200) {
+        const start = ((params.page || 1) - 1) * 200 + 1
+        const end = Math.min((params.page || 1) * 200, 201)
+        return {
+          ...response(),
+          items: Array.from({ length: end - start + 1 }, (_, index) => makeRow(start + index)),
+          total: 201,
+          page: params.page || 1,
+          page_size: 200,
+          pages: 2,
+        }
+      }
+      return { ...response(), items: [makeRow(1)], total: 201, pages: 11 }
+    })
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('#ledger-search').setValue('customer')
+    await wrapper.get('#ledger-status').setValue('partial')
+    await flushPromises()
+    await wrapper.get('[data-test="select-all-results"]').trigger('click')
+    await flushPromises()
+
+    const selectionCalls = list.mock.calls.filter(([params]) => params.page_size === 200)
+    expect(selectionCalls).toHaveLength(2)
+    expect(selectionCalls[0]?.[0]).toEqual(expect.objectContaining({
+      month: '2026-07',
+      q: 'customer',
+      status: 'partial',
+      page: 1,
+      page_size: 200,
+      sort_by: 'user',
+      sort_order: 'asc',
+    }))
+    expect(wrapper.find('[data-test="select-all-results"]').exists()).toBe(false)
+    expect(wrapper.get('[data-test="open-bulk-multiplier"]').attributes('disabled')).toBeUndefined()
+  })
+
+  it('does not include an unsubmitted search draft in select-all requests', async () => {
+    list.mockImplementation(async (params: { page_size?: number }) => ({
+      ...response(),
+      total: 1,
+      page_size: params.page_size || 20,
+    }))
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('#ledger-search').setValue('not-applied')
+    await wrapper.get('[data-test="select-all-results"]').trigger('click')
+    await flushPromises()
+
+    const selectionCall = list.mock.calls.find(([params]) => params.page_size === 200)
+    expect(selectionCall?.[0]).toEqual(expect.objectContaining({ month: '2026-07', q: undefined }))
+  })
+
+  it('keeps the existing partial selection when selecting all results fails', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    list.mockImplementation(async (params: { page_size?: number }) => {
+      if (params.page_size === 200) throw new Error('load all failed')
+      return { ...response(), total: 2, pages: 1 }
+    })
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-test="select-user-7"]').trigger('change')
+    await wrapper.get('[data-test="select-all-results"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get<HTMLInputElement>('[data-test="select-user-7"]').element.checked).toBe(true)
+    expect(showError).toHaveBeenCalledWith('admin.monthlyLedger.bulk.selectAllFailed')
+    consoleError.mockRestore()
+  })
+
+  it('clears the selection when filters are applied', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-test="select-user-7"]').trigger('change')
+    await wrapper.get('#ledger-search').setValue('customer')
+    await wrapper.get('#ledger-search').trigger('keyup.enter')
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="open-bulk-multiplier"]').attributes('disabled')).toBeDefined()
+  })
+
+  it('clears the selection when the billing month changes', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-test="select-user-7"]').trigger('change')
+    await wrapper.get('[data-test="ledger-month"]').setValue('2026-06')
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="open-bulk-multiplier"]').attributes('disabled')).toBeDefined()
+  })
+
+  it('keeps the batch dialog and selection open when the update fails', async () => {
+    setMultipliers.mockRejectedValue(new Error('batch failed'))
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-test="select-user-7"]').trigger('change')
+    await wrapper.get('[data-test="open-bulk-multiplier"]').trigger('click')
+    await wrapper.get('[data-test="save-multiplier"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('batch failed')
+    expect(wrapper.get<HTMLInputElement>('[data-test="select-user-7"]').element.checked).toBe(true)
+    expect(wrapper.get('[data-test="save-multiplier"]').exists()).toBe(true)
+  })
+
+  it('validates a custom batch multiplier before submitting', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-test="select-user-7"]').trigger('change')
+    await wrapper.get('[data-test="open-bulk-multiplier"]').trigger('click')
+    await wrapper.get('#custom-multiplier').setValue('0.12345')
+    await wrapper.get('[data-test="save-multiplier"]').trigger('click')
+
+    expect(setMultipliers).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('admin.monthlyLedger.multiplier.invalid')
+  })
+
+  it('hides selection and bulk controls without monthly ledger update permission', async () => {
+    canAdmin.mockImplementation((_resource: string, action: string) => action === 'view')
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="ledger-bulk-actions"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="select-user-7"]').exists()).toBe(false)
   })
 
   it.each([

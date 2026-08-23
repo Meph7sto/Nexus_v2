@@ -12,6 +12,9 @@ import (
 type monthlyLedgerRepoStub struct {
 	listPeriod          MonthlyLedgerPeriod
 	multiplier          float64
+	batchBillingMonth   time.Time
+	batchUserIDs        []int64
+	batchActorID        int64
 	paymentBillingMonth time.Time
 	payment             *MonthlyLedgerPayment
 }
@@ -29,6 +32,14 @@ func (s *monthlyLedgerRepoStub) SetMultiplier(_ context.Context, _ time.Time, _ 
 	previous := s.multiplier
 	s.multiplier = multiplier
 	return previous, nil
+}
+
+func (s *monthlyLedgerRepoStub) SetMultipliers(_ context.Context, billingMonth time.Time, userIDs []int64, multiplier float64, actorID int64) (int64, error) {
+	s.batchBillingMonth = billingMonth
+	s.batchUserIDs = append([]int64(nil), userIDs...)
+	s.batchActorID = actorID
+	s.multiplier = multiplier
+	return int64(len(userIDs)), nil
 }
 
 func (s *monthlyLedgerRepoStub) CreatePayment(_ context.Context, billingMonth time.Time, payment *MonthlyLedgerPayment) error {
@@ -145,4 +156,35 @@ func TestMonthlyLedgerServiceSetMultiplier(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1.0, change.PreviousMultiplier)
 	require.Equal(t, 0.5, change.Multiplier)
+}
+
+func TestMonthlyLedgerServiceSetMultipliers(t *testing.T) {
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	require.NoError(t, err)
+	now := time.Date(2026, 8, 22, 12, 0, 0, 0, loc)
+	repo := &monthlyLedgerRepoStub{}
+	svc := NewMonthlyLedgerService(repo)
+	svc.now = func() time.Time { return now }
+	svc.location = loc
+
+	_, err = svc.SetMultipliers(context.Background(), "2026-07", nil, 0.5, 99)
+	require.ErrorIs(t, err, ErrMonthlyLedgerNoUsersSelected)
+
+	_, err = svc.SetMultipliers(context.Background(), "2026-07", []int64{7, 0}, 0.5, 99)
+	require.ErrorIs(t, err, ErrMonthlyLedgerInvalidUserIDs)
+
+	_, err = svc.SetMultipliers(context.Background(), "2026-07", []int64{7}, 0.12345, 99)
+	require.ErrorIs(t, err, ErrMonthlyLedgerInvalidMultiplier)
+
+	_, err = svc.SetMultipliers(context.Background(), "2026-09", []int64{7}, 0.5, 99)
+	require.ErrorIs(t, err, ErrMonthlyLedgerFutureMonth)
+
+	result, err := svc.SetMultipliers(context.Background(), "2026-07", []int64{7, 11, 7}, 0.5, 99)
+	require.NoError(t, err)
+	require.Equal(t, "2026-07", result.BillingMonth)
+	require.Equal(t, 0.5, result.Multiplier)
+	require.Equal(t, int64(2), result.UpdatedCount)
+	require.Equal(t, []int64{7, 11}, repo.batchUserIDs)
+	require.Equal(t, time.Date(2026, 7, 1, 0, 0, 0, 0, loc), repo.batchBillingMonth)
+	require.Equal(t, int64(99), repo.batchActorID)
 }

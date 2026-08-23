@@ -73,6 +73,11 @@ type monthlyLedgerMultiplierRequest struct {
 	Multiplier *float64 `json:"multiplier" binding:"required"`
 }
 
+type monthlyLedgerMultipliersRequest struct {
+	UserIDs    []int64  `json:"user_ids" binding:"required"`
+	Multiplier *float64 `json:"multiplier" binding:"required"`
+}
+
 func (h *MonthlyLedgerHandler) SetMultiplier(c *gin.Context) {
 	userID, ok := parseMonthlyLedgerID(c, "user_id")
 	if !ok {
@@ -94,6 +99,25 @@ func (h *MonthlyLedgerHandler) SetMultiplier(c *gin.Context) {
 		"old_multiplier": change.PreviousMultiplier, "new_multiplier": change.Multiplier,
 	})
 	response.Success(c, change)
+}
+
+func (h *MonthlyLedgerHandler) SetMultipliers(c *gin.Context) {
+	var req monthlyLedgerMultipliersRequest
+	if err := c.ShouldBindJSON(&req); err != nil || req.Multiplier == nil {
+		response.BadRequest(c, "Invalid multipliers request")
+		return
+	}
+	result, err := h.service.SetMultipliers(c.Request.Context(), c.Param("month"), req.UserIDs, *req.Multiplier, monthlyLedgerActorID(c))
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	middleware.SetAuditAction(c, "admin.monthly_ledger.multiplier.batch_update")
+	middleware.SetAuditExtra(c, map[string]any{
+		"ledger_user_ids": req.UserIDs, "ledger_month": result.BillingMonth,
+		"updated_count": result.UpdatedCount, "new_multiplier": result.Multiplier,
+	})
+	response.Success(c, result)
 }
 
 func (h *MonthlyLedgerHandler) CreatePayment(c *gin.Context) {

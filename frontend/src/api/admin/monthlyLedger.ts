@@ -66,6 +66,12 @@ export interface MonthlyLedgerPaymentInput {
   note?: string
 }
 
+export interface MonthlyLedgerMultipliersUpdate {
+  billing_month: string
+  multiplier: number
+  updated_count: number
+}
+
 export interface MonthlyLedgerListParams {
   month?: string
   user_id?: number
@@ -92,6 +98,14 @@ export async function setMultiplier(month: string, userId: number, multiplier: n
   return data
 }
 
+export async function setMultipliers(month: string, userIds: number[], multiplier: number): Promise<MonthlyLedgerMultipliersUpdate> {
+  const { data } = await apiClient.put<MonthlyLedgerMultipliersUpdate>(`/admin/monthly-ledger/${encodeURIComponent(month)}/multipliers`, {
+    user_ids: userIds,
+    multiplier,
+  })
+  return data
+}
+
 export async function createPayment(month: string, userId: number, input: MonthlyLedgerPaymentInput) {
   const { data } = await apiClient.post<MonthlyLedgerPayment>(`/admin/monthly-ledger/${encodeURIComponent(month)}/users/${userId}/payments`, input)
   return data
@@ -111,6 +125,7 @@ const monthlyLedgerAPI = {
   list,
   listPayments,
   setMultiplier,
+  setMultipliers,
   createPayment,
   updatePayment,
   deletePayment,

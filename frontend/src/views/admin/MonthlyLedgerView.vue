@@ -99,11 +99,72 @@
         </div>
       </section>
 
+      <section v-if="canUpdate" class="bulk-action-bar" data-test="ledger-bulk-actions">
+        <div class="flex min-w-0 flex-wrap items-center gap-2">
+          <span v-if="allResultsSelected" class="text-sm font-semibold text-[var(--nx-text)]">
+            {{ t('admin.monthlyLedger.bulk.selectedAll', { count: selIds.length }) }}
+          </span>
+          <span v-else class="text-sm font-semibold text-[var(--nx-text)]">
+            {{ t('admin.monthlyLedger.bulk.selected', { count: selIds.length }) }}
+          </span>
+          <button
+            v-if="rows.length > 0 && !allVisibleSelected"
+            type="button"
+            class="bulk-link"
+            data-test="select-current-page"
+            @click="selectCurrentPage"
+          >
+            {{ t('admin.monthlyLedger.bulk.selectCurrentPage') }}
+          </button>
+          <button
+            v-if="!allResultsSelected && total > selIds.length"
+            type="button"
+            class="bulk-link"
+            data-test="select-all-results"
+            :disabled="selectingAllResults || loading"
+            @click="handleSelectAllResults"
+          >
+            {{ selectingAllResults
+              ? t('admin.monthlyLedger.bulk.selectingAll')
+              : t('admin.monthlyLedger.bulk.selectAllResults', { count: total }) }}
+          </button>
+          <button
+            v-if="selIds.length > 0"
+            type="button"
+            class="bulk-link"
+            data-test="clear-selection"
+            @click="clearSelection"
+          >
+            {{ t('admin.monthlyLedger.bulk.clear') }}
+          </button>
+        </div>
+        <button
+          type="button"
+          class="btn btn-primary shrink-0"
+          data-test="open-bulk-multiplier"
+          :disabled="selIds.length === 0"
+          @click="openBulkMultiplier"
+        >
+          <Icon name="edit" size="sm" />
+          {{ t('admin.monthlyLedger.bulk.action') }}
+        </button>
+      </section>
+
       <section class="ledger-table-shell">
         <div class="overflow-x-auto">
           <table class="ledger-table">
             <thead>
               <tr>
+                <th v-if="canUpdate" class="selection-cell text-center">
+                  <input
+                    type="checkbox"
+                    class="selection-checkbox"
+                    data-test="select-visible"
+                    :checked="allVisibleSelected"
+                    :aria-label="t('admin.monthlyLedger.bulk.selectCurrentPage')"
+                    @change="toggleSelectAllVisible"
+                  />
+                </th>
                 <th class="text-left">{{ t('admin.monthlyLedger.columns.user') }}</th>
                 <th v-for="column in sortableColumns" :key="column.key" class="text-right">
                   <button type="button" class="sort-button" @click="changeSort(column.key)">
@@ -122,14 +183,24 @@
             </thead>
             <tbody>
               <tr v-if="loading">
-                <td :colspan="9" class="empty-row">
+                <td :colspan="canUpdate ? 10 : 9" class="empty-row">
                   <span class="inline-flex items-center gap-2"><Icon name="refresh" size="sm" class="animate-spin" />{{ t('common.loading') }}</span>
                 </td>
               </tr>
               <tr v-else-if="rows.length === 0">
-                <td :colspan="9" class="empty-row">{{ t('admin.monthlyLedger.noData') }}</td>
+                <td :colspan="canUpdate ? 10 : 9" class="empty-row">{{ t('admin.monthlyLedger.noData') }}</td>
               </tr>
-              <tr v-for="row in rows" v-else :key="row.user_id">
+              <tr v-for="row in rows" v-else :key="row.user_id" :class="isSelected(row.user_id) ? 'ledger-row-selected' : ''">
+                <td v-if="canUpdate" class="selection-cell text-center">
+                  <input
+                    type="checkbox"
+                    class="selection-checkbox"
+                    :data-test="`select-user-${row.user_id}`"
+                    :checked="isSelected(row.user_id)"
+                    :aria-label="row.email"
+                    @change="toggleSelection(row.user_id)"
+                  />
+                </td>
                 <td>
                   <div class="max-w-[260px]">
                     <div class="flex items-center gap-2">
@@ -214,12 +285,12 @@
 
   <BaseDialog
     :show="showMultiplierDialog"
-    :title="t('admin.monthlyLedger.multiplier.title')"
+    :title="multiplierDialogTitle"
     width="narrow"
     @close="closeMultiplier"
   >
-    <div v-if="editingMultiplierRow" class="space-y-5">
-      <div class="amount-comparison">
+    <div v-if="editingMultiplierRow || multiplierMode === 'batch'" class="space-y-5">
+      <div v-if="editingMultiplierRow" class="amount-comparison">
         <div>
           <span>{{ t('admin.monthlyLedger.multiplier.rawUsage') }}</span>
           <strong>{{ formatUSD(editingMultiplierRow.usage_amount) }}</strong>
@@ -229,6 +300,11 @@
           <span>{{ t('admin.monthlyLedger.multiplier.preview') }}</span>
           <strong>{{ formatUSD(multiplierPreview) }}</strong>
         </div>
+      </div>
+
+      <div v-else class="batch-scope">
+        <Icon name="users" size="md" />
+        <span>{{ t('admin.monthlyLedger.bulk.scope', { month: selectedMonth, count: batchMultiplierUserIDs.length }) }}</span>
       </div>
 
       <div>
@@ -375,6 +451,8 @@ import type {
 } from '@/api/admin'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
+import { useTableSelection } from '@/composables/useTableSelection'
+import { fetchAllPaginatedIDs } from '@/utils/paginatedSelection'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
@@ -407,6 +485,12 @@ const currentMonth = ref('')
 const canRecordPayments = ref(false)
 const searchQuery = ref('')
 const statusFilter = ref<MonthlyLedgerStatus | ''>('')
+const appliedSearchQuery = ref('')
+const appliedStatusFilter = ref<MonthlyLedgerStatus | ''>('')
+const loadedFilterSnapshot = ref<{ month: string; q?: string; status: MonthlyLedgerStatus | '' }>({
+  month: '',
+  status: '',
+})
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
@@ -417,6 +501,69 @@ let listRequestSequence = 0
 const canCreate = computed(() => authStore.canAdmin('monthly_ledger', 'create'))
 const canUpdate = computed(() => authStore.canAdmin('monthly_ledger', 'update'))
 const canDelete = computed(() => authStore.canAdmin('monthly_ledger', 'delete'))
+
+const {
+  selectedSet,
+  selectedIds: selIds,
+  allVisibleSelected,
+  isSelected,
+  setSelectedIds,
+  toggle: toggleSelection,
+  clear: clearSelectedIds,
+  toggleVisible,
+  selectVisible: selectCurrentPage,
+} = useTableSelection<MonthlyLedgerRow>({
+  rows,
+  getId: row => row.user_id,
+})
+const selectingAllResults = ref(false)
+const selectedAllResultIDs = ref<Set<number> | null>(null)
+const selectionRequestVersion = ref(0)
+const allResultsSelected = computed(() => {
+  const snapshot = selectedAllResultIDs.value
+  if (!snapshot || snapshot.size === 0 || snapshot.size !== selectedSet.value.size) return false
+  return Array.from(snapshot).every(userID => selectedSet.value.has(userID))
+})
+
+const clearSelection = () => {
+  selectionRequestVersion.value++
+  selectingAllResults.value = false
+  selectedAllResultIDs.value = null
+  clearSelectedIds()
+}
+
+const toggleSelectAllVisible = (event: Event) => {
+  toggleVisible((event.target as HTMLInputElement).checked)
+}
+
+const handleSelectAllResults = async () => {
+  if (selectingAllResults.value || loading.value || total.value === 0) return
+  const requestVersion = ++selectionRequestVersion.value
+  const filterSnapshot = { ...loadedFilterSnapshot.value }
+  selectingAllResults.value = true
+  try {
+    const ids = await fetchAllPaginatedIDs(
+      (targetPage, targetPageSize) => adminAPI.monthlyLedger.list({
+        ...filterSnapshot,
+        page: targetPage,
+        page_size: targetPageSize,
+        sort_by: 'user',
+        sort_order: 'asc',
+      }),
+      row => row.user_id,
+      { pageSize: 200, incompleteError: 'Monthly ledger selection result is incomplete' }
+    )
+    if (requestVersion !== selectionRequestVersion.value) return
+    setSelectedIds(ids)
+    selectedAllResultIDs.value = new Set(ids)
+  } catch (error) {
+    if (requestVersion !== selectionRequestVersion.value) return
+    console.error('Failed to select all monthly ledger results:', error)
+    appStore.showError(t('admin.monthlyLedger.bulk.selectAllFailed'))
+  } finally {
+    if (requestVersion === selectionRequestVersion.value) selectingAllResults.value = false
+  }
+}
 
 const ledgerStatuses: MonthlyLedgerStatus[] = ['unpaid', 'partial', 'settled', 'overpaid', 'waived']
 const sortableColumns = [
@@ -456,17 +603,18 @@ const errorMessage = (error: unknown, fallback: string) => {
 
 const loadLedger = async () => {
   const sequence = ++listRequestSequence
+  const requestParams = {
+    ...(selectedMonth.value ? { month: selectedMonth.value } : {}),
+    q: appliedSearchQuery.value || undefined,
+    status: appliedStatusFilter.value,
+    page: page.value,
+    page_size: pageSize.value,
+    sort_by: sortBy.value,
+    sort_order: sortOrder.value,
+  }
   loading.value = true
   try {
-    const result = await adminAPI.monthlyLedger.list({
-      ...(selectedMonth.value ? { month: selectedMonth.value } : {}),
-      q: searchQuery.value || undefined,
-      status: statusFilter.value,
-      page: page.value,
-      page_size: pageSize.value,
-      sort_by: sortBy.value,
-      sort_order: sortOrder.value,
-    })
+    const result = await adminAPI.monthlyLedger.list(requestParams)
     if (sequence !== listRequestSequence) return
     rows.value = result.items || []
     summary.value = result.summary || emptySummary()
@@ -476,6 +624,11 @@ const loadLedger = async () => {
     selectedMonth.value = result.month
     currentMonth.value = result.current_month
     canRecordPayments.value = result.can_record_payments
+    loadedFilterSnapshot.value = {
+      month: result.month,
+      q: requestParams.q,
+      status: requestParams.status,
+    }
   } catch (error) {
     if (sequence !== listRequestSequence) return
     rows.value = []
@@ -487,11 +640,17 @@ const loadLedger = async () => {
 }
 
 const applyFilters = () => {
+  clearSelection()
+  appliedSearchQuery.value = searchQuery.value
+  appliedStatusFilter.value = statusFilter.value
   page.value = 1
   loadLedger()
 }
 
 const changeMonth = () => {
+  clearSelection()
+  appliedSearchQuery.value = searchQuery.value
+  appliedStatusFilter.value = statusFilter.value
   page.value = 1
   loadLedger()
 }
@@ -517,6 +676,8 @@ const changeSort = (key: typeof sortBy.value) => {
 
 const showMultiplierDialog = ref(false)
 const editingMultiplierRow = ref<MonthlyLedgerRow | null>(null)
+const multiplierMode = ref<'single' | 'batch'>('single')
+const batchMultiplierUserIDs = ref<number[]>([])
 const multiplierDraft = ref('1')
 const multiplierError = ref('')
 const savingMultiplier = ref(false)
@@ -559,27 +720,58 @@ const multiplierPreview = computed(() => {
   return roundNonNegativeDecimalProduct(editingMultiplierRow.value.pricing_usage_amount, multiplier)
 })
 
+const multiplierDialogTitle = computed(() => multiplierMode.value === 'batch'
+  ? t('admin.monthlyLedger.bulk.title')
+  : t('admin.monthlyLedger.multiplier.title'))
+
 const openMultiplier = (row: MonthlyLedgerRow) => {
+  multiplierMode.value = 'single'
+  batchMultiplierUserIDs.value = []
   editingMultiplierRow.value = row
   multiplierDraft.value = String(row.multiplier)
   multiplierError.value = ''
   showMultiplierDialog.value = true
 }
-const closeMultiplier = () => { showMultiplierDialog.value = false; editingMultiplierRow.value = null }
+const openBulkMultiplier = () => {
+  if (!canUpdate.value || selIds.value.length === 0) return
+  multiplierMode.value = 'batch'
+  batchMultiplierUserIDs.value = [...selIds.value]
+  editingMultiplierRow.value = null
+  multiplierDraft.value = '1'
+  multiplierError.value = ''
+  showMultiplierDialog.value = true
+}
+const closeMultiplier = () => {
+  showMultiplierDialog.value = false
+  editingMultiplierRow.value = null
+  batchMultiplierUserIDs.value = []
+}
 const saveMultiplier = async () => {
   if (!canUpdate.value) return
   const row = editingMultiplierRow.value
   const multiplier = Number(multiplierDraft.value)
   const scaled = multiplier * 10000
-  if (!row || !Number.isFinite(multiplier) || multiplier < 0 || Math.abs(scaled - Math.round(scaled)) > 1e-7) {
+  const hasTarget = multiplierMode.value === 'batch' ? batchMultiplierUserIDs.value.length > 0 : Boolean(row)
+  if (!hasTarget || !Number.isFinite(multiplier) || multiplier < 0 || Math.abs(scaled - Math.round(scaled)) > 1e-7) {
     multiplierError.value = t('admin.monthlyLedger.multiplier.invalid')
     return
   }
   savingMultiplier.value = true
   try {
-    await adminAPI.monthlyLedger.setMultiplier(selectedMonth.value, row.user_id, multiplier)
+    const isBatch = multiplierMode.value === 'batch'
+    const targetCount = batchMultiplierUserIDs.value.length
+    if (isBatch) {
+      await adminAPI.monthlyLedger.setMultipliers(selectedMonth.value, batchMultiplierUserIDs.value, multiplier)
+    } else if (row) {
+      await adminAPI.monthlyLedger.setMultiplier(selectedMonth.value, row.user_id, multiplier)
+    }
     closeMultiplier()
-    appStore.showSuccess(t('admin.monthlyLedger.saved'))
+    if (isBatch) {
+      clearSelection()
+      appStore.showSuccess(t('admin.monthlyLedger.bulk.saved', { count: targetCount }))
+    } else {
+      appStore.showSuccess(t('admin.monthlyLedger.saved'))
+    }
     await loadLedger()
   } catch (error) {
     multiplierError.value = errorMessage(error, t('admin.monthlyLedger.saveFailed'))
@@ -774,6 +966,24 @@ onMounted(loadLedger)
   color: var(--nx-warning);
   font-size: 13px;
 }
+.bulk-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--nx-accent) 28%, var(--nx-border));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--nx-accent) 6%, var(--nx-surface));
+}
+.bulk-link {
+  color: var(--nx-accent);
+  font-size: 12px;
+  font-weight: 650;
+}
+.bulk-link::before { content: '·'; margin-right: 8px; color: var(--nx-subtle); }
+.bulk-link:hover:not(:disabled) { text-decoration: underline; }
+.bulk-link:disabled { cursor: wait; opacity: 0.55; }
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
@@ -808,6 +1018,10 @@ onMounted(loadLedger)
 .ledger-table td { padding: 13px 14px; border-bottom: 1px solid var(--nx-border); vertical-align: middle; }
 .ledger-table tbody tr:last-child td { border-bottom: 0; }
 .ledger-table tbody tr:hover { background: color-mix(in srgb, var(--nx-bg) 65%, transparent); }
+.ledger-table tbody .ledger-row-selected { background: color-mix(in srgb, var(--nx-accent) 6%, var(--nx-surface)); }
+.selection-cell { width: 46px; padding-left: 12px !important; padding-right: 8px !important; }
+.selection-checkbox { width: 16px; height: 16px; cursor: pointer; border-radius: 3px; border-color: var(--nx-border); color: var(--nx-accent); }
+.selection-checkbox:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--nx-accent) 22%, transparent); }
 .sort-button { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; transition: color 150ms ease; }
 .sort-button:hover { color: var(--nx-accent); }
 .money-cell { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; font-size: 14px; }
@@ -840,12 +1054,25 @@ onMounted(loadLedger)
 .amount-comparison { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; padding: 14px; border: 1px solid var(--nx-border); border-radius: 6px; background: var(--nx-bg); }
 .amount-comparison span { display: block; color: var(--nx-subtle); font-size: 11px; }
 .amount-comparison strong { display: block; margin-top: 4px; font-size: 18px; }
+.batch-scope {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--nx-border);
+  border-radius: 6px;
+  background: var(--nx-bg);
+  color: var(--nx-muted);
+  font-size: 13px;
+}
 .multiplier-preset { height: 38px; border: 1px solid var(--nx-border); border-radius: 4px; background: var(--nx-surface); color: var(--nx-muted); font-size: 13px; font-weight: 650; }
 .multiplier-preset:hover, .multiplier-preset-active { border-color: var(--nx-accent); background: rgba(255, 86, 0, 0.07); color: var(--nx-accent); }
 .payment-empty { display: grid; min-height: 230px; place-items: center; border: 1px dashed var(--nx-border); color: var(--nx-subtle); font-size: 13px; }
 .payment-record { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 14px 4px; }
 .payment-form { align-self: start; display: grid; gap: 16px; padding: 16px; border-left: 3px solid var(--nx-accent); background: var(--nx-bg); }
 @media (max-width: 640px) {
+  .bulk-action-bar { align-items: stretch; flex-direction: column; }
+  .bulk-action-bar > .btn { justify-content: center; width: 100%; }
   .summary-grid { grid-template-columns: minmax(0, 1fr); }
   .payment-form { border-left: 0; border-top: 3px solid var(--nx-accent); }
 }

@@ -251,7 +251,7 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 	add(service.AdminResourceMonthlyLedger, service.AdminActionCreate, http.MethodPost,
 		admin+"/monthly-ledger/:month/users/:user_id/payments")
 	add(service.AdminResourceMonthlyLedger, service.AdminActionUpdate, http.MethodPut,
-		admin+"/monthly-ledger/:month/users/:user_id/multiplier", admin+"/monthly-ledger/payments/:id")
+		admin+"/monthly-ledger/:month/multipliers", admin+"/monthly-ledger/:month/users/:user_id/multiplier", admin+"/monthly-ledger/payments/:id")
 	add(service.AdminResourceMonthlyLedger, service.AdminActionDelete, http.MethodDelete,
 		admin+"/monthly-ledger/payments/:id")
 	add(service.AdminResourceUsageInteractions, service.AdminActionView, http.MethodGet, admin+"/usage/:id/interaction")

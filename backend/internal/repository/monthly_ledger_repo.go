@@ -10,6 +10,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/lib/pq"
 )
 
 type monthlyLedgerRepository struct {
@@ -289,6 +290,56 @@ func (r *monthlyLedgerRepository) SetMultiplier(ctx context.Context, billingMont
 		return 0, fmt.Errorf("commit multiplier update: %w", err)
 	}
 	return previous, nil
+}
+
+func (r *monthlyLedgerRepository) SetMultipliers(ctx context.Context, billingMonth time.Time, userIDs []int64, multiplier float64, actorID int64) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, service.ErrMonthlyLedgerRepositoryNotReady
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("begin multiplier batch update: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	query := `
+		INSERT INTO monthly_ledger_multipliers (
+			user_id, billing_month, multiplier, created_by, updated_by
+		)
+		SELECT target.user_id, $2, $3, $4, $4
+		FROM (SELECT DISTINCT unnest($1::bigint[]) AS user_id) target
+		JOIN users ON users.id = target.user_id AND users.role = 'user'
+		ON CONFLICT (user_id, billing_month) DO UPDATE SET
+			multiplier = EXCLUDED.multiplier,
+			updated_by = EXCLUDED.updated_by,
+			updated_at = NOW()
+		RETURNING user_id`
+	rows, err := tx.QueryContext(ctx, query, pq.Array(userIDs), billingMonth.Format("2006-01-02"), multiplier, actorID)
+	if err != nil {
+		return 0, fmt.Errorf("set monthly multipliers: %w", err)
+	}
+	var updatedCount int64
+	for rows.Next() {
+		var userID int64
+		if err := rows.Scan(&userID); err != nil {
+			_ = rows.Close()
+			return 0, fmt.Errorf("scan monthly multiplier update: %w", err)
+		}
+		updatedCount++
+	}
+	if err := rows.Close(); err != nil {
+		return 0, fmt.Errorf("close monthly multiplier updates: %w", err)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, fmt.Errorf("iterate monthly multiplier updates: %w", err)
+	}
+	if updatedCount != int64(len(userIDs)) {
+		return 0, service.ErrMonthlyLedgerUserNotFound
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("commit multiplier batch update: %w", err)
+	}
+	return updatedCount, nil
 }
 
 func (r *monthlyLedgerRepository) CreatePayment(ctx context.Context, billingMonth time.Time, payment *service.MonthlyLedgerPayment) error {

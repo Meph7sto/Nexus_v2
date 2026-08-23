@@ -204,6 +204,62 @@ func TestMonthlyLedgerRepositoryAggregatesAndFiltersLiveMonthlyLedger(t *testing
 	require.Equal(t, "2026-07", deletedPayment.BillingMonth)
 }
 
+func TestMonthlyLedgerRepositoryBatchMultiplierIsAtomicAndMonthScoped(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+	repo := NewMonthlyLedgerRepository(integrationDB)
+	suffix := uuid.NewString()
+	actor := mustCreateUser(t, client, &service.User{
+		Email: fmt.Sprintf("ledger-batch-actor-%s@example.test", suffix),
+		Role:  service.RoleAdmin,
+	})
+	first := mustCreateUser(t, client, &service.User{
+		Email: fmt.Sprintf("ledger-batch-first-%s@example.test", suffix),
+		Role:  service.RoleUser,
+	})
+	second := mustCreateUser(t, client, &service.User{
+		Email: fmt.Sprintf("ledger-batch-second-%s@example.test", suffix),
+		Role:  service.RoleUser,
+	})
+	t.Cleanup(func() {
+		for _, user := range []*service.User{first, second, actor} {
+			_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM monthly_ledger_multipliers WHERE user_id = $1", user.ID)
+			_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM users WHERE id = $1", user.ID)
+		}
+	})
+
+	june := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	july := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+	_, err := repo.SetMultiplier(ctx, june, first.ID, 0.9, actor.ID)
+	require.NoError(t, err)
+
+	updated, err := repo.SetMultipliers(ctx, july, []int64{first.ID, second.ID}, 0.5, actor.ID)
+	require.NoError(t, err)
+	require.Equal(t, int64(2), updated)
+	for _, user := range []*service.User{first, second} {
+		var multiplier float64
+		var updatedBy int64
+		require.NoError(t, integrationDB.QueryRowContext(ctx, `
+			SELECT multiplier, updated_by FROM monthly_ledger_multipliers
+			WHERE user_id = $1 AND billing_month = $2`, user.ID, july).Scan(&multiplier, &updatedBy))
+		require.Equal(t, 0.5, multiplier)
+		require.Equal(t, actor.ID, updatedBy)
+	}
+	var juneMultiplier float64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+		SELECT multiplier FROM monthly_ledger_multipliers
+		WHERE user_id = $1 AND billing_month = $2`, first.ID, june).Scan(&juneMultiplier))
+	require.Equal(t, 0.9, juneMultiplier)
+
+	_, err = repo.SetMultipliers(ctx, july, []int64{first.ID, actor.ID}, 0.8, actor.ID)
+	require.ErrorIs(t, err, service.ErrMonthlyLedgerUserNotFound)
+	var unchanged float64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+		SELECT multiplier FROM monthly_ledger_multipliers
+		WHERE user_id = $1 AND billing_month = $2`, first.ID, july).Scan(&unchanged))
+	require.Equal(t, 0.5, unchanged)
+}
+
 func TestMonthlyLedgerRepositoryKeepsCompletedMonthAfterManualUsageCleanup(t *testing.T) {
 	ctx := context.Background()
 	client := testEntClient(t)

@@ -19,6 +19,9 @@ import (
 type monthlyLedgerHandlerRepoStub struct {
 	period              service.MonthlyLedgerPeriod
 	listParams          service.MonthlyLedgerListParams
+	batchUserIDs        []int64
+	batchMultiplier     float64
+	batchActorID        int64
 	paymentBillingMonth time.Time
 	created             *service.MonthlyLedgerPayment
 }
@@ -35,6 +38,13 @@ func (s *monthlyLedgerHandlerRepoStub) ListPayments(context.Context, time.Time, 
 
 func (s *monthlyLedgerHandlerRepoStub) SetMultiplier(context.Context, time.Time, int64, float64, int64) (float64, error) {
 	return 1, nil
+}
+
+func (s *monthlyLedgerHandlerRepoStub) SetMultipliers(_ context.Context, _ time.Time, userIDs []int64, multiplier float64, actorID int64) (int64, error) {
+	s.batchUserIDs = append([]int64(nil), userIDs...)
+	s.batchMultiplier = multiplier
+	s.batchActorID = actorID
+	return int64(len(userIDs)), nil
 }
 
 func (s *monthlyLedgerHandlerRepoStub) CreatePayment(_ context.Context, billingMonth time.Time, payment *service.MonthlyLedgerPayment) error {
@@ -62,6 +72,7 @@ func setupMonthlyLedgerHandlerRouter(repo service.MonthlyLedgerRepository) *gin.
 	})
 	handler := NewMonthlyLedgerHandler(service.NewMonthlyLedgerService(repo))
 	router.GET("/monthly-ledger", handler.List)
+	router.PUT("/monthly-ledger/:month/multipliers", handler.SetMultipliers)
 	router.POST("/monthly-ledger/:month/users/:user_id/payments", handler.CreatePayment)
 	return router
 }
@@ -138,5 +149,39 @@ func TestMonthlyLedgerHandlerRejectsCurrentMonthPayment(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/monthly-ledger/"+month+"/users/7/payments", body)
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(recorder, req)
+	require.Equal(t, http.StatusBadRequest, recorder.Code)
+}
+
+func TestMonthlyLedgerHandlerSetsMultipliers(t *testing.T) {
+	repo := &monthlyLedgerHandlerRepoStub{}
+	router := setupMonthlyLedgerHandlerRouter(repo)
+	month := time.Now().In(time.Local).Format("2006-01")
+	body := bytes.NewBufferString(`{"user_ids":[7,11,7],"multiplier":0.5}`)
+	recorder := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPut, "/monthly-ledger/"+month+"/multipliers", body)
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(recorder, req)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, []int64{7, 11}, repo.batchUserIDs)
+	require.Equal(t, 0.5, repo.batchMultiplier)
+	require.Equal(t, int64(99), repo.batchActorID)
+	var responseBody struct {
+		Data service.MonthlyLedgerMultipliersUpdate `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &responseBody))
+	require.Equal(t, int64(2), responseBody.Data.UpdatedCount)
+	require.Equal(t, month, responseBody.Data.BillingMonth)
+}
+
+func TestMonthlyLedgerHandlerRejectsEmptyMultiplierBatch(t *testing.T) {
+	router := setupMonthlyLedgerHandlerRouter(&monthlyLedgerHandlerRepoStub{})
+	month := time.Now().In(time.Local).Format("2006-01")
+	body := bytes.NewBufferString(`{"user_ids":[],"multiplier":0.5}`)
+	recorder := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPut, "/monthly-ledger/"+month+"/multipliers", body)
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(recorder, req)
+
 	require.Equal(t, http.StatusBadRequest, recorder.Code)
 }
