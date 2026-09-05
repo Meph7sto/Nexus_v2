@@ -85,7 +85,7 @@
       <!-- OpenAI Codex namespace 工具摊平（兼容开关，仅 OAuth） -->
       <div
         v-if="allOpenAIOAuthOnly"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="border-t border-gray-200 pt-4"
       >
         <div class="mb-3 flex items-center justify-between">
           <div class="flex-1 pr-4">
@@ -96,7 +96,7 @@
             >
               {{ t('admin.accounts.openai.flattenNamespaces') }}
             </label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-gray-500">
               {{ t('admin.accounts.openai.flattenNamespacesDesc') }}
             </p>
           </div>
@@ -119,7 +119,7 @@
             type="button"
             :class="[
               'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              openaiFlattenNamespacesEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+              openaiFlattenNamespacesEnabled ? 'bg-primary-600' : 'bg-gray-200'
             ]"
             @click="openaiFlattenNamespacesEnabled = !openaiFlattenNamespacesEnabled"
           >
@@ -136,7 +136,7 @@
       <!-- OpenAI API long-context billing -->
       <div
         v-if="allOpenAIPassthroughCapable"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="border-t border-gray-200 pt-4"
       >
         <div class="mb-3 flex items-center justify-between gap-4">
           <div class="flex-1">
@@ -147,7 +147,7 @@
             >
               {{ t('admin.accounts.openai.longContextBilling') }}
             </label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-gray-500">
               {{ t('admin.accounts.openai.longContextBillingDesc') }}
             </p>
           </div>
@@ -173,7 +173,7 @@
             :aria-checked="openAILongContextBillingEnabled"
             :class="[
               'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              openAILongContextBillingEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+              openAILongContextBillingEnabled ? 'bg-primary-600' : 'bg-gray-200'
             ]"
             @click="openAILongContextBillingEnabled = !openAILongContextBillingEnabled"
           >
@@ -186,7 +186,7 @@
           </button>
         </div>
         <p
-          class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
+          class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700"
           data-testid="bulk-edit-openai-long-context-shadow-hint"
         >
           {{ t('admin.accounts.bulkEdit.longContextShadowHint') }}
@@ -812,7 +812,7 @@
           <p class="input-hint">{{ t('admin.accounts.billingRateMultiplierHint') }}</p>
           <p
             v-if="enableRateMultiplier"
-            class="mt-2 flex items-start gap-1 text-xs text-amber-700 dark:text-amber-300"
+            class="mt-2 flex items-start gap-1 text-xs text-amber-700"
             data-testid="bulk-rate-sync-warning"
           >
             <Icon name="exclamationTriangle" size="xs" class="mt-0.5 flex-shrink-0" />
@@ -978,6 +978,7 @@
         <div class="mb-3 flex items-center justify-between">
           <label class="input-label mb-0">{{ t('admin.accounts.openai.codexFingerprintMode') }}</label>
           <input
+            id="bulk-edit-openai-codex-fingerprint-mode-enabled"
             v-model="enableCodexFingerprintMode"
             type="checkbox"
             class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
@@ -1031,7 +1032,7 @@
       </div>
 
       <!-- OpenAI API Key endpoint capabilities -->
-      <div v-if="allOpenAIAPIKey" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+      <div v-if="allOpenAIAPIKey" class="border-t border-gray-200 pt-4">
         <div class="mb-3 flex items-center justify-between gap-4">
           <div class="flex-1">
             <label
@@ -1041,7 +1042,7 @@
             >
               {{ t('admin.accounts.openai.endpointCapabilities') }}
             </label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-gray-500">
               {{ t('admin.accounts.openai.endpointCapabilitiesDesc') }}
             </p>
           </div>
@@ -1063,24 +1064,24 @@
             <label
               v-for="option in openAIEndpointCapabilityOptions"
               :key="option.value"
-              class="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-dark-600"
+              class="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm"
             >
               <input
                 type="checkbox"
                 :disabled="!enableOpenAIEndpointCapabilities"
-                class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-500"
+                class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                 :data-testid="`bulk-edit-openai-endpoint-capability-${option.value}`"
                 :checked="openAIEndpointCapabilities.includes(option.value)"
                 @change="toggleOpenAIEndpointCapability(option.value, $event)"
               />
-              <span class="text-gray-700 dark:text-gray-200">{{ option.label }}</span>
+              <span class="text-gray-700">{{ option.label }}</span>
             </label>
           </div>
         </div>
       </div>
 
       <!-- OpenAI API Key Responses route -->
-      <div v-if="allOpenAIAPIKey" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+      <div v-if="allOpenAIAPIKey" class="border-t border-gray-200 pt-4">
         <div class="mb-3 flex items-center justify-between gap-4">
           <div class="flex-1">
             <label
@@ -1090,7 +1091,7 @@
             >
               {{ t('admin.accounts.openai.responsesMode') }}
             </label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-gray-500">
               {{ t('admin.accounts.openai.responsesModeDesc') }}
             </p>
           </div>
@@ -1117,7 +1118,7 @@
           />
           <p
             v-if="enableOpenAIEndpointCapabilities && !openAITextGenerationCapabilityEnabled"
-            class="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
+            class="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700"
             data-testid="bulk-edit-openai-responses-mode-not-applicable"
           >
             {{ t('admin.accounts.openai.responsesModeTextDisabledHint') }}
@@ -2089,12 +2090,23 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
 
   if (enableCodexFingerprintMode.value) {
     const extra = ensureExtra()
-    // off = 默认值，清键即可；device/session/full 是显式 opt-in，必须落键（#5610）。
-    if (codexFingerprintMode.value !== 'off') {
-      extra.codex_fingerprint_mode = codexFingerprintMode.value
-    } else {
-      delete extra.codex_fingerprint_mode
-    }
+    // off 必须显式落键，不能靠删本地键表达。批量更新走 JSONB 顶层合并
+    // （extra = COALESCE(extra,'{}') || payload），删掉 payload 里的键只表示
+    // "本次不更新该键"，清不掉账号上已有的 device/session/full；而且只删不写会让
+    // 整个 payload 退化成 {extra:{}}，被后端 len(req.Extra) > 0 判为空更新直接 400
+    // "No updates provided"（#6327）。
+    //
+    // Create/Edit 那两个表单可以删键，是因为它们提交完整 extra 对象、后端整体
+    // SetExtra 覆盖；批量接口只合并增量键，两种持久化语义不能共用同一套写法。
+    //
+    // 显式 off 与不设置在读取侧完全等价：codexFingerprintModeFromExtra 对空值/
+    // 非法值走 default 回落 off，对 "off" 命中同一分支，所以 #5610 定下的
+    // "不显式 opt-in 就保持旧客户端身份" 不受影响；ShouldEnsureCodexFingerprintSeed-
+    // ForExtraUpdates 同样只在 device/session/full 时要种子，off 不会触发。
+    //
+    // 与本函数里其它"关闭/清除"字段的写法一致：codex_cli_only 直接落 false，
+    // load_factor 落 0，proxy_id 落 0 —— 批量路径一律用显式哨兵值，不用省略。
+    extra.codex_fingerprint_mode = codexFingerprintMode.value
   }
 
   if (enableOpenAICompactMode.value) {

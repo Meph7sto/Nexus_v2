@@ -61,6 +61,9 @@ func TestAdminRoutePermissionManifestMapsUpstreamAdminRoutes(t *testing.T) {
 		resource service.AdminPermissionResource
 		action   service.AdminPermissionAction
 	}{
+		{http.MethodGet, "/api/v1/admin/accounts/upstream-billing-rates", service.AdminResourceAccounts, service.AdminActionView},
+		{http.MethodGet, "/api/v1/admin/settings/openai-images-oauth-unavailable-cooldown", service.AdminResourceSettings, service.AdminActionView},
+		{http.MethodPut, "/api/v1/admin/settings/openai-images-oauth-unavailable-cooldown", service.AdminResourceSettings, service.AdminActionUpdate},
 		{http.MethodGet, "/api/v1/admin/groups/live-capability", service.AdminResourceGroups, service.AdminActionView},
 		{http.MethodPost, "/api/v1/admin/accounts/usage/batch", service.AdminResourceAccounts, service.AdminActionView},
 		{http.MethodPost, "/api/v1/admin/accounts/batch-delete", service.AdminResourceAccounts, service.AdminActionDelete},

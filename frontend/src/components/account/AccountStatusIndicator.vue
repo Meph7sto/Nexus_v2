@@ -23,7 +23,7 @@
         >
           {{ statusText }}
         </button>
-        <span class="max-w-[180px] text-center text-[11px] leading-4 text-gray-500 dark:text-gray-400">
+        <span class="max-w-[180px] text-center text-[11px] leading-4 text-gray-500">
           {{ tempUnschedRecoveryText }}
         </span>
       </div>
@@ -224,6 +224,7 @@ const activeModelStatuses = computed<AccountModelStatusItem[]>(() => {
 const formatScopeName = (scope: string): string => {
   const aliases: Record<string, string> = {
     // Claude 系列
+    'claude-fable-5-1': 'CFable51',
     'claude-fable-5': 'CFable5',
     'claude-opus-4-6': 'COpus46',
     'claude-opus-4-6-thinking': 'COpus46T',

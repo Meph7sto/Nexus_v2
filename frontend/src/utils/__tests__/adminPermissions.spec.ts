@@ -5,6 +5,11 @@ import {
 } from '@/utils/adminPermissions'
 
 describe('admin permissions', () => {
+  it('reserves plugin management for super administrators', () => {
+    expect(canAdmin({ role: 'super_admin' }, 'plugins', 'execute')).toBe(true)
+    expect(canAdmin({ role: 'admin', admin_permissions: [{ resource: 'plugins', actions: ['view', 'execute'] }] }, 'plugins', 'execute')).toBe(false)
+    expect(canAdmin({ role: 'user' }, 'plugins', 'view')).toBe(false)
+  })
   it('grants every registered capability to a super administrator', () => {
     expect(canAdmin(
       { role: 'super_admin', admin_permissions: [] },

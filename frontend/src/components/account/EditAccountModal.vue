@@ -66,13 +66,13 @@
           <label class="input-label">{{ t('admin.accounts.cnProviders.apiProtocol.endpoints') }}</label>
           <div class="mt-2 space-y-3">
             <div v-for="item in editAdaptiveProtocolOptions" :key="item.value">
-              <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+              <label class="mb-1 block text-xs font-medium text-gray-600">
                 {{ t(`admin.accounts.cnProviders.apiProtocol.${item.labelKey}`) }}
               </label>
               <input v-model="editAdaptiveBaseUrls[item.value]" type="text" class="input" />
             </div>
           </div>
-          <p v-if="account.platform !== 'deepseek'" class="input-hint">
+          <p v-if="!cnSupportsNativeResponses(account.platform)" class="input-hint">
             {{ t('admin.accounts.cnProviders.apiProtocol.responsesFallbackDesc') }}
           </p>
         </div>
@@ -87,8 +87,8 @@
               :class="[
                 'rounded-lg border-2 px-3 py-1.5 text-xs transition-all',
                 editAccountMode === opt.value
-                  ? 'border-primary-500 bg-primary-50 font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
-                  : 'border-gray-200 text-gray-700 hover:border-gray-400 dark:border-dark-600 dark:text-gray-300 dark:hover:border-gray-600'
+                  ? 'border-primary-500 bg-primary-50 font-medium text-primary-700'
+                  : 'border-gray-200 text-gray-700 hover:border-gray-400'
               ]"
               @click="editAccountMode = opt.value"
             >
@@ -108,8 +108,8 @@
               :class="[
                 'rounded-lg border-2 px-3 py-1.5 text-xs transition-all',
                 editApiProtocol === opt.value
-                  ? 'border-primary-500 bg-primary-50 font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
-                  : 'border-gray-200 text-gray-700 hover:border-gray-400 dark:border-dark-600 dark:text-gray-300 dark:hover:border-gray-600'
+                  ? 'border-primary-500 bg-primary-50 font-medium text-primary-700'
+                  : 'border-gray-200 text-gray-700 hover:border-gray-400'
               ]"
               @click="editApiProtocol = opt.value"
             >
@@ -117,6 +117,35 @@
             </button>
           </div>
           <p class="input-hint">{{ t(`admin.accounts.cnProviders.apiProtocol.${cnProtocolDescKey}Desc`) }}</p>
+        </div>
+        <!-- Zhipu 团队版 Coding Plan：组织/项目 ID（可选，填写后用量查询走团队版端点） -->
+        <div v-if="account.platform === 'zhipu' && editAccountMode === 'coding'">
+          <div class="flex items-center">
+            <label class="input-label">{{ t('admin.accounts.cnProviders.zhipuTeam.title') }}</label>
+            <HelpTooltip trigger="click" width-class="w-80">
+              <p class="mb-1 font-medium">{{ t('admin.accounts.cnProviders.zhipuTeam.help.title') }}</p>
+              <ol class="list-decimal space-y-1 pl-4">
+                <li>{{ t('admin.accounts.cnProviders.zhipuTeam.help.step1') }}</li>
+                <li>{{ t('admin.accounts.cnProviders.zhipuTeam.help.step2') }}</li>
+                <li>{{ t('admin.accounts.cnProviders.zhipuTeam.help.step3') }}</li>
+                <li>{{ t('admin.accounts.cnProviders.zhipuTeam.help.step4') }}</li>
+              </ol>
+              <p class="mt-2 break-all rounded bg-black/20 p-1.5 font-mono text-[11px] leading-relaxed">
+                {{ t('admin.accounts.cnProviders.zhipuTeam.help.example') }}
+              </p>
+            </HelpTooltip>
+          </div>
+          <div class="mt-2 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label class="input-label">{{ t('admin.accounts.cnProviders.zhipuTeam.organization') }}</label>
+              <input v-model="editZhipuOrganization" type="text" class="input" :placeholder="t('admin.accounts.cnProviders.zhipuTeam.organizationPlaceholder')" />
+            </div>
+            <div>
+              <label class="input-label">{{ t('admin.accounts.cnProviders.zhipuTeam.project') }}</label>
+              <input v-model="editZhipuProject" type="text" class="input" :placeholder="t('admin.accounts.cnProviders.zhipuTeam.projectPlaceholder')" />
+            </div>
+          </div>
+          <p class="input-hint mt-2">{{ t('admin.accounts.cnProviders.zhipuTeam.hint') }}</p>
         </div>
         <div>
           <label class="input-label">{{ t('admin.accounts.apiKey') }}</label>
@@ -496,12 +525,12 @@
       <!-- Grok OAuth client-tool prompt cache opt-in -->
       <div
         v-if="account.platform === 'grok' && account.type === 'oauth'"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="border-t border-gray-200 pt-4"
       >
         <div class="flex items-center justify-between gap-4">
           <div class="min-w-0">
             <label class="input-label mb-0">{{ t('admin.accounts.grokClientToolCache.title') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-gray-500">
               {{ t('admin.accounts.grokClientToolCache.hint') }}
             </p>
           </div>
@@ -1443,13 +1472,13 @@
 
       <div
         v-if="supportsAccountSchedulingThresholdOverride"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="border-t border-gray-200 pt-4"
         data-testid="account-scheduling-threshold-section"
       >
         <div class="mb-3 flex items-center justify-between">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.accountSchedulingThresholdOverride') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-gray-500">
               {{ t('admin.accounts.accountSchedulingThresholdOverrideHint') }}
             </p>
           </div>
@@ -1514,6 +1543,12 @@
         <ProxySelector v-model="form.proxy_id" :proxies="proxies" />
       </div>
 
+      <UpstreamRequestIdHeaderField
+        v-model="upstreamRequestIdHeader"
+        :platform="account.platform"
+        :type="account.type"
+      />
+
       <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <div>
           <label class="input-label">{{ t('admin.accounts.concurrency') }}</label>
@@ -1562,10 +1597,10 @@
             class="mt-3 flex items-center justify-between gap-3"
           >
             <div class="min-w-0">
-              <p class="text-xs font-medium text-gray-700 dark:text-gray-200">
+              <p class="text-xs font-medium text-gray-700">
                 {{ t('admin.accounts.upstreamBilling.syncRate') }}
               </p>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <p class="mt-1 text-xs text-gray-500">
                 {{ t('admin.accounts.upstreamBilling.syncRateHint') }}
               </p>
             </div>
@@ -1581,7 +1616,10 @@
       <div class="border-t border-gray-200 pt-4 ">
         <label class="input-label">{{ t('admin.accounts.expiresAt') }}</label>
         <input v-model="expiresAtInput" type="datetime-local" class="input" />
-        <p class="input-hint">{{ t('admin.accounts.expiresAtHint') }}</p>
+        <p class="input-hint">
+          {{ t('admin.accounts.expiresAtHint') }}
+          {{ t('admin.accounts.expiresAtTimezoneHint', { timezone: browserTimeZone }) }}
+        </p>
       </div>
 
       <!-- OpenAI 自动透传开关（OAuth/API Key） -->
@@ -1617,12 +1655,12 @@
       <!-- OpenAI Codex namespace 工具摊平（兼容开关，仅 OAuth） -->
       <div
         v-if="account?.platform === 'openai' && account?.type === 'oauth'"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="border-t border-gray-200 pt-4"
       >
         <div class="flex items-center justify-between">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.openai.flattenNamespaces') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-gray-500">
               {{ t('admin.accounts.openai.flattenNamespacesDesc') }}
             </p>
           </div>
@@ -1632,7 +1670,7 @@
             @click="openaiFlattenNamespacesEnabled = !openaiFlattenNamespacesEnabled"
             :class="[
               'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              openaiFlattenNamespacesEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+              openaiFlattenNamespacesEnabled ? 'bg-primary-600' : 'bg-gray-200'
             ]"
           >
             <span
@@ -1780,6 +1818,37 @@
           </div>
           <p class="input-hint">{{ t('admin.accounts.openai.endpointCapabilitiesDesc') }}</p>
         </div>
+      </div>
+
+      <!-- OpenAI APIKey images: backfill b64_json from url -->
+      <div
+        v-if="account?.platform === 'openai' && account?.type === 'apikey'"
+        class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4"
+      >
+        <div>
+          <label class="input-label mb-0">{{ t('admin.accounts.openai.imagesUrlToB64Json') }}</label>
+          <p class="mt-1 text-xs text-gray-500">
+            {{ t('admin.accounts.openai.imagesUrlToB64JsonDesc') }}
+          </p>
+        </div>
+        <button
+          type="button"
+          data-testid="openai-images-url-to-b64-json-toggle"
+          role="switch"
+          :aria-checked="openAIImagesUrlToB64JsonEnabled"
+          @click="openAIImagesUrlToB64JsonEnabled = !openAIImagesUrlToB64JsonEnabled"
+          :class="[
+            'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+            openAIImagesUrlToB64JsonEnabled ? 'bg-primary-600' : 'bg-gray-200'
+          ]"
+        >
+          <span
+            :class="[
+              'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+              openAIImagesUrlToB64JsonEnabled ? 'translate-x-5' : 'translate-x-0'
+            ]"
+          />
+        </button>
       </div>
 
       <div
@@ -2068,12 +2137,12 @@
       <!-- Codex 指纹收敛模式（仅 OpenAI OAuth） -->
       <div
         v-if="account?.platform === 'openai' && account?.type === 'oauth'"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="border-t border-gray-200 pt-4"
       >
         <div class="flex items-center justify-between gap-4">
           <div class="min-w-0">
             <label class="input-label mb-0">{{ t('admin.accounts.openai.codexFingerprintMode') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-gray-500">
               {{ t('admin.accounts.openai.codexFingerprintModeDesc') }}
             </p>
           </div>
@@ -2263,6 +2332,66 @@
           />
           <p class="input-hint">{{ t('admin.accounts.autoPauseThresholdHint') }}</p>
         </div>
+      </div>
+
+      <div
+        v-if="account?.platform === 'openai' && account?.type === 'oauth' && !isSparkShadow"
+        class="space-y-4 border-t border-gray-200 pt-4"
+        data-testid="auto-reset-credit-settings"
+      >
+        <div class="flex items-center justify-between gap-4">
+          <div class="min-w-0">
+            <label class="input-label mb-0">{{ t('admin.accounts.autoResetCredit.title') }}</label>
+            <p class="mt-1 text-xs text-gray-500">
+              {{ t('admin.accounts.autoResetCredit.hint') }}
+            </p>
+          </div>
+          <button
+            type="button"
+            data-testid="auto-reset-credit-enabled"
+            @click="autoResetCreditEnabled = !autoResetCreditEnabled"
+            :class="[
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+              autoResetCreditEnabled ? 'bg-primary-600' : 'bg-gray-200'
+            ]"
+          >
+            <span
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                autoResetCreditEnabled ? 'translate-x-5' : 'translate-x-0'
+              ]"
+            />
+          </button>
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label class="input-label">{{ t('admin.accounts.autoResetCredit.threshold5h') }}</label>
+            <input
+              v-model.number="autoResetCredit5hThreshold"
+              type="number"
+              min="0.1"
+              max="100"
+              step="0.1"
+              class="input"
+              :disabled="!autoResetCreditEnabled"
+              data-testid="auto-reset-credit-5h-threshold"
+            />
+          </div>
+          <div>
+            <label class="input-label">{{ t('admin.accounts.autoResetCredit.threshold7d') }}</label>
+            <input
+              v-model.number="autoResetCredit7dThreshold"
+              type="number"
+              min="0.1"
+              max="100"
+              step="0.1"
+              class="input"
+              :disabled="!autoResetCreditEnabled"
+              data-testid="auto-reset-credit-7d-threshold"
+            />
+          </div>
+        </div>
+        <p class="input-hint">{{ t('admin.accounts.autoResetCredit.thresholdHint') }}</p>
       </div>
 
       <!-- 配额控制 (Anthropic OAuth/SetupToken: 亲和 + 窗口费用 + 会话 + RPM 等) -->
@@ -2791,6 +2920,8 @@ import type {
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Select from '@/components/common/Select.vue'
+import HelpTooltip from '@/components/common/HelpTooltip.vue'
+import UpstreamRequestIdHeaderField from '@/components/account/UpstreamRequestIdHeaderField.vue'
 import Toggle from '@/components/common/Toggle.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
@@ -2813,6 +2944,7 @@ import {
   isHeaderOverrideCapable,
   splitHeaderOverridesObject,
   validateHeaderOverrideRows,
+  cnSupportsNativeResponses,
   defaultCNAdaptiveBaseUrls,
   defaultCNBaseUrl,
   HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY,
@@ -2822,7 +2954,12 @@ import {
   type CnNativeApiProtocol,
   type HeaderOverrideRow
 } from '@/components/account/credentialsBuilder'
-import { formatDateTime, formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/utils/format'
+import {
+  formatDateTime,
+  formatDateTimeLocalInput,
+  getBrowserTimeZone,
+  parseDateTimeLocalInput
+} from '@/utils/format'
 import { createStableObjectKeyResolver } from '@/utils/stableObjectKey'
 import { allSelectedGroupsEnableLongContextPricing } from '@/components/account/longContextBilling'
 import { VERTEX_LOCATION_OPTIONS } from '@/constants/account'
@@ -2860,6 +2997,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const appStore = useAppStore()
 const authStore = useAuthStore()
+const browserTimeZone = getBrowserTimeZone()
 
 // Spark 影子账号(parent_account_id 非空):代理恒继承母账号,不可独立编辑(外审 B/P1),
 // 故隐藏代理选择器。
@@ -2924,6 +3062,9 @@ const cnPresetPlatform = computed<'kimi' | 'zhipu' | 'deepseek'>(() => {
 })
 const editApiProtocol = ref<CnApiProtocol>('adaptive')
 const editAccountMode = ref<CnAccountMode>('payg')
+// 智谱团队版 Coding Plan：组织/项目 ID，写入 credentials 供额度探测切换团队端点
+const editZhipuOrganization = ref('')
+const editZhipuProject = ref('')
 const editAdaptiveBaseUrls = ref<Record<CnNativeApiProtocol, string>>({
   chat_completions: '',
   anthropic: '',
@@ -2952,7 +3093,7 @@ const cnProtocolOptions = computed<Array<{ value: CnApiProtocol; labelKey: strin
     { value: 'chat_completions', labelKey: 'chatCompletions' },
     { value: 'anthropic', labelKey: 'anthropic' }
   ]
-  if (props.account?.platform === 'deepseek') {
+  if (cnSupportsNativeResponses(props.account?.platform ?? '')) {
     opts.push({ value: 'responses', labelKey: 'responses' })
   }
   return opts
@@ -2962,7 +3103,7 @@ const editAdaptiveProtocolOptions = computed<Array<{ value: CnNativeApiProtocol;
     { value: 'chat_completions', labelKey: 'chatCompletions' },
     { value: 'anthropic', labelKey: 'anthropic' }
   ]
-  if (props.account?.platform === 'deepseek') opts.push({ value: 'responses', labelKey: 'responses' })
+  if (cnSupportsNativeResponses(props.account?.platform ?? '')) opts.push({ value: 'responses', labelKey: 'responses' })
   return opts
 })
 watch(editApiProtocol, (protocol, previousProtocol) => {
@@ -3095,9 +3236,18 @@ const autoPause5hThreshold = ref<number | null>(null)
 const autoPause7dThreshold = ref<number | null>(null)
 const autoPause5hDisabled = ref(false)
 const autoPause7dDisabled = ref(false)
+const autoResetCreditEnabled = ref(false)
+const autoResetCredit5hThreshold = ref(100)
+const autoResetCredit7dThreshold = ref(100)
 const upstreamBillingAutoProbeEnabled = ref(false)
 const upstreamBillingRateSyncEnabled = ref(false)
 const mixedScheduling = ref(false) // For antigravity accounts: enable mixed scheduling
+// 上游ID：直接上游声明请求标识的响应头名，留空不记录。
+const upstreamRequestIdHeader = ref('')
+const readUpstreamRequestIdHeader = (extra: unknown): string => {
+  const value = (extra as Record<string, unknown> | undefined)?.upstream_request_id_header
+  return typeof value === 'string' ? value : ''
+}
 const allowOverages = ref(false) // For antigravity accounts: enable AI Credits overages
 const antigravityProjectId = ref('')
 const antigravityModelRestrictionMode = ref<'whitelist' | 'mapping'>('whitelist')
@@ -3160,6 +3310,8 @@ const openAILongContextBillingEnabled = ref(false)
 const editPlanType = ref<string>('')
 const openAICompactMode = ref<OpenAICompactMode>('auto')
 const openAIResponsesMode = ref<OpenAIResponsesMode>('auto')
+// Images 非流式响应缺 b64_json 时由网关下载 url 回填（仅 OpenAI API Key）。
+const openAIImagesUrlToB64JsonEnabled = ref(false)
 const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>(['chat_completions', 'embeddings'])
 const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const openaiAPIKeyResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
@@ -3619,10 +3771,17 @@ const syncFormFromAccount = (newAccount: Account | null) => {
 	const extra = newAccount.extra as Record<string, unknown> | undefined
 	mixedScheduling.value = extra?.mixed_scheduling === true
 	allowOverages.value = extra?.allow_overages === true
+	upstreamRequestIdHeader.value = readUpstreamRequestIdHeader(extra)
+	openAIImagesUrlToB64JsonEnabled.value = extra?.images_url_to_b64_json === true
 	autoPause5hThreshold.value = typeof extra?.auto_pause_5h_threshold === 'number' ? extra.auto_pause_5h_threshold * 100 : null
 	autoPause7dThreshold.value = typeof extra?.auto_pause_7d_threshold === 'number' ? extra.auto_pause_7d_threshold * 100 : null
 	autoPause5hDisabled.value = extra?.auto_pause_5h_disabled === true
 	autoPause7dDisabled.value = extra?.auto_pause_7d_disabled === true
+	autoResetCreditEnabled.value = extra?.auto_reset_credit_enabled === true
+	autoResetCredit5hThreshold.value =
+		typeof extra?.auto_reset_credit_5h_threshold === 'number' ? extra.auto_reset_credit_5h_threshold * 100 : 100
+	autoResetCredit7dThreshold.value =
+		typeof extra?.auto_reset_credit_7d_threshold === 'number' ? extra.auto_reset_credit_7d_threshold * 100 : 100
 	upstreamBillingAutoProbeEnabled.value = extra?.upstream_billing_probe_enabled === true
   upstreamBillingRateSyncEnabled.value =
     upstreamBillingAutoProbeEnabled.value && extra?.upstream_billing_rate_sync_enabled === true
@@ -3834,7 +3993,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
         storedProtocol === 'responses'
           ? storedProtocol
           : 'chat_completions'
-      if (newAccount.platform !== 'deepseek' && editApiProtocol.value === 'responses') {
+      if (!cnSupportsNativeResponses(newAccount.platform) && editApiProtocol.value === 'responses') {
         editApiProtocol.value = 'chat_completions'
       }
       const adaptiveDefaults = defaultCNAdaptiveBaseUrls(newAccount.platform, editAccountMode.value)
@@ -3868,6 +4027,11 @@ const syncFormFromAccount = (newAccount: Account | null) => {
         nextAdaptiveBaseUrls[legacyProtocol] = legacyBaseUrl
       }
       editAdaptiveBaseUrls.value = nextAdaptiveBaseUrls
+      // 智谱团队版 Coding Plan：回填组织/项目 ID
+      if (newAccount.platform === 'zhipu') {
+        editZhipuOrganization.value = typeof credentials.zhipu_organization === 'string' ? credentials.zhipu_organization : ''
+        editZhipuProject.value = typeof credentials.zhipu_project === 'string' ? credentials.zhipu_project : ''
+      }
     }
     const platformDefaultUrl =
       newAccount.platform === 'openai'
@@ -4061,10 +4225,24 @@ const syncAntigravityUpstreamModels = async () => {
       }
     }
 
+    const warnings = result.warnings ?? []
+    const hasPartialMetadata = warnings.some(
+      (warning) => warning.code === 'upstream_model_metadata_partial'
+    )
+    const hasIncompleteMetadata = warnings.some(
+      (warning) => warning.code === 'upstream_model_metadata_incomplete'
+    )
+    if (hasIncompleteMetadata) {
+      appStore.showWarning(t('admin.accounts.syncUpstreamModelsMetadataIncomplete'))
+      return
+    }
     if (addedCount > 0) {
       appStore.showSuccess(t('admin.accounts.syncUpstreamModelsSuccess', { count: addedCount, total: upstreamModels.length }))
     } else {
       appStore.showInfo(t('admin.accounts.syncUpstreamModelsNoChanges', { count: upstreamModels.length }))
+    }
+    if (hasPartialMetadata) {
+      appStore.showWarning(t('admin.accounts.syncUpstreamModelsMetadataPartial'))
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : t('admin.accounts.syncUpstreamModelsFailed')
@@ -4515,6 +4693,13 @@ const handleSubmit = async () => {
     appStore.showError(t('admin.accounts.pleaseSelectStatus'))
     return
   }
+	if (autoResetCreditEnabled.value) {
+		const thresholds = [autoResetCredit5hThreshold.value, autoResetCredit7dThreshold.value]
+		if (thresholds.some((value) => !Number.isFinite(value) || value < 0.1 || value > 100)) {
+			appStore.showError(t('admin.accounts.autoResetCredit.thresholdInvalid'))
+			return
+		}
+	}
 
   const updatePayload: Record<string, unknown> = { ...form }
   try {
@@ -4565,6 +4750,19 @@ const handleSubmit = async () => {
           newCredentials.base_url = protocolBaseUrls.chat_completions
         } else {
           delete newCredentials.api_base_urls
+        }
+        // 智谱团队版 Coding Plan：组织/项目 ID 写入凭据（非空才写，清空即移除回落个人版路径）
+        if (props.account.platform === 'zhipu') {
+          const org = editZhipuOrganization.value.trim()
+          const project = editZhipuProject.value.trim()
+          if (org) {
+            newCredentials.zhipu_organization = org
+            if (project) newCredentials.zhipu_project = project
+            else delete newCredentials.zhipu_project
+          } else {
+            delete newCredentials.zhipu_organization
+            delete newCredentials.zhipu_project
+          }
         }
       }
 
@@ -5058,6 +5256,11 @@ const handleSubmit = async () => {
         } else {
           newExtra.openai_responses_mode = openAIResponsesMode.value
         }
+        if (openAIImagesUrlToB64JsonEnabled.value) {
+          newExtra.images_url_to_b64_json = true
+        } else {
+          delete newExtra.images_url_to_b64_json
+        }
 		}
 		if (autoPause5hThreshold.value != null && autoPause5hThreshold.value > 0) {
 			newExtra.auto_pause_5h_threshold = autoPause5hThreshold.value / 100
@@ -5079,6 +5282,13 @@ const handleSubmit = async () => {
 		} else {
 			delete newExtra.auto_pause_7d_disabled
 		}
+		if (props.account.type === 'oauth' && !isSparkShadow.value) {
+			newExtra.auto_reset_credit_enabled = autoResetCreditEnabled.value
+			newExtra.auto_reset_credit_5h_threshold = autoResetCredit5hThreshold.value / 100
+			newExtra.auto_reset_credit_7d_threshold = autoResetCredit7dThreshold.value / 100
+		}
+		// 运行态只允许后端服务更新，账号编辑不得回写旧状态。
+		delete newExtra.codex_auto_reset_credit_state
 
 		delete newExtra.codex_image_generation_bridge_enabled
       switch (codexImageToolMode.value) {
@@ -5184,6 +5394,19 @@ const handleSubmit = async () => {
       }
       // Quota notify config
       writeQuotaNotifyToExtra(newExtra, 'update')
+      updatePayload.extra = newExtra
+    }
+
+    // 上游ID头名只在改动时写回 extra，避免用弹窗打开时的快照覆盖运行态键。
+    const nextUpstreamRequestIdHeader = upstreamRequestIdHeader.value.trim()
+    if (nextUpstreamRequestIdHeader !== readUpstreamRequestIdHeader(props.account.extra)) {
+      const currentExtra = (updatePayload.extra as Record<string, unknown>) || (props.account.extra as Record<string, unknown>) || {}
+      const newExtra: Record<string, unknown> = { ...currentExtra }
+      if (nextUpstreamRequestIdHeader) {
+        newExtra.upstream_request_id_header = nextUpstreamRequestIdHeader
+      } else {
+        delete newExtra.upstream_request_id_header
+      }
       updatePayload.extra = newExtra
     }
 

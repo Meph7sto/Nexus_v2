@@ -23,6 +23,7 @@ interface Props {
   preset: OpsRequestDetailsPreset
   platform?: string
   groupId?: number | null
+  resumeState?: boolean
 }
 
 const props = defineProps<Props>()
@@ -98,6 +99,7 @@ watch(
   () => props.modelValue,
   (open) => {
     if (open) {
+      if (props.resumeState) return
       page.value = 1
       pageSize.value = 10
       fetchData()
@@ -142,7 +144,6 @@ async function handleCopyRequestId(requestId: string) {
 
 function openErrorDetail(errorId: number | null | undefined) {
   if (!errorId) return
-  close()
   emit('openErrorDetail', errorId)
 }
 
@@ -193,26 +194,26 @@ const kindBadgeClass = (kind: string) => {
 
           <div v-else class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-gray-200 ">
             <div class="min-h-0 flex-1 overflow-auto">
-              <div v-if="!isDesktopViewport" class="divide-y divide-gray-100 dark:divide-dark-800">
+              <div v-if="!isDesktopViewport" class="divide-y divide-gray-100">
                 <div v-for="(row, idx) in items" :key="idx" class="space-y-2 p-4">
                   <div class="flex flex-wrap items-center gap-2">
                     <span class="rounded-full px-2 py-1 text-[10px] font-bold" :class="kindBadgeClass(row.kind)">
                       {{ row.kind === 'error' ? t('admin.ops.requestDetails.kind.error') : t('admin.ops.requestDetails.kind.success') }}
                     </span>
-                    <span class="text-xs font-medium text-gray-700 dark:text-gray-200">{{ (row.platform || 'unknown').toUpperCase() }}</span>
-                    <span class="ml-auto text-[11px] text-gray-500 dark:text-gray-400">{{ formatDateTime(row.created_at) }}</span>
+                    <span class="text-xs font-medium text-gray-700">{{ (row.platform || 'unknown').toUpperCase() }}</span>
+                    <span class="ml-auto text-[11px] text-gray-500">{{ formatDateTime(row.created_at) }}</span>
                   </div>
-                  <div class="break-all text-xs text-gray-600 dark:text-gray-300">{{ row.model || '-' }}</div>
-                  <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-300">
+                  <div class="break-all text-xs text-gray-600">{{ row.model || '-' }}</div>
+                  <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600">
                     <span>{{ typeof row.duration_ms === 'number' ? `${row.duration_ms} ms` : '-' }}</span>
                     <span>{{ row.status_code ?? '-' }}</span>
                   </div>
                   <div v-if="row.request_id" class="flex items-center gap-2">
-                    <span class="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-700 dark:text-gray-200" :title="row.request_id">
+                    <span class="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-700" :title="row.request_id">
                       {{ row.request_id }}
                     </span>
                     <button
-                      class="shrink-0 rounded-md bg-gray-100 px-2 py-1 text-[10px] font-bold text-gray-600 hover:bg-gray-200 dark:bg-dark-700 dark:text-gray-300 dark:hover:bg-dark-600"
+                      class="shrink-0 rounded-md bg-gray-100 px-2 py-1 text-[10px] font-bold text-gray-600 hover:bg-gray-200"
                       @click="handleCopyRequestId(row.request_id)"
                     >
                       {{ t('admin.ops.requestDetails.copy') }}
@@ -220,15 +221,15 @@ const kindBadgeClass = (kind: string) => {
                   </div>
                   <button
                     v-if="row.kind === 'error' && row.error_id"
-                    class="w-full rounded-lg bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30"
+                    class="w-full rounded-lg bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-100"
                     @click="openErrorDetail(row.error_id)"
                   >
                     {{ t('admin.ops.requestDetails.viewError') }}
                   </button>
                 </div>
               </div>
-              <table v-else class="min-w-full divide-y divide-gray-200 dark:divide-dark-700">
-                <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-dark-900">
+              <table v-else class="min-w-full divide-y divide-gray-200">
+                <thead class="sticky top-0 z-10 bg-gray-50">
                 <tr>
                   <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 ">
                     {{ t('admin.ops.requestDetails.table.time') }}

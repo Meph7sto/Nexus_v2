@@ -59,31 +59,33 @@ func NewUserHandler(
 
 // CreateUserRequest represents admin create user request
 type CreateUserRequest struct {
-	Email            string                     `json:"email" binding:"required,email"`
-	Password         string                     `json:"password" binding:"required,min=6"`
-	Username         string                     `json:"username"`
-	Notes            string                     `json:"notes"`
-	Role             string                     `json:"role" binding:"omitempty,oneof=admin super_admin user"`
-	Balance          *float64                   `json:"balance"`
-	Concurrency      int                        `json:"concurrency"`
-	RPMLimit         int                        `json:"rpm_limit"`
-	AllowedGroups    []int64                    `json:"allowed_groups"`
-	AdminPermissions *[]service.AdminPermission `json:"admin_permissions"`
+	Email                string                     `json:"email" binding:"required,email"`
+	Password             string                     `json:"password" binding:"required,min=6"`
+	Username             string                     `json:"username"`
+	Notes                string                     `json:"notes"`
+	Role                 string                     `json:"role" binding:"omitempty,oneof=admin super_admin user"`
+	Balance              *float64                   `json:"balance"`
+	Concurrency          int                        `json:"concurrency"`
+	RPMLimit             int                        `json:"rpm_limit"`
+	AllowedGroups        []int64                    `json:"allowed_groups"`
+	AdminPermissions     *[]service.AdminPermission `json:"admin_permissions"`
+	RestrictPublicGroups bool                       `json:"restrict_public_groups"`
 }
 
 // UpdateUserRequest represents admin update user request
 // 使用指针类型来区分"未提供"和"设置为0"
 type UpdateUserRequest struct {
-	Email         string   `json:"email" binding:"omitempty,email"`
-	Password      string   `json:"password" binding:"omitempty,min=6"`
-	Username      *string  `json:"username"`
-	Notes         *string  `json:"notes"`
-	Role          string   `json:"role" binding:"omitempty,oneof=admin super_admin user"`
-	Balance       *float64 `json:"balance"`
-	Concurrency   *int     `json:"concurrency"`
-	RPMLimit      *int     `json:"rpm_limit"`
-	Status        string   `json:"status" binding:"omitempty,oneof=active disabled"`
-	AllowedGroups *[]int64 `json:"allowed_groups"`
+	Email                string   `json:"email" binding:"omitempty,email"`
+	Password             string   `json:"password" binding:"omitempty,min=6"`
+	Username             *string  `json:"username"`
+	Notes                *string  `json:"notes"`
+	Role                 string   `json:"role" binding:"omitempty,oneof=admin super_admin user"`
+	Balance              *float64 `json:"balance"`
+	Concurrency          *int     `json:"concurrency"`
+	RPMLimit             *int     `json:"rpm_limit"`
+	Status               string   `json:"status" binding:"omitempty,oneof=active disabled"`
+	AllowedGroups        *[]int64 `json:"allowed_groups"`
+	RestrictPublicGroups *bool    `json:"restrict_public_groups"`
 	// GroupRates 用户专属分组倍率配置
 	// map[groupID]*rate，nil 表示删除该分组的专属倍率
 	GroupRates       map[int64]*float64         `json:"group_rates"`
@@ -317,17 +319,18 @@ func (h *UserHandler) Create(c *gin.Context) {
 	}
 
 	user, err := h.adminService.CreateUser(c.Request.Context(), &service.CreateUserInput{
-		Email:            req.Email,
-		Password:         req.Password,
-		Username:         req.Username,
-		Notes:            req.Notes,
-		Role:             req.Role,
-		Balance:          req.Balance,
-		Concurrency:      req.Concurrency,
-		RPMLimit:         req.RPMLimit,
-		AllowedGroups:    req.AllowedGroups,
-		AdminPermissions: req.AdminPermissions,
-		ActorAdminID:     getAdminIDFromContext(c),
+		Email:                req.Email,
+		Password:             req.Password,
+		Username:             req.Username,
+		Notes:                req.Notes,
+		Role:                 req.Role,
+		Balance:              req.Balance,
+		Concurrency:          req.Concurrency,
+		RPMLimit:             req.RPMLimit,
+		AllowedGroups:        req.AllowedGroups,
+		AdminPermissions:     req.AdminPermissions,
+		ActorAdminID:         getAdminIDFromContext(c),
+		RestrictPublicGroups: req.RestrictPublicGroups,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -380,19 +383,20 @@ func (h *UserHandler) Update(c *gin.Context) {
 
 	// 使用指针类型直接传递，nil 表示未提供该字段
 	user, err := h.adminService.UpdateUser(c.Request.Context(), userID, &service.UpdateUserInput{
-		Email:            req.Email,
-		Password:         req.Password,
-		Username:         req.Username,
-		Notes:            req.Notes,
-		Role:             req.Role,
-		Balance:          req.Balance,
-		Concurrency:      req.Concurrency,
-		RPMLimit:         req.RPMLimit,
-		Status:           req.Status,
-		AllowedGroups:    req.AllowedGroups,
-		GroupRates:       req.GroupRates,
-		AdminPermissions: req.AdminPermissions,
-		ActorAdminID:     getAdminIDFromContext(c),
+		Email:                req.Email,
+		Password:             req.Password,
+		Username:             req.Username,
+		Notes:                req.Notes,
+		Role:                 req.Role,
+		Balance:              req.Balance,
+		Concurrency:          req.Concurrency,
+		RPMLimit:             req.RPMLimit,
+		Status:               req.Status,
+		AllowedGroups:        req.AllowedGroups,
+		GroupRates:           req.GroupRates,
+		AdminPermissions:     req.AdminPermissions,
+		ActorAdminID:         getAdminIDFromContext(c),
+		RestrictPublicGroups: req.RestrictPublicGroups,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)

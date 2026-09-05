@@ -80,14 +80,14 @@
             ></div>
             <div
               v-else
-              class="flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 dark:bg-blue-950/30"
+              class="flex h-12 w-12 items-center justify-center rounded-full bg-blue-50"
             >
               <Icon name="checkCircle" size="lg" class="text-[#00AEEF]" />
             </div>
-            <p class="text-lg font-semibold text-gray-900 dark:text-white">
+            <p class="text-lg font-semibold text-gray-900">
               {{ deepLinkState === 'backgrounded' ? t('payment.qr.alipayContinueInApp') : t('payment.qr.alipayOpening') }}
             </p>
-            <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.qr.alipayWaitingHint') }}</p>
+            <p class="text-sm text-gray-500">{{ t('payment.qr.alipayWaitingHint') }}</p>
             <button
               v-if="deepLinkState === 'backgrounded'"
               data-test="reopen-alipay"
@@ -100,32 +100,32 @@
           </div>
         </div>
         <div class="card p-4 text-center">
-          <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.qr.expiresIn') }}</p>
-          <p class="mt-1 text-2xl font-bold tabular-nums text-gray-900 dark:text-white">{{ countdownDisplay }}</p>
-          <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">{{ t('payment.qr.waitingPayment') }}</p>
+          <p class="text-sm text-gray-500">{{ t('payment.qr.expiresIn') }}</p>
+          <p class="mt-1 text-2xl font-bold tabular-nums text-gray-900">{{ countdownDisplay }}</p>
+          <p class="mt-1 text-xs text-gray-400">{{ t('payment.qr.waitingPayment') }}</p>
         </div>
       </template>
       <template v-else>
         <div data-test="alipay-qr-fallback" class="card p-6">
           <div class="flex flex-col items-center space-y-4">
             <div class="text-center">
-              <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('payment.qr.alipayFallbackTitle') }}</p>
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ t('payment.qr.alipayFallbackHint') }}</p>
+              <p class="text-lg font-semibold text-gray-900">{{ t('payment.qr.alipayFallbackTitle') }}</p>
+              <p class="mt-1 text-sm text-gray-500">{{ t('payment.qr.alipayFallbackHint') }}</p>
             </div>
-            <div class="w-full space-y-2 border-y border-gray-100 py-3 text-sm dark:border-dark-600">
+            <div class="w-full space-y-2 border-y border-gray-100 py-3 text-sm">
               <div class="flex items-start justify-between gap-4">
-                <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.payAmount') }}</span>
-                <span class="font-semibold text-gray-900 dark:text-white">{{ displayPaymentAmount }}</span>
+                <span class="text-gray-500">{{ t('payment.orders.payAmount') }}</span>
+                <span class="font-semibold text-gray-900">{{ displayPaymentAmount }}</span>
               </div>
               <div class="flex items-start justify-between gap-4">
-                <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.orderNo') }}</span>
-                <span class="max-w-[70%] break-all text-right font-mono text-xs text-gray-900 dark:text-white">
+                <span class="text-gray-500">{{ t('payment.orders.orderNo') }}</span>
+                <span class="max-w-[70%] break-all text-right font-mono text-xs text-gray-900">
                   {{ displayOrderNumber }}
                 </span>
               </div>
               <div class="flex items-start justify-between gap-4">
-                <span class="text-gray-500 dark:text-gray-400">{{ t('payment.qr.expiresIn') }}</span>
-                <span class="font-semibold tabular-nums text-gray-900 dark:text-white">{{ countdownDisplay }}</span>
+                <span class="text-gray-500">{{ t('payment.qr.expiresIn') }}</span>
+                <span class="font-semibold tabular-nums text-gray-900">{{ countdownDisplay }}</span>
               </div>
             </div>
             <div :class="['relative rounded-lg border-2 p-4', qrBorderClass]">
@@ -136,7 +136,7 @@
                 </span>
               </div>
             </div>
-            <p class="text-center text-sm leading-6 text-gray-600 dark:text-gray-300">
+            <p class="text-center text-sm leading-6 text-gray-600">
               {{ t('payment.qr.alipaySaveAndScanHint') }}
             </p>
             <div class="grid w-full gap-2 sm:grid-cols-2">
@@ -393,7 +393,7 @@ function saveQRCode() {
 }
 
 async function tryRecoverPendingOrder(order: PaymentOrder): Promise<PaymentOrder> {
-  if (!isWxpay.value && !isMobileAlipayDeepLink.value) return order
+  if (!isWxpay.value && !isAlipay.value) return order
   const outTradeNo = String(order.out_trade_no || '').trim()
   if (!outTradeNo) return order
   const normalizedStatus = String(order.status || '').trim().toUpperCase()

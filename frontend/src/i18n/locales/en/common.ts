@@ -161,6 +161,7 @@ export default {
     subscriptions: 'Subscriptions',
     accounts: 'Accounts',
     openAIQuotaSummary: 'OpenAI Quota Summary',
+    plugins: 'Plugins',
     proxies: 'Proxies',
     redeemCodes: 'Redeem Codes',
     ops: 'Ops',

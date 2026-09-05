@@ -8,6 +8,7 @@ import settings from './settings'
 import audit from './audit'
 import promptAudit from './promptAudit'
 import monthlyLedger from './monthlyLedger'
+import plugins from './plugins'
 
 export default {
   ...overview,
@@ -20,4 +21,5 @@ export default {
   ...audit,
   ...promptAudit,
   ...monthlyLedger,
+  ...plugins,
 }

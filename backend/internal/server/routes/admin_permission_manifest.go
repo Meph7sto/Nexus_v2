@@ -120,6 +120,7 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 		admin+"/groups/:id/composite-routes/:route_id")
 
 	add(service.AdminResourceAccounts, service.AdminActionView, http.MethodGet,
+		admin+"/accounts/upstream-billing-rates",
 		admin+"/accounts", admin+"/accounts/upstream-billing-probe/settings", admin+"/accounts/:id", admin+"/accounts/:id/stats",
 		admin+"/accounts/:id/usage", admin+"/accounts/:id/today-stats", admin+"/accounts/:id/temp-unschedulable",
 		admin+"/accounts/:id/models", admin+"/accounts/antigravity/default-model-mapping", admin+"/openai/accounts/:id/quota",
@@ -333,6 +334,22 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 	add(service.AdminResourcePaymentProviders, service.AdminActionDelete, http.MethodDelete, admin+"/payment/providers/:id")
 
 	add(service.AdminResourcePages, service.AdminActionView, http.MethodGet, "/api/v1/pages")
+	add(service.AdminResourcePlugins, service.AdminActionView, http.MethodGet,
+		admin+"/plugins", admin+"/plugins/:id", admin+"/plugins/:id/config")
+	add(service.AdminResourcePlugins, service.AdminActionCreate, http.MethodPost, admin+"/plugins/upload")
+	add(service.AdminResourcePlugins, service.AdminActionUpdate, http.MethodPut, admin+"/plugins/:id/config")
+	add(service.AdminResourcePlugins, service.AdminActionDelete, http.MethodDelete, admin+"/plugins/:id")
+	add(service.AdminResourcePlugins, service.AdminActionExecute, http.MethodPost,
+		admin+"/plugins/:id/enable", admin+"/plugins/:id/disable", admin+"/plugins/:id/test", admin+"/plugins/:id/ui-session")
+	humanOnly(http.MethodGet, admin+"/plugins", admin+"/plugins/:id", admin+"/plugins/:id/config")
+	humanOnly(http.MethodPost, admin+"/plugins/upload", admin+"/plugins/:id/enable", admin+"/plugins/:id/disable",
+		admin+"/plugins/:id/test", admin+"/plugins/:id/ui-session")
+	humanOnly(http.MethodPut, admin+"/plugins/:id/config")
+	humanOnly(http.MethodDelete, admin+"/plugins/:id")
+	add(service.AdminResourceSettings, service.AdminActionView, http.MethodGet,
+		admin+"/settings/openai-images-oauth-unavailable-cooldown")
+	add(service.AdminResourceSettings, service.AdminActionUpdate, http.MethodPut,
+		admin+"/settings/openai-images-oauth-unavailable-cooldown")
 	add(service.AdminResourceAdminPermissions, service.AdminActionView, http.MethodGet, admin+"/admin-permissions")
 	humanOnly(http.MethodGet, admin+"/admin-permissions")
 

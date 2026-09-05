@@ -40,6 +40,13 @@ describe('AppSidebar scroll position persistence', () => {
   })
 })
 
+describe('AppSidebar collapsible groups', () => {
+  it('allows collapsing a group while a child route is active', () => {
+    expect(componentSource).toContain('const groupExpandOverrides = ref<Map<string, boolean>>(new Map())')
+    expect(componentSource).not.toContain('expandedGroups.value.has(item.path) || isGroupActive(item)')
+  })
+})
+
 describe('AppSidebar version update controls', () => {
   it('does not render the version update badge', () => {
     expect(componentSource).not.toContain('VersionBadge')

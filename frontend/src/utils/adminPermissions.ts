@@ -38,6 +38,7 @@ export const ADMIN_PERMISSION_DEFINITIONS: readonly AdminPermissionDefinition[] 
   { resource: 'api_keys', label: 'API Keys', actions: ['view', 'update', 'execute'], super_admin_only: false },
   { resource: 'groups', label: 'Groups', actions: allActions, super_admin_only: false },
   { resource: 'accounts', label: 'Accounts', actions: allActions, super_admin_only: false },
+  { resource: 'plugins', label: 'Plugins', actions: ['view', 'create', 'update', 'delete', 'execute'], super_admin_only: true },
   { resource: 'announcements', label: 'Announcements', actions: allActions, super_admin_only: false },
   { resource: 'proxies', label: 'Proxies', actions: allActions, super_admin_only: false },
   { resource: 'redeem_codes', label: 'Redeem Codes', actions: allActions, super_admin_only: false },
@@ -79,6 +80,7 @@ export const ADMIN_ROUTE_PERMISSIONS: Readonly<Record<string, AdminRoutePermissi
   AdminChannelMonitor: { resource: 'channel_monitor', action: 'view' },
   AdminSubscriptions: { resource: 'subscriptions', action: 'view' },
   AdminAccounts: { resource: 'accounts', action: 'view' },
+  AdminPlugins: { resource: 'plugins', action: 'view' },
   AdminOpenAIQuotaSummary: { resource: 'accounts', action: 'view' },
   AdminAnnouncements: { resource: 'announcements', action: 'view' },
   AdminProxies: { resource: 'proxies', action: 'view' },
@@ -104,6 +106,7 @@ export const ADMIN_VIEW_ROUTES: readonly AdminViewRoute[] = [
   { name: 'AdminUsers', path: '/admin/users', ...ADMIN_ROUTE_PERMISSIONS.AdminUsers },
   { name: 'AdminGroups', path: '/admin/groups', ...ADMIN_ROUTE_PERMISSIONS.AdminGroups },
   { name: 'AdminAccounts', path: '/admin/accounts', ...ADMIN_ROUTE_PERMISSIONS.AdminAccounts },
+  { name: 'AdminPlugins', path: '/admin/plugins', ...ADMIN_ROUTE_PERMISSIONS.AdminPlugins },
   { name: 'AdminOpenAIQuotaSummary', path: '/admin/openai-quota-summary', ...ADMIN_ROUTE_PERMISSIONS.AdminOpenAIQuotaSummary },
   { name: 'AdminChannels', path: '/admin/channels/pricing', ...ADMIN_ROUTE_PERMISSIONS.AdminChannels },
   { name: 'AdminChannelMonitor', path: '/admin/channels/monitor', ...ADMIN_ROUTE_PERMISSIONS.AdminChannelMonitor },
@@ -124,10 +127,6 @@ export const ADMIN_VIEW_ROUTES: readonly AdminViewRoute[] = [
   { name: 'AdminSettings', path: '/admin/settings', ...ADMIN_ROUTE_PERMISSIONS.AdminSettings },
 ]
 
-function isKnownResource(resource: AdminPermissionResource): boolean {
-  return ADMIN_PERMISSION_DEFINITIONS.some((definition) => definition.resource === resource)
-}
-
 export function isAdminLike(role?: UserRole): boolean {
   return role === 'admin' || role === 'super_admin'
 }
@@ -137,13 +136,14 @@ export function canAdmin(
   resource: AdminPermissionResource,
   action: AdminPermissionAction,
 ): boolean {
-  if (!principal || !isKnownResource(resource)) {
+  const definition = ADMIN_PERMISSION_DEFINITIONS.find((item) => item.resource === resource)
+  if (!principal || !definition) {
     return false
   }
   if (principal.role === 'super_admin') {
     return true
   }
-  if (principal.role !== 'admin') {
+  if (principal.role !== 'admin' || definition.super_admin_only) {
     return false
   }
 

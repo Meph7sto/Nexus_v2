@@ -3,6 +3,11 @@ import { routes } from '@/router'
 import { ADMIN_ROUTE_PERMISSIONS } from '@/utils/adminPermissions'
 
 describe('admin route permission metadata', () => {
+  it('keeps plugin management separate from account management', () => {
+    const route = routes.find((item) => item.name === 'AdminPlugins')
+    expect(route?.meta?.adminResource).toBe('plugins')
+    expect(route?.meta?.adminAction).toBe('view')
+  })
   it('maps the OpenAI quota summary route to accounts:view', () => {
     const route = routes.find((item) => item.name === 'AdminOpenAIQuotaSummary')
 

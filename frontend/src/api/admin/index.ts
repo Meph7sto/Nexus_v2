@@ -35,6 +35,7 @@ import affiliatesAPI from './affiliates'
 import riskControlAPI from './riskControl'
 import auditAPI from './audit'
 import monthlyLedgerAPI from './monthlyLedger'
+import pluginsAPI from './plugins'
 
 /**
  * Unified admin API object for convenient access
@@ -71,7 +72,8 @@ export const adminAPI = {
   affiliates: affiliatesAPI,
   riskControl: riskControlAPI,
   audit: auditAPI,
-  monthlyLedger: monthlyLedgerAPI
+  monthlyLedger: monthlyLedgerAPI,
+  plugins: pluginsAPI
 }
 
 export {
@@ -106,7 +108,8 @@ export {
   affiliatesAPI,
   riskControlAPI,
   auditAPI,
-  monthlyLedgerAPI
+  monthlyLedgerAPI,
+  pluginsAPI
 }
 
 export default adminAPI
@@ -128,3 +131,9 @@ export type {
   MonthlyLedgerStatus,
   MonthlyLedgerSummary,
 } from './monthlyLedger'
+export type {
+  PluginInstallation,
+  PluginCompatibility,
+  PluginUISession,
+  PluginTestResult
+} from './plugins'

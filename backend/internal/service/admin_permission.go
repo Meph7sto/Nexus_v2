@@ -36,6 +36,7 @@ const (
 	AdminResourceAPIKeys                AdminPermissionResource = "api_keys"
 	AdminResourceGroups                 AdminPermissionResource = "groups"
 	AdminResourceAccounts               AdminPermissionResource = "accounts"
+	AdminResourcePlugins                AdminPermissionResource = "plugins"
 	AdminResourceAnnouncements          AdminPermissionResource = "announcements"
 	AdminResourceProxies                AdminPermissionResource = "proxies"
 	AdminResourceRedeemCodes            AdminPermissionResource = "redeem_codes"
@@ -100,6 +101,7 @@ var adminPermissionDefinitions = []AdminPermissionDefinition{
 	{AdminResourceAPIKeys, "API Keys", []AdminPermissionAction{AdminActionView, AdminActionUpdate, AdminActionExecute}, false},
 	{AdminResourceGroups, "Groups", allAdminPermissionActions, false},
 	{AdminResourceAccounts, "Accounts", allAdminPermissionActions, false},
+	{AdminResourcePlugins, "Plugins", []AdminPermissionAction{AdminActionView, AdminActionCreate, AdminActionUpdate, AdminActionDelete, AdminActionExecute}, true},
 	{AdminResourceAnnouncements, "Announcements", allAdminPermissionActions, false},
 	{AdminResourceProxies, "Proxies", allAdminPermissionActions, false},
 	{AdminResourceRedeemCodes, "Redeem Codes", allAdminPermissionActions, false},

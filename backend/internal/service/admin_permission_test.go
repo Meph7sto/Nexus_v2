@@ -2,6 +2,13 @@ package service
 
 import "testing"
 
+func TestPluginPermissionsCannotBeGrantedToLimitedAdministrators(t *testing.T) {
+	_, err := NormalizeAdminPermissions([]AdminPermission{{Resource: AdminResourcePlugins, Actions: []AdminPermissionAction{AdminActionView, AdminActionExecute}}})
+	if err == nil {
+		t.Fatal("plugin permissions must be reserved for super administrators")
+	}
+}
+
 func TestNormalizeAdminPermissions(t *testing.T) {
 	input := []AdminPermission{
 		{

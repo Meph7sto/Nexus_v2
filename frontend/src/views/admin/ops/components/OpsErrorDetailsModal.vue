@@ -15,6 +15,7 @@ interface Props {
   platform?: string
   groupId?: number | null
   errorType: 'request' | 'upstream'
+  resumeState?: boolean
 }
 
 const props = defineProps<Props>()
@@ -167,6 +168,7 @@ watch(
   () => props.show,
   (open) => {
     if (!open) return
+    if (props.resumeState) return
     page.value = 1
     pageSize.value = 10
     resetFilters()
@@ -217,7 +219,7 @@ watch(
   <BaseDialog :show="show" :title="modalTitle" width="full" @close="close">
     <div class="flex h-full min-h-0 flex-col">
       <!-- Filters -->
-      <div class="mb-4 flex-shrink-0 border-b border-gray-200 pb-4 dark:border-dark-700">
+      <div class="mb-4 flex-shrink-0 border-b border-gray-200 pb-4">
         <div class="grid grid-cols-2 gap-2 md:grid-cols-8">
           <div class="col-span-2 compact-select">
             <div class="relative group">

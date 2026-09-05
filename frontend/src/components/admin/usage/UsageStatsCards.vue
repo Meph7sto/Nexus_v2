@@ -36,7 +36,7 @@
               />
             </svg>
             <span
-              class="pointer-events-none absolute left-1/2 top-full z-30 mt-2 w-56 -translate-x-1/2 rounded-lg border border-gray-200 bg-white p-3 text-left text-xs text-gray-700 opacity-0 shadow-card transition-opacity duration-150 group-hover:opacity-100 group-focus:opacity-100   "
+              class="pointer-events-none absolute left-1/2 top-full z-30 mt-2 hidden w-56 -translate-x-1/2 rounded-lg border border-gray-200 bg-white p-3 text-left text-xs text-gray-700 shadow-card group-hover:block group-focus:block"
             >
               <span class="mb-2 block font-medium text-gray-900 ">
                 {{ cacheDetailLabel() }}
