@@ -1,0 +1,10 @@
+# The repository ignores directories named tests; preserve this module's tests.
+!/tests/
+!/tests/**
+
+# Local configuration and runtime data.
+.env
+.env.*
+!.env.example
+/data/
+/coverage/
