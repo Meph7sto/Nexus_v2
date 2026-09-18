@@ -1,5 +1,6 @@
 export default {
   monthlyLedger: {
+    manuallySettled: '手动结清',
     title: '月度账本',
     description: '按自然月核对用户用量、应收与实际收款',
     month: '账单月份',

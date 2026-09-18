@@ -57,6 +57,8 @@ eligible_users AS (
 	SELECT user_id FROM usage_by_user
 	UNION
 	SELECT user_id FROM payments_by_user
+	UNION
+	SELECT user_id FROM monthly_ledger_settlements WHERE billing_month = $3 AND manually_settled
 ),
 amounts AS (
 	SELECT
@@ -70,20 +72,24 @@ amounts AS (
 		ROUND(COALESCE(usage.usage_amount, 0) * COALESCE(mult.multiplier, 1), 2) AS receivable_amount,
 		ROUND(COALESCE(payments.paid_amount, 0), 2) AS paid_amount,
 		COALESCE(payments.payment_count, 0) AS payment_count,
-		payments.last_paid_at
+		payments.last_paid_at,
+		COALESCE(settlement.manually_settled, FALSE) AS manually_settled
 	FROM eligible_users eligible
 	JOIN users u ON u.id = eligible.user_id AND u.role = 'user'
 	LEFT JOIN usage_by_user usage ON usage.user_id = u.id
 	LEFT JOIN payments_by_user payments ON payments.user_id = u.id
 	LEFT JOIN monthly_ledger_multipliers mult
 		ON mult.user_id = u.id AND mult.billing_month = $3
+	LEFT JOIN monthly_ledger_settlements settlement
+		ON settlement.user_id = u.id AND settlement.billing_month = $3
 ),
 ledger AS (
 	SELECT
 		amounts.*,
-		GREATEST(receivable_amount - paid_amount, 0)::numeric AS outstanding_amount,
-		GREATEST(paid_amount - receivable_amount, 0)::numeric AS overpaid_amount,
+		CASE WHEN manually_settled THEN 0 ELSE GREATEST(receivable_amount - paid_amount, 0) END::numeric AS outstanding_amount,
+		CASE WHEN manually_settled THEN 0 ELSE GREATEST(paid_amount - receivable_amount, 0) END::numeric AS overpaid_amount,
 		CASE
+			WHEN manually_settled THEN 'settled'
 			WHEN multiplier = 0 AND usage_amount > 0 AND paid_amount = 0 THEN 'waived'
 			WHEN paid_amount > receivable_amount THEN 'overpaid'
 			WHEN paid_amount = receivable_amount THEN 'settled'
@@ -144,7 +150,7 @@ func (r *monthlyLedgerRepository) List(ctx context.Context, period service.Month
 		page_items.user_id, page_items.email, page_items.username, page_items.deleted,
 		page_items.usage_amount, page_items.pricing_usage_amount, page_items.multiplier, page_items.receivable_amount,
 		page_items.paid_amount, page_items.outstanding_amount, page_items.overpaid_amount,
-		page_items.status, page_items.payment_count, page_items.last_paid_at
+		page_items.status, page_items.payment_count, page_items.last_paid_at, page_items.manually_settled
 	FROM summary
 	CROSS JOIN filtered_count
 	LEFT JOIN page_items ON TRUE
@@ -163,7 +169,7 @@ func (r *monthlyLedgerRepository) List(ctx context.Context, period service.Month
 		var rowTotal int64
 		var userID, paymentCount sql.NullInt64
 		var email, username, status sql.NullString
-		var deleted sql.NullBool
+		var deleted, manuallySettled sql.NullBool
 		var usageAmount, pricingUsageAmount, multiplier, receivableAmount sql.NullFloat64
 		var paidAmount, outstandingAmount, overpaidAmount sql.NullFloat64
 		var lastPaidAt sql.NullTime
@@ -174,7 +180,7 @@ func (r *monthlyLedgerRepository) List(ctx context.Context, period service.Month
 			&rowSummary.OverpaidCount, &rowSummary.WaivedCount, &rowTotal,
 			&userID, &email, &username, &deleted, &usageAmount, &pricingUsageAmount, &multiplier,
 			&receivableAmount, &paidAmount, &outstandingAmount, &overpaidAmount,
-			&status, &paymentCount, &lastPaidAt,
+			&status, &paymentCount, &lastPaidAt, &manuallySettled,
 		); err != nil {
 			return nil, nil, nil, fmt.Errorf("scan monthly ledger row: %w", err)
 		}
@@ -186,7 +192,8 @@ func (r *monthlyLedgerRepository) List(ctx context.Context, period service.Month
 			continue
 		}
 		item := service.MonthlyLedgerRow{
-			UserID: userID.Int64, Email: email.String, Username: username.String,
+			ManuallySettled: manuallySettled.Bool,
+			UserID:          userID.Int64, Email: email.String, Username: username.String,
 			Deleted: deleted.Bool, UsageAmount: usageAmount.Float64,
 			PricingUsageAmount: pricingUsageAmount.Float64,
 			Multiplier:         multiplier.Float64, ReceivableAmount: receivableAmount.Float64,
@@ -248,6 +255,39 @@ func (r *monthlyLedgerRepository) ListPayments(ctx context.Context, billingMonth
 		return nil, fmt.Errorf("iterate monthly ledger payments: %w", err)
 	}
 	return payments, nil
+}
+
+func (r *monthlyLedgerRepository) SetSettlement(ctx context.Context, billingMonth time.Time, userID int64, settled bool, actorID int64) (bool, error) {
+	if r == nil || r.db == nil {
+		return false, service.ErrMonthlyLedgerRepositoryNotReady
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, fmt.Errorf("begin settlement update: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	// Lock the user before reading the old value so concurrent changes have accurate audit history.
+	var lockedID int64
+	if err := tx.QueryRowContext(ctx, "SELECT id FROM users WHERE id = $1 AND role = 'user' FOR UPDATE", userID).Scan(&lockedID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, service.ErrMonthlyLedgerUserNotFound
+		}
+		return false, fmt.Errorf("lock settlement user: %w", err)
+	}
+	month := billingMonth.Format("2006-01-02")
+	var previous bool
+	if err := tx.QueryRowContext(ctx, `SELECT COALESCE((SELECT manually_settled FROM monthly_ledger_settlements WHERE user_id = $1 AND billing_month = $2), FALSE)`, userID, month).Scan(&previous); err != nil {
+		return false, fmt.Errorf("get previous settlement: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO monthly_ledger_settlements (user_id, billing_month, manually_settled, created_by, updated_by)
+		VALUES ($1, $2, $3, $4, $4)
+		ON CONFLICT (user_id, billing_month) DO UPDATE SET manually_settled = EXCLUDED.manually_settled, updated_by = EXCLUDED.updated_by, updated_at = NOW()`, userID, month, settled, actorID); err != nil {
+		return false, fmt.Errorf("set monthly settlement: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return false, fmt.Errorf("commit settlement update: %w", err)
+	}
+	return previous, nil
 }
 
 func (r *monthlyLedgerRepository) SetMultiplier(ctx context.Context, billingMonth time.Time, userID int64, multiplier float64, actorID int64) (float64, error) {

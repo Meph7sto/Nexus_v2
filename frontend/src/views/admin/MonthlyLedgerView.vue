@@ -350,6 +350,19 @@
     width="wide"
     @close="closePayments"
   >
+    <div class="mb-5 flex items-center justify-between gap-3 border-b border-[var(--nx-border)] pb-4">
+      <label for="manual-settlement" class="text-sm font-medium text-[var(--nx-text)]">{{ t('admin.monthlyLedger.manuallySettled') }}</label>
+      <Toggle
+        id="manual-settlement"
+        data-test="manual-settlement"
+        :model-value="activeRow?.manually_settled ?? false"
+        :disabled="!canUpdate || !canRecordPayments || savingSettlement"
+        :aria-label="t('admin.monthlyLedger.manuallySettled')"
+        :aria-busy="savingSettlement"
+        class="disabled:cursor-not-allowed disabled:opacity-50"
+        @update:model-value="saveSettlement"
+      />
+    </div>
     <div class="grid min-h-[340px] gap-6 md:grid-cols-[minmax(0,1fr)_minmax(280px,0.72fr)]">
       <div class="min-w-0">
         <div class="mb-3 flex items-center justify-between">
@@ -455,6 +468,7 @@ import { useTableSelection } from '@/composables/useTableSelection'
 import { fetchAllPaginatedIDs } from '@/utils/paginatedSelection'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import Toggle from '@/components/common/Toggle.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -780,6 +794,7 @@ const saveMultiplier = async () => {
   }
 }
 
+const savingSettlement = ref(false)
 const showPaymentsDialog = ref(false)
 const activeRow = ref<MonthlyLedgerRow | null>(null)
 const payments = ref<MonthlyLedgerPayment[]>([])
@@ -849,7 +864,7 @@ const closePayments = () => {
   resetPaymentForm()
 }
 
-const refreshPaymentDialog = async (key: string, month: string, userID: number) => {
+const refreshPaymentDialog = async (key: string, month: string, userID: number, resetForm = true) => {
   const paymentsRefresh = key === paymentDialogKey() ? loadPayments() : Promise.resolve()
   await Promise.all([paymentsRefresh, loadLedger()])
   if (key !== paymentDialogKey()) return
@@ -871,7 +886,24 @@ const refreshPaymentDialog = async (key: string, month: string, userID: number) 
     }
   }
   if (refreshedRow) activeRow.value = refreshedRow
-  resetPaymentForm()
+  if (resetForm) resetPaymentForm()
+}
+const saveSettlement = async (settled: boolean) => {
+  const row = activeRow.value
+  const month = selectedMonth.value
+  const key = paymentDialogKey()
+  if (!row || !canUpdate.value || !canRecordPayments.value || savingSettlement.value) return
+  savingSettlement.value = true
+  try {
+    const result = await adminAPI.monthlyLedger.setSettlement(month, row.user_id, settled)
+    if (key === paymentDialogKey() && activeRow.value) activeRow.value.manually_settled = result.manually_settled
+    appStore.showSuccess(t('admin.monthlyLedger.saved'))
+    await refreshPaymentDialog(key, month, row.user_id, false)
+  } catch (error) {
+    appStore.showError(errorMessage(error, t('admin.monthlyLedger.saveFailed')))
+  } finally {
+    savingSettlement.value = false
+  }
 }
 const editPayment = (payment: MonthlyLedgerPayment) => {
   if (!canUpdate.value) return

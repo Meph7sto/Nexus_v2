@@ -1,5 +1,6 @@
 export default {
   monthlyLedger: {
+    manuallySettled: 'Manually settled',
     title: 'Monthly Ledger',
     description: 'Reconcile monthly user usage, receivables, and recorded payments',
     month: 'Billing month',

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -30,13 +31,13 @@ func TestMonthlyLedgerListUsesOneDatasetWithFullSummaryAndFilteredTotal(t *testi
 		"summary_overpaid_count", "summary_waived_count", "filtered_total",
 		"user_id", "email", "username", "deleted", "usage_amount", "pricing_usage_amount", "multiplier",
 		"receivable_amount", "paid_amount", "outstanding_amount", "overpaid_amount",
-		"status", "payment_count", "last_paid_at",
+		"status", "payment_count", "last_paid_at", "manually_settled",
 	}
 	rows := sqlmock.NewRows(columns).AddRow(
 		810.0, 500.0, 300.25, 224.75, 25.0, int64(8),
 		int64(2), int64(1), int64(2), int64(2), int64(1), int64(1),
 		int64(7), "match@example.test", "Match", false, 600.01, 600.005, 0.5,
-		300.0, 125.25, 174.75, 0.0, "partial", int64(1), period.Start.Add(24*time.Hour),
+		300.0, 125.25, 174.75, 0.0, "partial", int64(1), period.Start.Add(24*time.Hour), false,
 	)
 	mock.ExpectQuery(`(?s)WITH live_usage_by_user AS.*\(\$7 = 0 OR user_id = \$7\)`).
 		WithArgs(period.Start, period.End, "2026-07-01", true, "match", "partial", int64(7), 20, 0).
@@ -63,6 +64,37 @@ func TestMonthlyLedgerOrderByUsesAllowlist(t *testing.T) {
 	require.Equal(t, "paid_amount ASC, user_id ASC", monthlyLedgerOrderBy("paid_amount", pagination.SortOrderAsc))
 	require.Equal(t, "last_paid_at DESC NULLS LAST, user_id ASC", monthlyLedgerOrderBy("last_paid_at", pagination.SortOrderDesc))
 	require.Equal(t, "outstanding_amount DESC, user_id ASC", monthlyLedgerOrderBy("paid_amount DESC; DROP TABLE users", "desc"))
+}
+
+func TestMonthlyLedgerSettlementSavesPreviousState(t *testing.T) {
+	for _, settled := range []bool{true, false} {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = db.Close() })
+		mock.ExpectBegin()
+		mock.ExpectQuery("SELECT id FROM users.*FOR UPDATE").WithArgs(int64(7)).WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(7))
+		mock.ExpectQuery("SELECT COALESCE.*manually_settled").WithArgs(int64(7), "2026-07-01").WillReturnRows(sqlmock.NewRows([]string{"manually_settled"}).AddRow(!settled))
+		mock.ExpectExec("INSERT INTO monthly_ledger_settlements").WithArgs(int64(7), "2026-07-01", settled, int64(99)).WillReturnResult(sqlmock.NewResult(0, 1))
+		mock.ExpectCommit()
+		previous, err := NewMonthlyLedgerRepository(db).SetSettlement(context.Background(), time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC), 7, settled, 99)
+		require.NoError(t, err)
+		require.Equal(t, !settled, previous)
+		require.NoError(t, mock.ExpectationsWereMet())
+	}
+}
+
+func TestMonthlyLedgerSettlementRollsBackFailedWrite(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	mock.ExpectBegin()
+	mock.ExpectQuery("SELECT id FROM users.*FOR UPDATE").WithArgs(int64(7)).WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(7))
+	mock.ExpectQuery("SELECT COALESCE.*manually_settled").WithArgs(int64(7), "2026-07-01").WillReturnRows(sqlmock.NewRows([]string{"manually_settled"}).AddRow(false))
+	mock.ExpectExec("INSERT INTO monthly_ledger_settlements").WillReturnError(fmt.Errorf("write failed"))
+	mock.ExpectRollback()
+	_, err = NewMonthlyLedgerRepository(db).SetSettlement(context.Background(), time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC), 7, true, 99)
+	require.ErrorContains(t, err, "write failed")
+	require.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestNormalizeMonthlyLedgerPagination(t *testing.T) {

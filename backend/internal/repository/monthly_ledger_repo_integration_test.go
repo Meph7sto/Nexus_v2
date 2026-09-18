@@ -204,6 +204,101 @@ func TestMonthlyLedgerRepositoryAggregatesAndFiltersLiveMonthlyLedger(t *testing
 	require.Equal(t, "2026-07", deletedPayment.BillingMonth)
 }
 
+func TestMonthlyLedgerRepositoryManualSettlementLifecycle(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+	repo := NewMonthlyLedgerRepository(integrationDB)
+	suffix := uuid.NewString()
+	user := mustCreateUser(t, client, &service.User{Email: "settlement-" + suffix + "@example.test", Role: service.RoleUser})
+	other := mustCreateUser(t, client, &service.User{Email: "settlement-other-" + suffix + "@example.test", Role: service.RoleUser})
+	account := mustCreateAccount(t, client, &service.Account{Name: "settlement-" + suffix})
+	key := mustCreateApiKey(t, client, &service.APIKey{UserID: user.ID, Key: "sk-settlement-" + suffix, Name: "settlement"})
+	t.Cleanup(func() {
+		for _, id := range []int64{user.ID, other.ID} {
+			for _, table := range []string{"monthly_ledger_settlements", "monthly_ledger_payments", "monthly_ledger_multipliers", "usage_logs", "api_keys", "users"} {
+				column := "user_id"
+				if table == "users" {
+					column = "id"
+				}
+				_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM "+table+" WHERE "+column+" = $1", id)
+			}
+		}
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM accounts WHERE id = $1", account.ID)
+	})
+	month := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+	period := service.MonthlyLedgerPeriod{Month: "2026-07", Start: month, End: month.AddDate(0, 1, 0), CanRecordPayments: true}
+	_, err := integrationDB.ExecContext(ctx, `INSERT INTO usage_logs (user_id, api_key_id, account_id, model, actual_cost, created_at) VALUES ($1, $2, $3, 'settlement-test', 1001, $4)`, user.ID, key.ID, account.ID, month.Add(time.Hour))
+	require.NoError(t, err)
+	params := service.MonthlyLedgerListParams{UserID: user.ID, Pagination: pagination.PaginationParams{Page: 1, PageSize: 20}}
+	read := func() (service.MonthlyLedgerRow, *service.MonthlyLedgerSummary) {
+		items, summary, _, err := repo.List(ctx, period, params)
+		require.NoError(t, err)
+		require.Len(t, items, 1)
+		return items[0], summary
+	}
+	for _, amount := range []float64{1000, 1001, 1002} {
+		payment := &service.MonthlyLedgerPayment{UserID: user.ID, BillingMonth: period.Month, Amount: amount, PaidAt: period.End, CreatedAt: period.End, CreatedBy: user.ID}
+		require.NoError(t, repo.CreatePayment(ctx, month, payment))
+		before, summaryBefore := read()
+		require.False(t, before.ManuallySettled)
+		_, err := repo.SetSettlement(ctx, month, user.ID, true, user.ID)
+		require.NoError(t, err)
+		after, summaryAfter := read()
+		require.True(t, after.ManuallySettled)
+		require.Equal(t, "settled", after.Status)
+		require.Equal(t, 1001.0, after.ReceivableAmount)
+		require.Equal(t, amount, after.PaidAmount)
+		require.Zero(t, after.OutstandingAmount)
+		require.Zero(t, after.OverpaidAmount)
+		require.Equal(t, summaryBefore.OutstandingAmount-before.OutstandingAmount, summaryAfter.OutstandingAmount)
+		require.Equal(t, summaryBefore.OverpaidAmount-before.OverpaidAmount, summaryAfter.OverpaidAmount)
+		expectedSettled := summaryBefore.SettledCount
+		if before.Status != "settled" {
+			expectedSettled++
+		}
+		require.Equal(t, expectedSettled, summaryAfter.SettledCount)
+		params.Status = "settled"
+		read()
+		params.Status = "partial"
+		items, _, page, err := repo.List(ctx, period, params)
+		require.NoError(t, err)
+		require.Empty(t, items)
+		require.Zero(t, page.Total)
+		params.Status = ""
+		_, err = repo.SetSettlement(ctx, month, user.ID, false, user.ID)
+		require.NoError(t, err)
+		restored, _ := read()
+		require.Equal(t, before, restored)
+		_, err = repo.DeletePayment(ctx, payment.ID)
+		require.NoError(t, err)
+	}
+	_, err = repo.SetSettlement(ctx, month, user.ID, true, user.ID)
+	require.NoError(t, err)
+	payment := &service.MonthlyLedgerPayment{UserID: user.ID, Amount: 1000, PaidAt: period.End, CreatedAt: period.End}
+	require.NoError(t, repo.CreatePayment(ctx, month, payment))
+	_, _, err = repo.UpdatePayment(ctx, payment.ID, service.MonthlyLedgerPaymentUpdate{Amount: 1002, PaidAt: period.End}, user.ID)
+	require.NoError(t, err)
+	_, err = repo.SetMultiplier(ctx, month, user.ID, 2, user.ID)
+	require.NoError(t, err)
+	row, _ := read()
+	require.True(t, row.ManuallySettled)
+	require.Equal(t, 2002.0, row.ReceivableAmount)
+	_, err = repo.DeletePayment(ctx, payment.ID)
+	require.NoError(t, err)
+	row, _ = read()
+	require.True(t, row.ManuallySettled)
+	require.Equal(t, "settled", row.Status)
+	require.Zero(t, row.PaidAmount)
+	previous, err := repo.SetSettlement(ctx, month.AddDate(0, 1, 0), user.ID, false, user.ID)
+	require.NoError(t, err)
+	require.False(t, previous)
+	previous, err = repo.SetSettlement(ctx, month, other.ID, false, user.ID)
+	require.NoError(t, err)
+	require.False(t, previous)
+	row, _ = read()
+	require.True(t, row.ManuallySettled)
+}
+
 func TestMonthlyLedgerRepositoryBatchMultiplierIsAtomicAndMonthScoped(t *testing.T) {
 	ctx := context.Background()
 	client := testEntClient(t)

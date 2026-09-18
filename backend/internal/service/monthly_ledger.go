@@ -53,6 +53,7 @@ type MonthlyLedgerAmounts struct {
 }
 
 type MonthlyLedgerRow struct {
+	ManuallySettled    bool       `json:"manually_settled"`
 	UserID             int64      `json:"user_id"`
 	Email              string     `json:"email"`
 	Username           string     `json:"username"`
@@ -143,7 +144,15 @@ type MonthlyLedgerPaymentChange struct {
 	After  *MonthlyLedgerPayment `json:"after,omitempty"`
 }
 
+type MonthlyLedgerSettlementChange struct {
+	UserID                  int64  `json:"user_id"`
+	BillingMonth            string `json:"billing_month"`
+	PreviousManuallySettled bool   `json:"previous_manually_settled"`
+	ManuallySettled         bool   `json:"manually_settled"`
+}
+
 type MonthlyLedgerRepository interface {
+	SetSettlement(ctx context.Context, billingMonth time.Time, userID int64, settled bool, actorID int64) (bool, error)
 	List(ctx context.Context, period MonthlyLedgerPeriod, params MonthlyLedgerListParams) ([]MonthlyLedgerRow, *MonthlyLedgerSummary, *pagination.PaginationResult, error)
 	ListPayments(ctx context.Context, billingMonth time.Time, userID int64) ([]MonthlyLedgerPayment, error)
 	SetMultiplier(ctx context.Context, billingMonth time.Time, userID int64, multiplier float64, actorID int64) (float64, error)
@@ -226,6 +235,27 @@ func (s *MonthlyLedgerService) resolvePeriod(raw string) (MonthlyLedgerPeriod, e
 		return MonthlyLedgerPeriod{}, ErrMonthlyLedgerRepositoryNotReady
 	}
 	return ResolveMonthlyLedgerPeriod(raw, s.now(), s.location)
+}
+
+func (s *MonthlyLedgerService) SetSettlement(ctx context.Context, month string, userID int64, settled bool, actorID int64) (*MonthlyLedgerSettlementChange, error) {
+	if s == nil || s.repo == nil {
+		return nil, ErrMonthlyLedgerRepositoryNotReady
+	}
+	period, err := s.resolvePeriod(month)
+	if err != nil {
+		return nil, err
+	}
+	if !period.CanRecordPayments {
+		return nil, ErrMonthlyLedgerOpenMonthPayment
+	}
+	if userID <= 0 {
+		return nil, ErrMonthlyLedgerUserNotFound
+	}
+	previous, err := s.repo.SetSettlement(ctx, period.Start, userID, settled, actorID)
+	if err != nil {
+		return nil, err
+	}
+	return &MonthlyLedgerSettlementChange{UserID: userID, BillingMonth: period.Month, PreviousManuallySettled: previous, ManuallySettled: settled}, nil
 }
 
 func (s *MonthlyLedgerService) List(ctx context.Context, month string, params MonthlyLedgerListParams) (*MonthlyLedgerList, error) {

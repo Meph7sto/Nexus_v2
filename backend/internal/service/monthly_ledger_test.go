@@ -10,6 +10,7 @@ import (
 )
 
 type monthlyLedgerRepoStub struct {
+	settled             bool
 	listPeriod          MonthlyLedgerPeriod
 	multiplier          float64
 	batchBillingMonth   time.Time
@@ -17,6 +18,45 @@ type monthlyLedgerRepoStub struct {
 	batchActorID        int64
 	paymentBillingMonth time.Time
 	payment             *MonthlyLedgerPayment
+}
+
+func (s *monthlyLedgerRepoStub) SetSettlement(_ context.Context, month time.Time, userID int64, settled bool, actorID int64) (bool, error) {
+	previous := s.settled
+	s.settled = settled
+	s.batchBillingMonth, s.batchActorID, s.batchUserIDs = month, actorID, []int64{userID}
+	return previous, nil
+}
+
+func TestMonthlyLedgerServiceSetSettlement(t *testing.T) {
+	repo := &monthlyLedgerRepoStub{}
+	svc := NewMonthlyLedgerService(repo)
+	svc.location = time.UTC
+	svc.now = func() time.Time { return time.Date(2026, 8, 22, 12, 0, 0, 0, time.UTC) }
+	for _, tc := range []struct {
+		month  string
+		userID int64
+		err    error
+	}{
+		{"2026-08", 7, ErrMonthlyLedgerOpenMonthPayment},
+		{"2026-09", 7, ErrMonthlyLedgerFutureMonth},
+		{"invalid", 7, ErrMonthlyLedgerInvalidMonth},
+		{"2026-07", 0, ErrMonthlyLedgerUserNotFound},
+	} {
+		_, err := svc.SetSettlement(context.Background(), tc.month, tc.userID, true, 99)
+		require.ErrorIs(t, err, tc.err)
+		require.False(t, repo.settled)
+	}
+	change, err := svc.SetSettlement(context.Background(), "2026-07", 7, true, 99)
+	require.NoError(t, err)
+	require.False(t, change.PreviousManuallySettled)
+	require.True(t, change.ManuallySettled)
+	require.Equal(t, int64(99), repo.batchActorID)
+	require.Equal(t, []int64{7}, repo.batchUserIDs)
+	require.Equal(t, "2026-07-01", repo.batchBillingMonth.Format("2006-01-02"))
+	change, err = svc.SetSettlement(context.Background(), "2026-07", 7, false, 99)
+	require.NoError(t, err)
+	require.True(t, change.PreviousManuallySettled)
+	require.False(t, change.ManuallySettled)
 }
 
 func (s *monthlyLedgerRepoStub) List(_ context.Context, period MonthlyLedgerPeriod, _ MonthlyLedgerListParams) ([]MonthlyLedgerRow, *MonthlyLedgerSummary, *pagination.PaginationResult, error) {

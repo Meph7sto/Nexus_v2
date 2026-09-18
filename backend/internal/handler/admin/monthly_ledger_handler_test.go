@@ -17,6 +17,7 @@ import (
 )
 
 type monthlyLedgerHandlerRepoStub struct {
+	settled             bool
 	period              service.MonthlyLedgerPeriod
 	listParams          service.MonthlyLedgerListParams
 	batchUserIDs        []int64
@@ -24,6 +25,33 @@ type monthlyLedgerHandlerRepoStub struct {
 	batchActorID        int64
 	paymentBillingMonth time.Time
 	created             *service.MonthlyLedgerPayment
+}
+
+func (s *monthlyLedgerHandlerRepoStub) SetSettlement(_ context.Context, _ time.Time, _ int64, settled bool, actorID int64) (bool, error) {
+	previous := s.settled
+	s.settled, s.batchActorID = settled, actorID
+	return previous, nil
+}
+
+func TestMonthlyLedgerHandlerSettlementRequiresBoolean(t *testing.T) {
+	for _, body := range []string{`{}`, `{"manually_settled":null}`, `{"manually_settled":"true"}`, `{"manually_settled":0}`, `{"manually_settled":true}`, `{"manually_settled":false}`} {
+		t.Run(body, func(t *testing.T) {
+			repo := &monthlyLedgerHandlerRepoStub{settled: true}
+			router := setupMonthlyLedgerHandlerRouter(repo)
+			recorder := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPut, "/monthly-ledger/2020-01/users/7/settlement", bytes.NewBufferString(body))
+			req.Header.Set("Content-Type", "application/json")
+			router.ServeHTTP(recorder, req)
+			if body == `{"manually_settled":true}` || body == `{"manually_settled":false}` {
+				require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+				require.Equal(t, body == `{"manually_settled":true}`, repo.settled)
+				require.Equal(t, int64(99), repo.batchActorID)
+			} else {
+				require.Equal(t, http.StatusBadRequest, recorder.Code)
+				require.Zero(t, repo.batchActorID)
+			}
+		})
+	}
 }
 
 func (s *monthlyLedgerHandlerRepoStub) List(_ context.Context, period service.MonthlyLedgerPeriod, params service.MonthlyLedgerListParams) ([]service.MonthlyLedgerRow, *service.MonthlyLedgerSummary, *pagination.PaginationResult, error) {
@@ -73,6 +101,7 @@ func setupMonthlyLedgerHandlerRouter(repo service.MonthlyLedgerRepository) *gin.
 	handler := NewMonthlyLedgerHandler(service.NewMonthlyLedgerService(repo))
 	router.GET("/monthly-ledger", handler.List)
 	router.PUT("/monthly-ledger/:month/multipliers", handler.SetMultipliers)
+	router.PUT("/monthly-ledger/:month/users/:user_id/settlement", handler.SetSettlement)
 	router.POST("/monthly-ledger/:month/users/:user_id/payments", handler.CreatePayment)
 	return router
 }

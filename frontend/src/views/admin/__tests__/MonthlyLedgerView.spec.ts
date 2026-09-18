@@ -3,7 +3,8 @@ import { flushPromises, mount } from '@vue/test-utils'
 
 import MonthlyLedgerView from '../MonthlyLedgerView.vue'
 
-const { list, listPayments, setMultiplier, setMultipliers, createPayment, updatePayment, deletePayment, showError, showSuccess, canAdmin } = vi.hoisted(() => ({
+const { list, listPayments, setSettlement, setMultiplier, setMultipliers, createPayment, updatePayment, deletePayment, showError, showSuccess, canAdmin } = vi.hoisted(() => ({
+  setSettlement: vi.fn(),
   list: vi.fn(),
   listPayments: vi.fn(),
   setMultiplier: vi.fn(),
@@ -18,7 +19,7 @@ const { list, listPayments, setMultiplier, setMultipliers, createPayment, update
 
 vi.mock('@/api/admin', () => ({
   adminAPI: {
-    monthlyLedger: { list, listPayments, setMultiplier, setMultipliers, createPayment, updatePayment, deletePayment },
+    monthlyLedger: { list, listPayments, setSettlement, setMultiplier, setMultipliers, createPayment, updatePayment, deletePayment },
   },
 }))
 
@@ -37,6 +38,7 @@ vi.mock('vue-i18n', async () => {
 
 const response = (canRecordPayments = true) => ({
   items: [{
+    manually_settled: false,
     user_id: 7,
     email: 'customer@example.test',
     username: 'Customer',
@@ -92,6 +94,7 @@ const mountView = (paginationStub: unknown = true) => mount(MonthlyLedgerView, {
 
 describe('MonthlyLedgerView', () => {
   beforeEach(() => {
+    setSettlement.mockReset().mockImplementation(async (_month, _userID, settled) => ({ manually_settled: settled }))
     list.mockReset().mockResolvedValue(response())
     listPayments.mockReset().mockResolvedValue([])
     setMultiplier.mockReset().mockResolvedValue({ multiplier: 0.5 })
@@ -102,6 +105,93 @@ describe('MonthlyLedgerView', () => {
     showError.mockReset()
     showSuccess.mockReset()
     canAdmin.mockReset().mockReturnValue(true)
+  })
+
+  it('sets and cancels manual settlement without changing payment drafts', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('[data-test="payments-7"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-test="payment-amount"]').setValue(1000)
+    const settled = response()
+    settled.items[0].manually_settled = true
+    settled.items[0].status = 'settled'
+    settled.items[0].outstanding_amount = 0
+    settled.summary.outstanding_amount = 0
+    settled.summary.settled_count = 1
+    list.mockResolvedValue(settled)
+    await wrapper.get('[data-test="manual-settlement"]').trigger('click')
+    await flushPromises()
+    expect(setSettlement).toHaveBeenLastCalledWith('2026-07', 7, true)
+    expect(wrapper.get('[data-test="manual-settlement"]').attributes('aria-checked')).toBe('true')
+    expect(wrapper.get<HTMLInputElement>('[data-test="payment-amount"]').element.value).toBe('1000')
+    expect(wrapper.get('[data-test="summary-outstanding"]').text()).toContain('$0.00')
+    expect(createPayment).not.toHaveBeenCalled()
+    list.mockResolvedValue(response())
+    await wrapper.get('[data-test="manual-settlement"]').trigger('click')
+    await flushPromises()
+    expect(setSettlement).toHaveBeenLastCalledWith('2026-07', 7, false)
+    expect(wrapper.get('[data-test="manual-settlement"]').attributes('aria-checked')).toBe('false')
+  })
+
+  it('keeps the old settlement state when saving fails', async () => {
+    setSettlement.mockRejectedValue(new Error('save failed'))
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('[data-test="payments-7"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-test="manual-settlement"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[data-test="manual-settlement"]').attributes('aria-checked')).toBe('false')
+    expect(showError).toHaveBeenCalled()
+  })
+
+  it('blocks duplicate settlement requests and does not update another open user', async () => {
+    let resolveSave!: (value: { manually_settled: boolean }) => void
+    setSettlement.mockImplementation(() => new Promise(resolve => { resolveSave = resolve }))
+    const data = response()
+    data.items.push({ ...data.items[0], user_id: 8, email: 'second@example.test' })
+    list.mockResolvedValue(data)
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('[data-test="payments-7"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-test="manual-settlement"]').trigger('click')
+    expect(wrapper.get('[data-test="manual-settlement"]').attributes('disabled')).toBeDefined()
+    await wrapper.get('[data-test="manual-settlement"]').trigger('click')
+    expect(setSettlement).toHaveBeenCalledTimes(1)
+    await wrapper.get('[data-test="close-dialog"]').trigger('click')
+    await wrapper.get('[data-test="payments-8"]').trigger('click')
+    resolveSave({ manually_settled: true })
+    await flushPromises()
+    expect(wrapper.get('[data-test="manual-settlement"]').attributes('aria-checked')).toBe('false')
+  })
+
+  it.each([false, true])('disables settlement when open month or no update permission: %s', async (openMonth) => {
+    list.mockResolvedValue(response(!openMonth))
+    canAdmin.mockImplementation((_resource, action) => openMonth || action !== 'update')
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('[data-test="payments-7"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[data-test="manual-settlement"]').attributes('disabled')).toBeDefined()
+    await wrapper.get('[data-test="manual-settlement"]').trigger('click')
+    expect(setSettlement).not.toHaveBeenCalled()
+  })
+
+  it('refreshes the active user independently when settlement removes it from the filtered list', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('[data-test="payments-7"]').trigger('click')
+    await flushPromises()
+    const settled = response()
+    settled.items[0].manually_settled = true
+    settled.items[0].status = 'settled'
+    list.mockResolvedValueOnce({ ...response(), items: [], total: 0 }).mockResolvedValueOnce(settled)
+    await wrapper.get('[data-test="manual-settlement"]').trigger('click')
+    await flushPromises()
+    expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ month: '2026-07', user_id: 7, status: '' }))
+    expect(wrapper.get('[data-test="manual-settlement"]').attributes('aria-checked')).toBe('true')
   })
 
   it('loads the backend default month and renders the billing amounts', async () => {

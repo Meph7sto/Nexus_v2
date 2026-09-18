@@ -3,6 +3,7 @@ import { apiClient } from '../client'
 export type MonthlyLedgerStatus = 'unpaid' | 'partial' | 'settled' | 'overpaid' | 'waived'
 
 export interface MonthlyLedgerRow {
+  manually_settled: boolean
   user_id: number
   email: string
   username: string
@@ -98,6 +99,14 @@ export async function setMultiplier(month: string, userId: number, multiplier: n
   return data
 }
 
+export async function setSettlement(month: string, userId: number, manuallySettled: boolean) {
+  const { data } = await apiClient.put<{ user_id: number; billing_month: string; previous_manually_settled: boolean; manually_settled: boolean }>(
+    `/admin/monthly-ledger/${encodeURIComponent(month)}/users/${userId}/settlement`,
+    { manually_settled: manuallySettled },
+  )
+  return data
+}
+
 export async function setMultipliers(month: string, userIds: number[], multiplier: number): Promise<MonthlyLedgerMultipliersUpdate> {
   const { data } = await apiClient.put<MonthlyLedgerMultipliersUpdate>(`/admin/monthly-ledger/${encodeURIComponent(month)}/multipliers`, {
     user_ids: userIds,
@@ -122,6 +131,7 @@ export async function deletePayment(paymentId: number) {
 }
 
 const monthlyLedgerAPI = {
+  setSettlement,
   list,
   listPayments,
   setMultiplier,

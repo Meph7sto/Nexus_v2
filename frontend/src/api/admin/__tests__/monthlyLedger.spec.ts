@@ -14,6 +14,11 @@ vi.mock('@/api/client', () => ({
 import monthlyLedgerAPI from '../monthlyLedger'
 
 describe('monthly ledger admin API', () => {
+  it.each([true, false])('sends the settlement boolean unchanged: %s', async (settled) => {
+    put.mockResolvedValue({ data: { manually_settled: settled } })
+    expect(await monthlyLedgerAPI.setSettlement('2026-07', 7, settled)).toEqual({ manually_settled: settled })
+    expect(put).toHaveBeenCalledWith('/admin/monthly-ledger/2026-07/users/7/settlement', { manually_settled: settled })
+  })
   beforeEach(() => {
     get.mockReset()
     post.mockReset()

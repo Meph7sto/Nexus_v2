@@ -25,6 +25,15 @@ func TestMonthlyLedgerMigrationDefinesFinancialConstraints(t *testing.T) {
 	}
 }
 
+func TestMonthlyLedgerSettlementMigration(t *testing.T) {
+	raw, err := FS.ReadFile("235_monthly_ledger_settlements.sql")
+	require.NoError(t, err)
+	sql := strings.ToLower(string(raw))
+	for _, fragment := range []string{"primary key (user_id, billing_month)", "manually_settled boolean not null default false", "references users(id)", "date_trunc('month', billing_month)::date = billing_month", "created_by", "updated_by", "updated_at", "idx_monthly_ledger_settlements_month"} {
+		require.Contains(t, sql, fragment)
+	}
+}
+
 func TestMonthlyLedgerUsageSnapshotMigrationBackfillsCompletedMonths(t *testing.T) {
 	raw, err := FS.ReadFile("229_monthly_ledger_usage_snapshots.sql")
 	require.NoError(t, err)

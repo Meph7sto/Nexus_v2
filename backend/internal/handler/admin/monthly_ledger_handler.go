@@ -73,6 +73,31 @@ type monthlyLedgerMultiplierRequest struct {
 	Multiplier *float64 `json:"multiplier" binding:"required"`
 }
 
+func (h *MonthlyLedgerHandler) SetSettlement(c *gin.Context) {
+	userID, ok := parseMonthlyLedgerID(c, "user_id")
+	if !ok {
+		return
+	}
+	var req struct {
+		ManuallySettled *bool `json:"manually_settled" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.ManuallySettled == nil {
+		response.BadRequest(c, "Invalid settlement request")
+		return
+	}
+	change, err := h.service.SetSettlement(c.Request.Context(), c.Param("month"), userID, *req.ManuallySettled, monthlyLedgerActorID(c))
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	middleware.SetAuditAction(c, "admin.monthly_ledger.settlement.update")
+	middleware.SetAuditExtra(c, map[string]any{
+		"ledger_user_id": userID, "ledger_month": change.BillingMonth,
+		"old_manually_settled": change.PreviousManuallySettled, "new_manually_settled": change.ManuallySettled,
+	})
+	response.Success(c, change)
+}
+
 type monthlyLedgerMultipliersRequest struct {
 	UserIDs    []int64  `json:"user_ids" binding:"required"`
 	Multiplier *float64 `json:"multiplier" binding:"required"`
