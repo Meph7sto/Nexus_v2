@@ -60,6 +60,7 @@ const PaginationStub = defineComponent({
 
 const runtimeConfig = {
   level: 'info',
+  persist_access_logs: false,
   enable_sampling: false,
   sampling_initial: 100,
   sampling_thereafter: 100,
@@ -134,7 +135,7 @@ describe('OpsSystemLogTable host support', () => {
     expect(mockCleanupSystemLogs).toHaveBeenCalledWith(expect.objectContaining({ host: 'api-node-2' }))
   })
 
-  it('hides runtime log changes and cleanup without the matching Ops permissions', async () => {
+  it('keeps access-log persistence opt-in and hides changes without Ops permissions', async () => {
     authStore.canAdmin.mockReturnValue(false)
     const wrapper = mount(OpsSystemLogTable, {
       global: {
@@ -149,6 +150,9 @@ describe('OpsSystemLogTable host support', () => {
     expect(wrapper.findAll('button').some((button) => button.text().includes('admin.ops.systemLogs.saveAndApply'))).toBe(false)
     expect(wrapper.findAll('button').some((button) => button.text().includes('admin.ops.systemLogs.resetDefaults'))).toBe(false)
     expect(wrapper.findAll('button').some((button) => button.text().includes('admin.ops.systemLogs.cleanCurrentFilters'))).toBe(false)
+    const label = wrapper.findAll('label').find((item) => item.text().includes('admin.ops.systemLogs.persistAccessLogs'))
+    expect(label).toBeDefined()
+    expect((label!.find('input').element as HTMLInputElement).checked).toBe(false)
   })
 
   it.each([

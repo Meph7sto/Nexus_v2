@@ -21,6 +21,8 @@ import {
   PROVIDER_KIMI,
   PROVIDER_ZHIPU,
   PROVIDER_DEEPSEEK,
+  PROVIDER_MINIMAX,
+  PROVIDER_OPENCODE_GO,
   PROVIDERS,
   STATUS_OPERATIONAL,
   STATUS_DEGRADED,
@@ -113,7 +115,11 @@ export function useChannelMonitorFormat() {
       case PROVIDER_ZHIPU:
         return 'bg-indigo-100 text-indigo-700'
       case PROVIDER_DEEPSEEK:
-        return 'bg-teal-100 text-teal-700'
+        return 'bg-teal-100 text-teal-700  '
+      case PROVIDER_MINIMAX:
+        return 'bg-rose-100 text-rose-700  '
+      case PROVIDER_OPENCODE_GO:
+        return 'bg-amber-100 text-amber-800  '
       default:
         return NEUTRAL_BADGE
     }
@@ -172,8 +178,16 @@ export function useChannelMonitorFormat() {
           : 'border-gray-200 bg-white text-gray-600 hover:border-indigo-300 hover:text-indigo-700'
       case PROVIDER_DEEPSEEK:
         return active
-          ? 'border-teal-500 bg-teal-50 text-teal-700'
-          : 'border-gray-200 bg-white text-gray-600 hover:border-teal-300 hover:text-teal-700'
+          ? 'border-teal-500 bg-teal-50 text-teal-700   '
+          : 'border-gray-200 bg-white text-gray-600 hover:border-teal-300 hover:text-teal-700    '
+      case PROVIDER_MINIMAX:
+        return active
+          ? 'border-rose-500 bg-rose-50 text-rose-700   '
+          : 'border-gray-200 bg-white text-gray-600 hover:border-rose-300 hover:text-rose-700    '
+      case PROVIDER_OPENCODE_GO:
+        return active
+          ? 'border-amber-500 bg-amber-50 text-amber-800   '
+          : 'border-gray-200 bg-white text-gray-600 hover:border-amber-300 hover:text-amber-700    '
       default:
         return active
           ? 'border-gray-400 bg-gray-50 text-gray-700   '
@@ -257,7 +271,11 @@ export function providerTileClass(provider: string): string {
     case PROVIDER_ZHIPU:
       return 'bg-indigo-50'
     case PROVIDER_DEEPSEEK:
-      return 'bg-teal-50'
+      return 'bg-teal-50  '
+    case PROVIDER_MINIMAX:
+      return 'bg-rose-50  '
+    case PROVIDER_OPENCODE_GO:
+      return 'bg-amber-50  '
     default:
       return 'bg-gray-100  '
   }

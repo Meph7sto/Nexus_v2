@@ -68,6 +68,8 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { AccountPlatform, AccountType } from '@/types'
+import { platformLabel as sharedPlatformLabel } from '@/utils/platformColors'
+import { normalizePlanType, openAIPlanTypeLabel } from '@/utils/planType'
 import GrokFreeIcon from './GrokFreeIcon.vue'
 import PlatformIcon from './PlatformIcon.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -85,16 +87,7 @@ interface Props {
 
 const props = defineProps<Props>()
 
-const platformLabel = computed(() => {
-  if (props.platform === 'anthropic') return 'Anthropic'
-  if (props.platform === 'openai') return 'OpenAI'
-  if (props.platform === 'antigravity') return 'Antigravity'
-  if (props.platform === 'grok') return 'Grok'
-  if (props.platform === 'kimi') return 'Kimi'
-  if (props.platform === 'zhipu') return 'Zhipu GLM'
-  if (props.platform === 'deepseek') return 'DeepSeek'
-  return 'Gemini'
-})
+const platformLabel = computed(() => sharedPlatformLabel(props.platform))
 
 const normalizedAuthMode = computed(() =>
   (props.authMode || '').trim().toLowerCase().replace(/[\s_-]+/g, '')
@@ -121,12 +114,16 @@ const typeLabel = computed(() => {
   }
 })
 
-const normalizedPlanType = computed(() =>
-  (props.planType || '').trim().toLowerCase().replace(/[\s_-]+/g, '')
-)
+const normalizedPlanType = computed(() => normalizePlanType(props.planType))
 
 const planLabel = computed(() => {
   if (!normalizedPlanType.value) return ''
+  // ChatGPT 档位命名（Pro 5x / Pro 20x、Business Standard / Business Premium）只适用于
+  // OpenAI：Antigravity 与 Grok 各自的 pro/team 沿用下面的通用标签。
+  if (props.platform === 'openai') {
+    const label = openAIPlanTypeLabel(props.planType)
+    if (label) return label
+  }
   switch (normalizedPlanType.value) {
     case 'plus':
       return 'Plus'
@@ -191,9 +188,18 @@ const platformClass = computed(() => {
   if (props.platform === 'grok') {
     return 'bg-zinc-100 text-zinc-700  '
   }
-  if (props.platform === 'kimi') return 'bg-pink-100 text-pink-700'
-  if (props.platform === 'zhipu') return 'bg-indigo-100 text-indigo-700'
-  if (props.platform === 'deepseek') return 'bg-teal-100 text-teal-700'
+  if (props.platform === 'kimi') {
+    return 'bg-pink-100 text-pink-700  '
+  }
+  if (props.platform === 'zhipu') {
+    return 'bg-indigo-100 text-indigo-700  '
+  }
+  if (props.platform === 'deepseek') {
+    return 'bg-teal-100 text-teal-700  '
+  }
+  if (props.platform === 'minimax') {
+    return 'bg-rose-100 text-rose-700  '
+  }
   return 'bg-blue-100 text-blue-700  '
 })
 
@@ -210,9 +216,18 @@ const typeClass = computed(() => {
   if (props.platform === 'grok') {
     return 'bg-zinc-100 text-zinc-600  '
   }
-  if (props.platform === 'kimi') return 'bg-pink-100 text-pink-600'
-  if (props.platform === 'zhipu') return 'bg-indigo-100 text-indigo-600'
-  if (props.platform === 'deepseek') return 'bg-teal-100 text-teal-600'
+  if (props.platform === 'kimi') {
+    return 'bg-pink-100 text-pink-600  '
+  }
+  if (props.platform === 'zhipu') {
+    return 'bg-indigo-100 text-indigo-600  '
+  }
+  if (props.platform === 'deepseek') {
+    return 'bg-teal-100 text-teal-600  '
+  }
+  if (props.platform === 'minimax') {
+    return 'bg-rose-100 text-rose-600  '
+  }
   return 'bg-blue-100 text-blue-600  '
 })
 
@@ -226,29 +241,33 @@ const planBadgeClass = computed(() => {
     normalizedPlanType.value === 'basic' ||
     normalizedPlanType.value === 'xbasic'
   ) {
-    return 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+    return 'bg-gray-100 text-gray-600  '
   }
   if (props.platform === 'grok' && normalizedPlanType.value) {
     // Heavy / SuperGrok Heavy → purple
     if (normalizedPlanType.value.includes('heavy')) {
-      return 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-300'
+      return 'bg-purple-100 text-purple-600  '
     }
     // SuperGrok → cyan
     if (normalizedPlanType.value.includes('supergrok')) {
-      return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300'
+      return 'bg-cyan-100 text-cyan-700  '
     }
     // Any other non-free Grok plan (future tiers) → amber so it still stands out
-    return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+    return 'bg-amber-100 text-amber-700  '
   }
   // OpenAI / other paid plan labels: keep readable distinction from free gray
   if (normalizedPlanType.value === 'plus') {
-    return 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300'
+    return 'bg-sky-100 text-sky-700  '
   }
-  if (normalizedPlanType.value === 'team') {
-    return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
+  if (normalizedPlanType.value === 'team' || normalizedPlanType.value === 'selfservebusinessprolite') {
+    return 'bg-indigo-100 text-indigo-700  '
   }
-  if (normalizedPlanType.value === 'pro' || normalizedPlanType.value === 'chatgptpro') {
-    return 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'
+  if (
+    normalizedPlanType.value === 'pro' ||
+    normalizedPlanType.value === 'chatgptpro' ||
+    normalizedPlanType.value === 'prolite'
+  ) {
+    return 'bg-violet-100 text-violet-700  '
   }
   return typeClass.value
 })

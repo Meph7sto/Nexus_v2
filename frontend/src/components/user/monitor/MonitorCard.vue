@@ -96,10 +96,11 @@ const PROVIDER_TINT: Record<string, string> = {
   anthropic: 'text-orange-600 ',
   gemini: 'text-sky-600 ',
   grok: 'text-zinc-700 ',
-  antigravity: 'text-purple-600',
-  kimi: 'text-pink-600',
-  zhipu: 'text-indigo-600',
-  deepseek: 'text-teal-600',
+  antigravity: 'text-purple-600 ',
+  kimi: 'text-pink-600 ',
+  zhipu: 'text-indigo-600 ',
+  deepseek: 'text-teal-600 ',
+  opencode_go: 'text-amber-700 ',
 }
 
 const props = defineProps<{

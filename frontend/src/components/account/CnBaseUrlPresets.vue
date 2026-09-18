@@ -8,8 +8,8 @@
       :class="[
         'rounded-lg px-3 py-1 text-xs transition-colors',
         isActive(preset)
-          ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
-          : 'bg-gray-100 text-gray-700 hover:bg-primary-50 hover:text-primary-700 dark:bg-dark-600 dark:text-gray-300 dark:hover:bg-primary-900/30 dark:hover:text-primary-400'
+          ? 'bg-primary-100 text-primary-700  '
+          : 'bg-gray-100 text-gray-700 hover:bg-primary-50 hover:text-primary-700    '
       ]"
       @click="emit('select', preset)"
     >
@@ -26,7 +26,7 @@ import { CN_BASE_URL_PRESETS, type CnBaseUrlPreset } from './credentialsBuilder'
 // 与 Grok 预设一致，仅作快速填充，输入框仍接受任意第三方转发地址。
 // 传入 protocol 时只显示该协议档的预设（协议 × 账号类型正交分档）。
 const props = defineProps<{
-  platform: 'kimi' | 'zhipu' | 'deepseek'
+  platform: 'kimi' | 'zhipu' | 'deepseek' | 'minimax'
   /** 当前已选账号类型，用于过滤和高亮匹配的预设 */
   mode?: 'payg' | 'coding'
   /** 当前已选 API 协议，用于过滤和高亮匹配的预设 */

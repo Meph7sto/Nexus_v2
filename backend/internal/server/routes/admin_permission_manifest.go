@@ -106,7 +106,7 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 
 	add(service.AdminResourceGroups, service.AdminActionView, http.MethodGet,
 		admin+"/groups", admin+"/groups/all", admin+"/groups/usage-summary", admin+"/groups/capacity-summary",
-		admin+"/groups/:id/models-list-candidates", admin+"/groups/:id", admin+"/groups/:id/stats",
+		admin+"/groups/:id/model-allowlist-candidates", admin+"/groups/:id", admin+"/groups/:id/stats",
 		admin+"/groups/:id/rate-multipliers", admin+"/groups/:id/composite-routes", admin+"/groups/live-capability")
 	add(service.AdminResourceGroups, service.AdminActionCreate, http.MethodPost,
 		admin+"/groups", admin+"/groups/:id/duplicate", admin+"/groups/:id/composite-routes")
@@ -120,6 +120,7 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 		admin+"/groups/:id/composite-routes/:route_id")
 
 	add(service.AdminResourceAccounts, service.AdminActionView, http.MethodGet,
+		admin+"/accounts/:id/grok-media-eligibility",
 		admin+"/accounts/upstream-billing-rates",
 		admin+"/accounts", admin+"/accounts/upstream-billing-probe/settings", admin+"/accounts/:id", admin+"/accounts/:id/stats",
 		admin+"/accounts/:id/usage", admin+"/accounts/:id/today-stats", admin+"/accounts/:id/temp-unschedulable",
@@ -133,6 +134,7 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 		admin+"/accounts", admin+"/accounts/batch", admin+"/accounts/data", admin+"/openai/create-from-oauth",
 		admin+"/openai/create-from-codex-pat", admin+"/grok/oauth/create-from-oauth", admin+"/grok/sso-to-oauth")
 	add(service.AdminResourceAccounts, service.AdminActionUpdate, http.MethodPut,
+		admin+"/accounts/:id/grok-media-eligibility",
 		admin+"/accounts/:id", admin+"/accounts/:id/upstream-billing-probe", admin+"/accounts/upstream-billing-probe/settings",
 		admin+"/accounts/ollama-cloud-usage/settings", admin+"/accounts/:id/ollama-cloud-usage/session",
 		admin+"/accounts/:id/ollama-cloud-usage/auto-refresh")
@@ -241,6 +243,7 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 		admin+"/groups/:id/subscriptions", admin+"/users/:id/subscriptions")
 	add(service.AdminResourceSubscriptions, service.AdminActionCreate, http.MethodPost, admin+"/subscriptions/assign", admin+"/subscriptions/bulk-assign")
 	add(service.AdminResourceSubscriptions, service.AdminActionExecute, http.MethodPost,
+		admin+"/subscriptions/bulk-action",
 		admin+"/subscriptions/:id/extend", admin+"/subscriptions/:id/reset-quota", admin+"/subscriptions/:id/revoke", admin+"/subscriptions/:id/restore")
 	add(service.AdminResourceSubscriptions, service.AdminActionDelete, http.MethodDelete, admin+"/subscriptions/:id")
 	add(service.AdminResourceUsage, service.AdminActionView, http.MethodGet,
