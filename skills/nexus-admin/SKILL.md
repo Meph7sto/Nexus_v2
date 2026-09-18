@@ -22,7 +22,7 @@ For all commands and payload examples, read [references/admin-cli.md](references
 1. Reuse `NEXUS_BASE_URL` and either `NEXUS_ADMIN_API_KEY` or `NEXUS_JWT` from the environment.
 2. Run read-only commands first: `accounts list`, `accounts get <id>`, `groups all`, or `proxies all`.
 3. Before destructive or bulk writes, print the target account names and IDs.
-4. Execute the write command only after the target set is clear.
+4. Before any external write, obtain explicit user approval for the target, operation, and scope. Clear targets, available credentials, successful reads, or a general task request do not replace approval. Do not ask again for the same approved target, operation, and scope; obtain new approval if any changes. Execute only after both the target set and approval are established.
 5. Run a follow-up read command to verify the result.
 
 ## Common Commands
@@ -46,4 +46,4 @@ node scripts/nexus-admin.js tls-profiles list
 - If the API returns `INVALID_ADMIN_KEY`, ask the user to regenerate the admin API key. If using JWT, log in as an admin user and copy the `access_token` from `POST /api/v1/auth/login`.
 - `accounts export` includes credentials and tokens. Prefer `--file` and avoid printing exports in chat.
 - Redeem code create/redeem commands should use `--idempotency-key` for payment or recharge workflows.
-- For uncertain or newly added backend APIs, use `api <METHOD> <admin-path>` after a read-only check.
+- For uncertain or newly added backend APIs, use `api <METHOD> <admin-path>` after a read-only check; raw API writes require the same explicit approval as other external writes.
