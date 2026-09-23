@@ -62,63 +62,63 @@
       <div class="card p-6">
         <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h3 class="text-base font-semibold text-gray-900 dark:text-white">
+            <h3 class="text-base font-semibold text-gray-900">
               {{ t('admin.backup.imageStorage.title') }}
             </h3>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-sm text-gray-500">
               {{ t('admin.backup.imageStorage.description') }}
             </p>
           </div>
-          <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+          <label class="inline-flex items-center gap-2 text-sm text-gray-700">
             <input v-model="imageStorageForm.enabled" type="checkbox" />
             <span>{{ t('admin.backup.imageStorage.enabled') }}</span>
           </label>
         </div>
 
-        <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+        <label class="inline-flex items-center gap-2 text-sm text-gray-700">
           <input v-model="imageStorageForm.reuse_backup_s3" type="checkbox" />
           <span>{{ t('admin.backup.imageStorage.reuseBackupS3') }}</span>
         </label>
 
         <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
           <div>
-            <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{{ t('admin.backup.imageStorage.bucket') }}</label>
+            <label class="mb-1 block text-xs font-medium text-gray-600">{{ t('admin.backup.imageStorage.bucket') }}</label>
             <input v-model="imageStorageForm.bucket" class="input w-full" :placeholder="imageStorageForm.reuse_backup_s3 ? t('admin.backup.imageStorage.bucketInherited') : ''" />
           </div>
           <div>
-            <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{{ t('admin.backup.imageStorage.prefix') }}</label>
+            <label class="mb-1 block text-xs font-medium text-gray-600">{{ t('admin.backup.imageStorage.prefix') }}</label>
             <input v-model="imageStorageForm.prefix" class="input w-full" placeholder="images/" />
           </div>
 
           <template v-if="!imageStorageForm.reuse_backup_s3">
             <div>
-              <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{{ t('admin.backup.s3.endpoint') }}</label>
+              <label class="mb-1 block text-xs font-medium text-gray-600">{{ t('admin.backup.s3.endpoint') }}</label>
               <input v-model="imageStorageForm.endpoint" class="input w-full" placeholder="https://<account_id>.r2.cloudflarestorage.com" />
             </div>
             <div>
-              <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{{ t('admin.backup.s3.region') }}</label>
+              <label class="mb-1 block text-xs font-medium text-gray-600">{{ t('admin.backup.s3.region') }}</label>
               <input v-model="imageStorageForm.region" class="input w-full" placeholder="auto" />
             </div>
             <div>
-              <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{{ t('admin.backup.s3.accessKeyId') }}</label>
+              <label class="mb-1 block text-xs font-medium text-gray-600">{{ t('admin.backup.s3.accessKeyId') }}</label>
               <input v-model="imageStorageForm.access_key_id" class="input w-full" />
             </div>
             <div>
-              <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{{ t('admin.backup.s3.secretAccessKey') }}</label>
+              <label class="mb-1 block text-xs font-medium text-gray-600">{{ t('admin.backup.s3.secretAccessKey') }}</label>
               <input v-model="imageStorageForm.secret_access_key" type="password" class="input w-full" :placeholder="imageStorageSecretConfigured ? t('admin.backup.s3.secretConfigured') : ''" />
             </div>
-            <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 md:col-span-2">
+            <label class="inline-flex items-center gap-2 text-sm text-gray-700 md:col-span-2">
               <input v-model="imageStorageForm.force_path_style" type="checkbox" />
               <span>{{ t('admin.backup.s3.forcePathStyle') }}</span>
             </label>
           </template>
 
           <div>
-            <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{{ t('admin.backup.imageStorage.publicBaseUrl') }}</label>
+            <label class="mb-1 block text-xs font-medium text-gray-600">{{ t('admin.backup.imageStorage.publicBaseUrl') }}</label>
             <input v-model="imageStorageForm.public_base_url" class="input w-full" :placeholder="t('admin.backup.imageStorage.publicBaseUrlPlaceholder')" />
           </div>
           <div>
-            <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{{ t('admin.backup.imageStorage.presignExpiryHours') }}</label>
+            <label class="mb-1 block text-xs font-medium text-gray-600">{{ t('admin.backup.imageStorage.presignExpiryHours') }}</label>
             <input v-model.number="imageStorageForm.presign_expiry_hours" type="number" min="1" class="input w-full" />
           </div>
         </div>
@@ -134,7 +134,7 @@
       </div>
 
       <!-- Schedule Config -->
-      <div class="card p-6">
+      <div class="card p-6" data-testid="backup-schedule">
         <div class="mb-4">
           <h3 class="text-base font-semibold text-gray-900 ">
             {{ t('admin.backup.schedule.title') }}
@@ -153,20 +153,28 @@
             <input v-model="scheduleForm.cron_expr" class="input w-full" placeholder="0 2 * * *" />
             <p class="mt-1 text-xs text-gray-500 ">{{ t('admin.backup.schedule.cronHint') }}</p>
           </div>
+          <h4 class="mt-2 text-sm font-medium text-gray-900 md:col-span-2">{{ t('admin.backup.schedule.ordinaryRetention') }}</h4>
           <div>
-            <label class="mb-1 block text-xs font-medium text-gray-600 ">{{ t('admin.backup.schedule.retainDays') }}</label>
-            <input v-model.number="scheduleForm.retain_days" type="number" min="0" class="input w-full" />
-            <p class="mt-1 text-xs text-gray-500 ">{{ t('admin.backup.schedule.retainDaysHint') }}</p>
+            <label class="mb-1 block text-xs font-medium text-gray-600">{{ t('admin.backup.schedule.retainDays') }}</label>
+            <input v-model.number="scheduleForm.retain_days" data-testid="backup-retain-days" type="number" min="0" step="1" class="input w-full" />
+            <p class="mt-1 text-xs text-gray-500">{{ t('admin.backup.schedule.retainDaysHint') }}</p>
           </div>
           <div>
-            <label class="mb-1 block text-xs font-medium text-gray-600 ">{{ t('admin.backup.schedule.retainCount') }}</label>
-            <input v-model.number="scheduleForm.retain_count" type="number" min="0" class="input w-full" />
-            <p class="mt-1 text-xs text-gray-500 ">{{ t('admin.backup.schedule.retainCountHint') }}</p>
+            <label class="mb-1 block text-xs font-medium text-gray-600">{{ t('admin.backup.schedule.retainCount') }}</label>
+            <input v-model.number="scheduleForm.retain_count" data-testid="backup-retain-count" type="number" min="0" step="1" class="input w-full" />
+            <p class="mt-1 text-xs text-gray-500">{{ t('admin.backup.schedule.retainCountHint') }}</p>
           </div>
+        </div>
+        <p class="mt-2 text-xs text-gray-500">{{ t('admin.backup.schedule.ordinaryHint') }}</p>
+        <BackupArchiveSettings v-model="archiveForm" />
+        <p v-if="scheduleValidationError" class="mt-3 text-sm text-red-600" role="alert">{{ scheduleValidationError }}</p>
+        <div class="mt-4 rounded-lg bg-gray-50 p-3 text-sm text-gray-700" aria-live="polite">
+          <p class="font-medium">{{ t('admin.backup.schedule.preview') }}</p>
+          <p>{{ retentionPreview }}</p>
         </div>
         <div class="mt-4">
           <AdminPermissionGate resource="backups" action="update">
-            <button type="button" class="btn btn-primary btn-sm" :disabled="savingSchedule" @click="saveSchedule">
+            <button type="button" class="btn btn-primary btn-sm" :disabled="savingSchedule || !!scheduleValidationError" @click="saveSchedule">
               {{ savingSchedule ? t('common.loading') : t('common.save') }}
             </button>
           </AdminPermissionGate>
@@ -228,11 +236,17 @@
                       : t(`admin.backup.status.${record.status}`) }}
                   </span>
                 </td>
-                <td class="py-3 pr-4 text-xs">{{ record.file_name }}</td>
+                <td class="py-3 pr-4 text-xs">
+                  {{ record.file_name }}
+                  <span v-if="record.monthly_archive" class="ml-1 inline-block rounded bg-primary-50 px-1.5 py-0.5 text-primary-700">{{ t('admin.backup.archive.badge') }}</span>
+                  <div v-if="record.monthly_archive" class="mt-1 text-gray-500">{{ record.monthly_archive.dates.join(' / ') }}</div>
+                </td>
                 <td class="py-3 pr-4 text-xs">{{ formatSize(record.size_bytes) }}</td>
                 <td class="py-3 pr-4 text-xs">{{ record.parts?.length || (record.status === 'running' ? '-' : 1) }}</td>
                 <td class="py-3 pr-4 text-xs">
-                  {{ record.expires_at ? formatDate(record.expires_at) : t('admin.backup.neverExpire') }}
+                  {{ record.monthly_archive
+                    ? record.monthly_archive.retain_count === 0 ? t('admin.backup.archive.forever') : t('admin.backup.archive.retainLatest', { count: record.monthly_archive.retain_count })
+                    : record.expires_at ? formatDate(record.expires_at) : t('admin.backup.neverExpire') }}
                 </td>
                 <td class="py-3 pr-4 text-xs">
                   {{ record.triggered_by === 'scheduled' ? t('admin.backup.trigger.scheduled') : t('admin.backup.trigger.manual') }}
@@ -410,6 +424,7 @@ import { useAuthStore } from '@/stores/auth'
 import type {
   BackupS3Config,
   BackupScheduleConfig,
+  BackupMonthlyArchiveConfig,
   BackupRecord,
   BackupDownloadPart,
   ImageStorageConfig,
@@ -418,6 +433,7 @@ import { useStepUp, isStepUpBlocked, isStepUpCancelled, stepUpBlockReason } from
 import TotpStepUpDialog from '@/components/auth/TotpStepUpDialog.vue'
 import AdminPermissionGate from '@/components/admin/AdminPermissionGate.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import BackupArchiveSettings from '@/components/admin/BackupArchiveSettings.vue'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -477,6 +493,42 @@ const scheduleForm = ref<BackupScheduleConfig>({
   retain_count: 10,
 })
 const savingSchedule = ref(false)
+const archiveForm = ref<BackupMonthlyArchiveConfig>({ enabled: false, days: [1], include_month_end: false, retain_count: 0 })
+// Disabling hides the archive parameters, so a save while disabled keeps the
+// persisted parameters and only turns the rule off.
+const savedArchive = ref<BackupMonthlyArchiveConfig>(cloneArchive(archiveForm.value))
+const archivePayload = computed<BackupMonthlyArchiveConfig>(() =>
+  archiveForm.value.enabled ? cloneArchive(archiveForm.value) : { ...cloneArchive(savedArchive.value), enabled: false },
+)
+function cloneArchive(config: BackupMonthlyArchiveConfig): BackupMonthlyArchiveConfig {
+  return { ...config, days: [...config.days] }
+}
+const scheduleValidationError = computed(() => {
+  const counts = [scheduleForm.value.retain_days, scheduleForm.value.retain_count]
+  if (archiveForm.value.enabled) counts.push(archiveForm.value.retain_count)
+  if (!counts.every(value => Number.isSafeInteger(value) && value >= 0)) {
+    return t('admin.backup.archive.invalidRetention')
+  }
+  if (archiveForm.value.enabled && !archiveForm.value.days.length && !archiveForm.value.include_month_end) {
+    return t('admin.backup.archive.selectDates')
+  }
+  return ''
+})
+const retentionPreview = computed(() => {
+  if (scheduleValidationError.value) return scheduleValidationError.value
+  const { retain_days: days, retain_count: count } = scheduleForm.value
+  const ordinary = days > 0 && count > 0
+    ? t('admin.backup.schedule.previewBoth', { days, count })
+    : days > 0 ? t('admin.backup.schedule.previewDays', { days })
+      : count > 0 ? t('admin.backup.schedule.previewCount', { count }) : t('admin.backup.schedule.previewUnlimited')
+  if (!archiveForm.value.enabled) return ordinary
+  const dates = [
+    ...[...archiveForm.value.days].sort((a, b) => a - b).map(day => t('admin.backup.archive.day', { day })),
+    ...(archiveForm.value.include_month_end ? [t('admin.backup.archive.monthEnd')] : []),
+  ].join(', ')
+  const retention = archiveForm.value.retain_count === 0 ? t('admin.backup.archive.forever') : t('admin.backup.archive.retainLatest', { count: archiveForm.value.retain_count })
+  return `${ordinary} ${t('admin.backup.archive.preview', { dates, retention })}`
+})
 
 // Backups
 const backups = ref<BackupRecord[]>([])
@@ -711,9 +763,16 @@ async function loadSchedule() {
     scheduleForm.value = {
       enabled: cfg.enabled,
       cron_expr: cfg.cron_expr || '0 2 * * *',
-      retain_days: cfg.retain_days || 14,
-      retain_count: cfg.retain_count || 10,
+      retain_days: cfg.retain_days ?? 14,
+      retain_count: cfg.retain_count ?? 10,
     }
+    archiveForm.value = {
+      enabled: cfg.monthly_archive?.enabled ?? false,
+      days: cfg.monthly_archive?.days ?? [1],
+      include_month_end: cfg.monthly_archive?.include_month_end ?? false,
+      retain_count: cfg.monthly_archive?.retain_count ?? 0,
+    }
+    savedArchive.value = cloneArchive(archiveForm.value)
   } catch (error) {
     appStore.showError((error as { message?: string })?.message || t('errors.networkError'))
   }
@@ -721,9 +780,12 @@ async function loadSchedule() {
 
 async function saveSchedule() {
   if (!authStore.canAdmin('backups', 'update')) return
+  if (scheduleValidationError.value) return
   savingSchedule.value = true
   try {
-    await adminAPI.backup.updateSchedule(scheduleForm.value)
+    const archive = archivePayload.value
+    await adminAPI.backup.updateSchedule({ ...scheduleForm.value, monthly_archive: archive })
+    savedArchive.value = cloneArchive(archive)
     appStore.showSuccess(t('admin.backup.schedule.saved'))
   } catch (error) {
     appStore.showError((error as { message?: string })?.message || t('errors.networkError'))
@@ -825,9 +887,10 @@ async function restoreBackup(id: string) {
 
 async function removeBackup(id: string) {
   if (!authStore.canAdmin('backups', 'delete')) return
-  if (!window.confirm(t('admin.backup.actions.deleteConfirm'))) return
+  const archived = !!backups.value.find(record => record.id === id)?.monthly_archive
+  if (!window.confirm(t(archived ? 'admin.backup.archive.deleteConfirm' : 'admin.backup.actions.deleteConfirm'))) return
   try {
-    await adminAPI.backup.deleteBackup(id)
+    await adminAPI.backup.deleteBackup(id, archived)
     appStore.showSuccess(t('admin.backup.actions.deleted'))
     await loadBackups()
   } catch (error) {

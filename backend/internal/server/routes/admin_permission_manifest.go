@@ -161,6 +161,7 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 		admin+"/grok/oauth/auth-url", admin+"/grok/oauth/exchange-code", admin+"/grok/oauth/refresh-token",
 		admin+"/grok/oauth/reconcile", admin+"/grok/accounts/:id/refresh", admin+"/grok/accounts/:id/reset-quota",
 		admin+"/grok/oauth/sso-token", admin+"/grok/oauth/password", admin+"/openai/accounts/:id/quota/refresh",
+		admin+"/openai/accounts/:id/referrals/refresh", admin+"/openai/accounts/:id/referrals/invite",
 		admin+"/accounts/:id/ollama-cloud-usage/refresh")
 	humanOnly(http.MethodPut, admin+"/accounts/:id/ollama-cloud-usage/session")
 	humanOnly(http.MethodDelete, admin+"/accounts/:id/ollama-cloud-usage/session")
@@ -318,6 +319,7 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 		admin+"/affiliates/invites", admin+"/affiliates/rebates", admin+"/affiliates/transfers",
 		admin+"/affiliates/users", admin+"/affiliates/users/lookup", admin+"/affiliates/users/:user_id/overview")
 	add(service.AdminResourceAffiliates, service.AdminActionUpdate, http.MethodPost, admin+"/affiliates/users/batch-rate")
+	add(service.AdminResourceAffiliates, service.AdminActionExecute, http.MethodPost, admin+"/affiliates/users/:user_id/withdraw")
 	add(service.AdminResourceAffiliates, service.AdminActionUpdate, http.MethodPut, admin+"/affiliates/users/:user_id")
 	add(service.AdminResourceAffiliates, service.AdminActionDelete, http.MethodDelete, admin+"/affiliates/users/:user_id")
 
@@ -338,13 +340,13 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 
 	add(service.AdminResourcePages, service.AdminActionView, http.MethodGet, "/api/v1/pages")
 	add(service.AdminResourcePlugins, service.AdminActionView, http.MethodGet,
-		admin+"/plugins", admin+"/plugins/:id", admin+"/plugins/:id/config")
+		admin+"/plugins", admin+"/plugins/:id", admin+"/plugins/:id/config", admin+"/plugins/:id/status")
 	add(service.AdminResourcePlugins, service.AdminActionCreate, http.MethodPost, admin+"/plugins/upload")
 	add(service.AdminResourcePlugins, service.AdminActionUpdate, http.MethodPut, admin+"/plugins/:id/config")
 	add(service.AdminResourcePlugins, service.AdminActionDelete, http.MethodDelete, admin+"/plugins/:id")
 	add(service.AdminResourcePlugins, service.AdminActionExecute, http.MethodPost,
 		admin+"/plugins/:id/enable", admin+"/plugins/:id/disable", admin+"/plugins/:id/test", admin+"/plugins/:id/ui-session")
-	humanOnly(http.MethodGet, admin+"/plugins", admin+"/plugins/:id", admin+"/plugins/:id/config")
+	humanOnly(http.MethodGet, admin+"/plugins", admin+"/plugins/:id", admin+"/plugins/:id/config", admin+"/plugins/:id/status")
 	humanOnly(http.MethodPost, admin+"/plugins/upload", admin+"/plugins/:id/enable", admin+"/plugins/:id/disable",
 		admin+"/plugins/:id/test", admin+"/plugins/:id/ui-session")
 	humanOnly(http.MethodPut, admin+"/plugins/:id/config")
