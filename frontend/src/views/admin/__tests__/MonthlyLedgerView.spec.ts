@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 
 import MonthlyLedgerView from '../MonthlyLedgerView.vue'
+import MonthlyLedgerSendEmailDialog from '../MonthlyLedgerSendEmailDialog.vue'
 
 const { list, listPayments, setSettlement, setMultiplier, setMultipliers, createPayment, updatePayment, deletePayment, showError, showSuccess, canAdmin } = vi.hoisted(() => ({
   setSettlement: vi.fn(),
@@ -82,6 +83,9 @@ const mountView = (paginationStub: unknown = true) => mount(MonthlyLedgerView, {
       AppLayout: { template: '<div><slot /></div>' },
       Pagination: paginationStub,
       Icon: true,
+      MonthlyLedgerOverview: true,
+      MonthlyLedgerIncome: true,
+      MonthlyLedgerSendEmailDialog: true,
       BaseDialog: {
         props: ['show'],
         emits: ['close'],
@@ -93,6 +97,30 @@ const mountView = (paginationStub: unknown = true) => mount(MonthlyLedgerView, {
 })
 
 describe('MonthlyLedgerView', () => {
+  it('opens email from the row with its recipient and the selected month', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.find('[data-test="open-send-email"]').exists()).toBe(false)
+    await wrapper.get('[data-test="send-email-7"]').trigger('click')
+    const dialog = wrapper.getComponent(MonthlyLedgerSendEmailDialog)
+    expect(dialog.props('show')).toBe(true)
+    expect(dialog.props('initialMonth')).toBe('2026-07')
+    expect(dialog.props('recipient')).toMatchObject({ user_id: 7, email: 'customer@example.test', outstanding_amount: 600 })
+  })
+
+  it('hides row email actions without create permission and disables deleted users', async () => {
+    canAdmin.mockImplementation((_resource, action) => action !== 'create')
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.find('[data-test="send-email-7"]').exists()).toBe(false)
+    wrapper.unmount()
+    canAdmin.mockReturnValue(true)
+    const data = response(); data.items[0].deleted = true
+    list.mockResolvedValue(data)
+    const deleted = mountView()
+    await flushPromises()
+    expect(deleted.get('[data-test="send-email-7"]').attributes('disabled')).toBeDefined()
+  })
   beforeEach(() => {
     setSettlement.mockReset().mockImplementation(async (_month, _userID, settled) => ({ manually_settled: settled }))
     list.mockReset().mockResolvedValue(response())

@@ -307,6 +307,7 @@ type SystemSettings struct {
 
 	// 订阅到期提醒
 	SubscriptionExpiryNotifyEnabled bool
+	MonthlyLedgerEmailEnabled       bool
 
 	// 账号限额通知
 	AccountQuotaNotifyEnabled bool

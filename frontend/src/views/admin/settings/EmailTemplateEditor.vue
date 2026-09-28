@@ -349,6 +349,16 @@ function localText(zh: string, en: string): string {
 }
 
 const eventDisplayMeta: Record<string, EventDisplayMeta> = {
+  "billing.monthly_ledger_manual": {
+    label: "手动账单付款通知",
+    timing: "管理员选择月份、用户和待付款金额后手动发送，与自动月结邮件共用每日额度。",
+    categoryLabel: "计费",
+  },
+  "billing.monthly_ledger": {
+    label: "月结账单付款通知",
+    timing: "月末后向管理员已开启通知且仍有待付款的用户发送，默认关闭，从启用当月开始生效。",
+    categoryLabel: "计费",
+  },
   "auth.verify_code": {
     label: "邮箱验证码",
     timing: "注册、绑定邮箱、OAuth 补全邮箱或 TOTP 邮箱校验时发送。",
@@ -412,6 +422,16 @@ const eventDisplayMeta: Record<string, EventDisplayMeta> = {
 };
 
 const eventDisplayMetaEn: Record<string, EventDisplayMeta> = {
+  "billing.monthly_ledger_manual": {
+    label: "Manual Billing Payment Notice",
+    timing: "Sent manually for a selected month, user and payment amount. Shares the daily limit with automatic ledger emails.",
+    categoryLabel: "Billing",
+  },
+  "billing.monthly_ledger": {
+    label: "Monthly Ledger Payment Notice",
+    timing: "Sent after month end to users enabled by an administrator who have an outstanding amount. Disabled by default; effective from the month enabled.",
+    categoryLabel: "Billing",
+  },
   "auth.verify_code": {
     label: "Email Verification Code",
     timing: "Sent for registration, email binding, OAuth pending email completion, or TOTP email verification.",

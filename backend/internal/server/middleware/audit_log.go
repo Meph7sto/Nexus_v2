@@ -60,6 +60,8 @@ var auditExtraAllowedKeys = map[string]struct{}{
 	"matched_count": {}, "snapshot_max_id": {}, "filter_hash": {}, "confirm": {},
 	"usage_log_id": {}, "interaction_id": {}, "raw_available": {},
 	"ledger_user_id": {}, "ledger_month": {}, "ledger_payment_id": {},
+	"ledger_email_daily_limit": {}, "ledger_email_request_id": {},
+	"income_record_id": {}, "income_cost": {}, "income_state": {},
 	"old_amount": {}, "new_amount": {}, "old_multiplier": {}, "new_multiplier": {},
 }
 
@@ -152,6 +154,17 @@ var auditActionOverrides = map[string]string{
 	"POST /api/v1/admin/monthly-ledger/:month/users/:user_id/payments":  "admin.monthly_ledger.payment.create",
 	"PUT /api/v1/admin/monthly-ledger/payments/:id":                     "admin.monthly_ledger.payment.update",
 	"DELETE /api/v1/admin/monthly-ledger/payments/:id":                  "admin.monthly_ledger.payment.delete",
+	"POST /api/v1/admin/monthly-ledger/income-entries":                  "admin.monthly_ledger.income_entry.create",
+	"POST /api/v1/admin/monthly-ledger/emails":                          "admin.monthly_ledger.email.send",
+	"PUT /api/v1/admin/monthly-ledger/email-quota":                      "admin.monthly_ledger.email_limit.update",
+	"PUT /api/v1/admin/monthly-ledger/income-entries/:id":               "admin.monthly_ledger.income_entry.update",
+	"DELETE /api/v1/admin/monthly-ledger/income-entries/:id":            "admin.monthly_ledger.income_entry.delete",
+	"POST /api/v1/admin/monthly-ledger/income-entries/:id/payments":     "admin.monthly_ledger.income_payment.create",
+	"PUT /api/v1/admin/monthly-ledger/income-payments/:id":              "admin.monthly_ledger.income_payment.update",
+	"DELETE /api/v1/admin/monthly-ledger/income-payments/:id":           "admin.monthly_ledger.income_payment.delete",
+	"POST /api/v1/admin/monthly-ledger/income-schedules":                "admin.monthly_ledger.income_schedule.create",
+	"PUT /api/v1/admin/monthly-ledger/income-schedules/:id":             "admin.monthly_ledger.income_schedule.update",
+	"PUT /api/v1/admin/monthly-ledger/income-schedules/:id/state":       "admin.monthly_ledger.income_schedule.state",
 }
 
 // auditBodyOmittedRoutes 请求体几乎整体由凭证构成的路由（如整块粘贴 auth JSON 的导入接口）。

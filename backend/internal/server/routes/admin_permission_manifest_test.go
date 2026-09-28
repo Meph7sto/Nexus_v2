@@ -122,6 +122,8 @@ func TestAdminRoutePermissionManifestMapsMonthlyLedgerActions(t *testing.T) {
 		action service.AdminPermissionAction
 	}{
 		{http.MethodGet, "/api/v1/admin/monthly-ledger", service.AdminActionView},
+		{http.MethodGet, "/api/v1/admin/monthly-ledger/email-notifications", service.AdminActionView},
+		{http.MethodPut, "/api/v1/admin/monthly-ledger/email-notifications/:user_id", service.AdminActionUpdate},
 		{http.MethodGet, "/api/v1/admin/monthly-ledger/:month/users/:user_id/payments", service.AdminActionView},
 		{http.MethodPost, "/api/v1/admin/monthly-ledger/:month/users/:user_id/payments", service.AdminActionCreate},
 		{http.MethodPut, "/api/v1/admin/monthly-ledger/:month/multipliers", service.AdminActionUpdate},

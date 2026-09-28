@@ -8726,6 +8726,12 @@
             </div>
           </div>
 
+          <div class="flex items-center justify-between gap-4 border-b border-gray-100 px-6 py-6">
+            <label for="monthly-ledger-email-enabled" class="text-sm font-medium text-gray-700">
+              {{ t("admin.settings.monthlyLedgerEmailEnabled") }}
+            </label>
+            <Toggle id="monthly-ledger-email-enabled" v-model="form.monthly_ledger_email_enabled" data-testid="monthly-ledger-email-enabled" />
+          </div>
           <EmailTemplateEditor />
 
           <!-- Balance Low Notification -->
@@ -9988,6 +9994,7 @@ const form = reactive<SettingsForm>({
   balance_low_notify_threshold: 0,
   balance_low_notify_recharge_url: "",
   subscription_expiry_notify_enabled: true,
+  monthly_ledger_email_enabled: false,
   account_quota_notify_enabled: false,
   account_quota_notify_emails: [] as NotifyEmailEntry[],
   // Channel Monitor feature switch
@@ -11708,6 +11715,7 @@ async function saveSettings() {
         form.balance_low_notify_recharge_url || currentOrigin),
       subscription_expiry_notify_enabled:
         form.subscription_expiry_notify_enabled,
+      monthly_ledger_email_enabled: form.monthly_ledger_email_enabled,
       account_quota_notify_enabled: form.account_quota_notify_enabled,
       account_quota_notify_emails: (
         form.account_quota_notify_emails || []

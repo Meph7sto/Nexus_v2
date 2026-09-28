@@ -20,6 +20,78 @@ func NewMonthlyLedgerHandler(monthlyLedgerService *service.MonthlyLedgerService)
 	return &MonthlyLedgerHandler{service: monthlyLedgerService}
 }
 
+func (h *MonthlyLedgerHandler) EmailQuota(c *gin.Context) {
+	quota, err := h.service.EmailQuota(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, quota)
+}
+
+func (h *MonthlyLedgerHandler) SetEmailDailyLimit(c *gin.Context) {
+	var req struct {
+		DailyLimit *int `json:"daily_limit" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.DailyLimit == nil {
+		response.BadRequest(c, "daily_limit is required and must be an integer")
+		return
+	}
+	if err := h.service.SetEmailDailyLimit(c.Request.Context(), *req.DailyLimit, monthlyLedgerActorID(c)); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	middleware.SetAuditAction(c, "admin.monthly_ledger.email_limit.update")
+	middleware.SetAuditExtra(c, map[string]any{"ledger_email_daily_limit": *req.DailyLimit})
+	response.Success(c, gin.H{"daily_limit": *req.DailyLimit})
+}
+
+func (h *MonthlyLedgerHandler) SendManualEmail(c *gin.Context) {
+	var req service.MonthlyLedgerManualEmailInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid email request")
+		return
+	}
+	middleware.SetAuditAction(c, "admin.monthly_ledger.email.send")
+	middleware.SetAuditExtra(c, map[string]any{"ledger_user_id": req.UserID, "ledger_month": req.Month, "new_amount": req.Amount, "ledger_email_request_id": req.RequestID})
+	if err := h.service.SendManualEmail(c.Request.Context(), req); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"sent": true})
+}
+
+func (h *MonthlyLedgerHandler) ListEmailPreferences(c *gin.Context) {
+	page, size := response.ParsePagination(c)
+	items, total, err := h.service.ListEmailPreferences(c.Request.Context(), strings.TrimSpace(c.Query("q")), pagination.PaginationParams{Page: page, PageSize: size})
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"items": items, "total": total, "page": page, "page_size": size})
+}
+
+func (h *MonthlyLedgerHandler) SetEmailPreference(c *gin.Context) {
+	userID, ok := parseMonthlyLedgerID(c, "user_id")
+	if !ok {
+		return
+	}
+	var req struct {
+		Enabled *bool `json:"enabled" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Enabled == nil {
+		response.BadRequest(c, "enabled is required")
+		return
+	}
+	if err := h.service.SetEmailPreference(c.Request.Context(), userID, *req.Enabled, monthlyLedgerActorID(c)); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	middleware.SetAuditAction(c, "admin.monthly_ledger.email_preference.update")
+	middleware.SetAuditExtra(c, map[string]any{"ledger_user_id": userID, "enabled": *req.Enabled})
+	response.Success(c, gin.H{"user_id": userID, "enabled": *req.Enabled})
+}
+
 func (h *MonthlyLedgerHandler) List(c *gin.Context) {
 	page, pageSize := response.ParsePagination(c)
 	userID, ok := parseOptionalMonthlyLedgerUserID(c)

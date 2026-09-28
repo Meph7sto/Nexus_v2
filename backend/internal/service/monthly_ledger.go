@@ -163,9 +163,15 @@ type MonthlyLedgerRepository interface {
 }
 
 type MonthlyLedgerService struct {
-	repo     MonthlyLedgerRepository
-	now      func() time.Time
-	location *time.Location
+	emailSend     func(context.Context, NotificationEmailSendInput) error
+	incomeCancel  context.CancelFunc
+	incomeDone    chan struct{}
+	emailSettings SettingRepository
+	emailCancel   context.CancelFunc
+	emailDone     chan struct{}
+	repo          MonthlyLedgerRepository
+	now           func() time.Time
+	location      *time.Location
 }
 
 func NewMonthlyLedgerService(repo MonthlyLedgerRepository) *MonthlyLedgerService {

@@ -734,6 +734,7 @@ const (
 
 	// 订阅到期提醒
 	SettingKeySubscriptionExpiryNotifyEnabled = "subscription_expiry_notify_enabled" // 订阅到期提醒全局开关，默认开启
+	SettingKeyMonthlyLedgerEmailEnabled       = "monthly_ledger_email_enabled"
 
 	// 账号限额通知
 	SettingKeyAccountQuotaNotifyEnabled = "account_quota_notify_enabled" // 全局开关

@@ -20,6 +20,8 @@ import (
 )
 
 const (
+	NotificationEmailEventMonthlyLedger               = "billing.monthly_ledger"
+	NotificationEmailEventMonthlyLedgerManual         = "billing.monthly_ledger_manual"
 	NotificationEmailEventAuthVerifyCode              = "auth.verify_code"
 	NotificationEmailEventAuthPasswordReset           = "auth.password_reset"
 	NotificationEmailEventNotificationEmailVerifyCode = "notification_email.verify_code"
@@ -518,6 +520,11 @@ func (s *NotificationEmailService) sampleVariables(ctx context.Context, event, l
 		variables[key] = value
 	}
 	variables["site_name"] = s.siteName(ctx)
+	if event == NotificationEmailEventMonthlyLedger || event == NotificationEmailEventMonthlyLedgerManual {
+		for k, v := range map[string]string{"billing_month": "2026-08", "currency": "USD", "usage_amount": "120.00", "multiplier": "0.5", "receivable_amount": "60.00", "paid_amount": "10.00", "outstanding_amount": "50.00"} {
+			variables[k] = v
+		}
+	}
 	if variables["unsubscribe_url"] == "" && info.Optional {
 		variables["unsubscribe_url"] = "https://example.com/unsubscribe"
 	}
@@ -1034,9 +1041,25 @@ var notificationEmailEventOrder = []string{
 	NotificationEmailEventCyberPolicyNotice,
 	NotificationEmailEventOpsAlert,
 	NotificationEmailEventOpsScheduledReport,
+	NotificationEmailEventMonthlyLedger,
+	NotificationEmailEventMonthlyLedgerManual,
 }
 
 var notificationEmailEventDefinitions = map[string]NotificationEmailEventInfo{
+	NotificationEmailEventMonthlyLedgerManual: {
+		Event:        NotificationEmailEventMonthlyLedgerManual,
+		Label:        "Manual monthly ledger payment notice",
+		Description:  "Sent by an administrator for a selected month with a specified payment amount.",
+		Category:     "billing",
+		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...), "billing_month", "currency", "outstanding_amount"),
+	},
+	NotificationEmailEventMonthlyLedger: {
+		Event:        NotificationEmailEventMonthlyLedger,
+		Label:        "Monthly ledger payment notice",
+		Description:  "Sent after month end for users enabled by an administrator, when an outstanding amount remains.",
+		Category:     "billing",
+		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...), "billing_month", "currency", "usage_amount", "multiplier", "receivable_amount", "paid_amount", "outstanding_amount"),
+	},
 	NotificationEmailEventAuthVerifyCode: {
 		Event:        NotificationEmailEventAuthVerifyCode,
 		Label:        "Email verification code",
@@ -1155,6 +1178,26 @@ var notificationEmailEventDefinitions = map[string]NotificationEmailEventInfo{
 }
 
 var notificationEmailOfficialTemplates = map[string]map[string]notificationEmailOfficialTemplate{
+	NotificationEmailEventMonthlyLedgerManual: {
+		notificationEmailDefaultLocale: {
+			Subject: "[{{site_name}}] {{billing_month}} payment notice",
+			HTML:    notificationEmailCard("#059669", "Monthly payment notice", `<p>Hello {{recipient_name}},</p><p>Billing month: {{billing_month}}</p><p>Amount to pay: <strong>{{outstanding_amount}} {{currency}}</strong></p><p>Please contact the administrator to arrange payment. If you have already paid, please contact the administrator to confirm.</p>`),
+		},
+		notificationEmailLocaleChinese: {
+			Subject: "[{{site_name}}] {{billing_month}} 月度账单付款通知",
+			HTML:    notificationEmailCard("#059669", "月度账单付款通知", `<p>{{recipient_name}}，您好：</p><p>账单月份：{{billing_month}}</p><p>本次待付款：<strong>{{outstanding_amount}} {{currency}}</strong></p><p>请联系管理员安排付款。如您已付款，请联系管理员核实。</p>`),
+		},
+	},
+	NotificationEmailEventMonthlyLedger: {
+		notificationEmailDefaultLocale: {
+			Subject: "[{{site_name}}] {{billing_month}} payment notice",
+			HTML:    notificationEmailCard("#059669", "Monthly payment notice", `<p>Hello {{recipient_name}},</p><p>Your {{billing_month}} statement is ready.</p><p>Usage: {{usage_amount}} {{currency}}<br>Billing multiplier: {{multiplier}}<br>Total due: {{receivable_amount}} {{currency}}<br>Already paid: {{paid_amount}} {{currency}}</p><p>Amount outstanding: <strong>{{outstanding_amount}} {{currency}}</strong></p><p>Please contact the administrator to arrange payment. These amounts reflect the statement at month close; disregard this notice if you have since paid.</p>`),
+		},
+		notificationEmailLocaleChinese: {
+			Subject: "[{{site_name}}] {{billing_month}} 月度账单付款通知",
+			HTML:    notificationEmailCard("#059669", "月度账单付款通知", `<p>{{recipient_name}}，您好：</p><p>您在 {{billing_month}} 的月度账单已生成。</p><p>原始用量：{{usage_amount}} {{currency}}<br>记账倍率：{{multiplier}}<br>应付总额：{{receivable_amount}} {{currency}}<br>已付款：{{paid_amount}} {{currency}}</p><p>本次待付款：<strong>{{outstanding_amount}} {{currency}}</strong></p><p>请联系管理员安排付款。以上金额为月结账单生成时的记录，如您此后已付款，请忽略本通知。</p>`),
+		},
+	},
 	NotificationEmailEventAuthVerifyCode: {
 		notificationEmailDefaultLocale: {
 			Subject: "[{{site_name}}] Email verification code",

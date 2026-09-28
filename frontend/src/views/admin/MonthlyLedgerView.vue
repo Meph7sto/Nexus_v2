@@ -35,6 +35,7 @@
             </div>
           </div>
 
+          <template v-if="activeTab === 'relay'">
           <div class="min-w-[220px] flex-1 sm:max-w-sm">
             <label for="ledger-search" class="input-label">{{ t('common.search') }}</label>
             <div class="relative">
@@ -63,6 +64,10 @@
             <Icon name="search" size="sm" />
             {{ t('common.search') }}
           </button>
+          <button type="button" class="btn btn-secondary" data-test="open-email-notifications" @click="showEmailDialog = true">
+            <Icon name="mail" size="sm" />
+            {{ t('admin.monthlyLedger.email.title') }}
+          </button>
           <button
             type="button"
             class="btn btn-ghost px-2.5"
@@ -72,14 +77,21 @@
           >
             <Icon name="refresh" size="sm" :class="loading ? 'animate-spin' : ''" />
           </button>
+          </template>
         </div>
 
-        <p v-if="selectedMonth && selectedMonth === currentMonth" class="open-month-notice">
+        <p v-if="activeTab === 'relay' && selectedMonth && selectedMonth === currentMonth" class="open-month-notice">
           <Icon name="infoCircle" size="sm" />
           {{ t('admin.monthlyLedger.currentMonthHint') }}
         </p>
       </section>
 
+      <MonthlyLedgerOverview :month="selectedMonth" :revision="overviewRevision" />
+      <div class="flex gap-2 border-b border-[var(--nx-border)] pb-2" role="tablist" :aria-label="t('admin.monthlyLedger.title')">
+        <button v-for="tab in (['relay', 'other'] as const)" :key="tab" type="button" role="tab" :aria-selected="activeTab === tab" :class="['btn', activeTab === tab ? 'btn-primary' : 'btn-ghost']" @click="activeTab = tab">{{ t(`admin.monthlyLedger.income.${tab}`) }}</button>
+      </div>
+      <MonthlyLedgerIncome v-if="activeTab === 'other' && selectedMonth" :month="selectedMonth" @changed="overviewRevision++" />
+      <template v-if="activeTab === 'relay'">
       <section class="summary-grid" aria-label="Monthly ledger summary">
         <div
           v-for="metric in summaryMetrics"
@@ -264,6 +276,18 @@
                     >
                       <Icon name="plus" size="sm" />
                     </button>
+                    <button
+                      v-if="canCreate"
+                      type="button"
+                      class="icon-command"
+                      :data-test="`send-email-${row.user_id}`"
+                      :title="t('admin.monthlyLedger.email.sendTitle')"
+                      :aria-label="`${t('admin.monthlyLedger.email.sendTitle')} ${row.email}`"
+                      :disabled="row.deleted || !row.email"
+                      @click="openSendEmail(row)"
+                    >
+                      <Icon name="mail" size="sm" />
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -280,8 +304,11 @@
           @update:page-size="changePageSize"
         />
       </section>
+      </template>
     </div>
   </AppLayout>
+  <MonthlyLedgerEmailDialog :show="showEmailDialog" @close="showEmailDialog = false" />
+  <MonthlyLedgerSendEmailDialog :show="showSendEmailDialog" :initial-month="selectedMonth" :recipient="emailRow" @close="showSendEmailDialog = false" />
 
   <BaseDialog
     :show="showMultiplierDialog"
@@ -468,6 +495,10 @@ import { useTableSelection } from '@/composables/useTableSelection'
 import { fetchAllPaginatedIDs } from '@/utils/paginatedSelection'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import MonthlyLedgerEmailDialog from './MonthlyLedgerEmailDialog.vue'
+import MonthlyLedgerSendEmailDialog from './MonthlyLedgerSendEmailDialog.vue'
+import MonthlyLedgerOverview from './MonthlyLedgerOverview.vue'
+import MonthlyLedgerIncome from './MonthlyLedgerIncome.vue'
 import Toggle from '@/components/common/Toggle.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Pagination from '@/components/common/Pagination.vue'
@@ -494,6 +525,15 @@ const emptySummary = (): MonthlyLedgerSummary => ({
 const rows = ref<MonthlyLedgerRow[]>([])
 const summary = ref<MonthlyLedgerSummary>(emptySummary())
 const loading = ref(false)
+const showEmailDialog = ref(false)
+const showSendEmailDialog = ref(false)
+const emailRow = ref<MonthlyLedgerRow | null>(null)
+function openSendEmail(row: MonthlyLedgerRow) {
+  emailRow.value = { ...row }
+  showSendEmailDialog.value = true
+}
+const activeTab = ref<'relay' | 'other'>('relay')
+const overviewRevision = ref(0)
 const selectedMonth = ref('')
 const currentMonth = ref('')
 const canRecordPayments = ref(false)
@@ -638,6 +678,7 @@ const loadLedger = async () => {
     selectedMonth.value = result.month
     currentMonth.value = result.current_month
     canRecordPayments.value = result.can_record_payments
+    overviewRevision.value++
     loadedFilterSnapshot.value = {
       month: result.month,
       q: requestParams.q,

@@ -100,10 +100,44 @@ func setupMonthlyLedgerHandlerRouter(repo service.MonthlyLedgerRepository) *gin.
 	})
 	handler := NewMonthlyLedgerHandler(service.NewMonthlyLedgerService(repo))
 	router.GET("/monthly-ledger", handler.List)
+	router.PUT("/monthly-ledger/email-notifications/:user_id", handler.SetEmailPreference)
 	router.PUT("/monthly-ledger/:month/multipliers", handler.SetMultipliers)
 	router.PUT("/monthly-ledger/:month/users/:user_id/settlement", handler.SetSettlement)
 	router.POST("/monthly-ledger/:month/users/:user_id/payments", handler.CreatePayment)
 	return router
+}
+
+type monthlyLedgerEmailHandlerRepoStub struct {
+	monthlyLedgerHandlerRepoStub
+	service.MonthlyLedgerEmailRepository
+	enabled bool
+	actor   int64
+}
+
+func (r *monthlyLedgerEmailHandlerRepoStub) SetEmailPreference(_ context.Context, _ int64, enabled bool, _ time.Time, actor int64) error {
+	r.enabled, r.actor = enabled, actor
+	return nil
+}
+
+func TestMonthlyLedgerHandlerEmailPreferenceRequiresExplicitBoolean(t *testing.T) {
+	for _, body := range []string{`{}`, `{"enabled":null}`, `{"enabled":"true"}`, `{"enabled":0}`, `{"enabled":true}`, `{"enabled":false}`} {
+		t.Run(body, func(t *testing.T) {
+			repo := &monthlyLedgerEmailHandlerRepoStub{}
+			router := setupMonthlyLedgerHandlerRouter(repo)
+			recorder := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPut, "/monthly-ledger/email-notifications/7", bytes.NewBufferString(body))
+			req.Header.Set("Content-Type", "application/json")
+			router.ServeHTTP(recorder, req)
+			if body == `{"enabled":true}` || body == `{"enabled":false}` {
+				require.Equal(t, http.StatusOK, recorder.Code)
+				require.Equal(t, body == `{"enabled":true}`, repo.enabled)
+				require.EqualValues(t, 99, repo.actor)
+			} else {
+				require.Equal(t, http.StatusBadRequest, recorder.Code)
+				require.Zero(t, repo.actor)
+			}
+		})
+	}
 }
 
 func TestMonthlyLedgerHandlerListRejectsInvalidMonth(t *testing.T) {

@@ -2,6 +2,42 @@ import { apiClient } from '../client'
 
 export type MonthlyLedgerStatus = 'unpaid' | 'partial' | 'settled' | 'overpaid' | 'waived'
 
+export interface MonthlyLedgerEmailQuota { date: string; daily_limit: number; used: number }
+export interface MonthlyLedgerManualEmailInput { month: string; user_id: number; amount: number; request_id: string }
+
+export async function getEmailQuota() {
+  const { data } = await apiClient.get<MonthlyLedgerEmailQuota>('/admin/monthly-ledger/email-quota')
+  return data
+}
+
+export async function setEmailDailyLimit(dailyLimit: number) {
+  const { data } = await apiClient.put('/admin/monthly-ledger/email-quota', { daily_limit: dailyLimit })
+  return data
+}
+
+export async function sendManualEmail(input: MonthlyLedgerManualEmailInput) {
+  const { data } = await apiClient.post<{ sent: boolean }>('/admin/monthly-ledger/emails', input)
+  return data
+}
+
+export interface MonthlyLedgerEmailPreference {
+  user_id: number
+  email: string
+  username: string
+  enabled: boolean
+  effective_month: string
+}
+
+export async function listEmailPreferences(params: { q?: string; page?: number; page_size?: number } = {}) {
+  const { data } = await apiClient.get<{ items: MonthlyLedgerEmailPreference[]; total: number }>('/admin/monthly-ledger/email-notifications', { params })
+  return data
+}
+
+export async function setEmailPreference(userId: number, enabled: boolean) {
+  const { data } = await apiClient.put(`/admin/monthly-ledger/email-notifications/${userId}`, { enabled })
+  return data
+}
+
 export interface MonthlyLedgerRow {
   manually_settled: boolean
   user_id: number
@@ -131,6 +167,11 @@ export async function deletePayment(paymentId: number) {
 }
 
 const monthlyLedgerAPI = {
+  getEmailQuota,
+  setEmailDailyLimit,
+  sendManualEmail,
+  listEmailPreferences,
+  setEmailPreference,
   setSettlement,
   list,
   listPayments,

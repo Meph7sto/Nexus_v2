@@ -731,6 +731,20 @@ describe("admin SettingsView payment visible method controls", () => {
     adminSettingsFetch.mockResolvedValue(undefined);
   });
 
+  it("defaults monthly ledger email off and saves explicit on/off values", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+    const toggle = wrapper.get<HTMLInputElement>("#monthly-ledger-email-enabled");
+    expect(toggle.element.checked).toBe(false);
+    for (const enabled of [true, false]) {
+      await toggle.setValue(enabled);
+      await wrapper.find("form").trigger("submit.prevent");
+      await flushPromises();
+      expect(updateSettings).toHaveBeenLastCalledWith(expect.objectContaining({ monthly_ledger_email_enabled: enabled }));
+    }
+    wrapper.unmount();
+  });
+
   it("submits the Codex ticket harvest toggle", async () => {
     getSettings.mockResolvedValueOnce({
       ...baseSettingsResponse,

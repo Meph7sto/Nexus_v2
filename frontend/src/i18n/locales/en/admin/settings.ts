@@ -911,6 +911,7 @@ export default {
         addEmail: 'Add Email',
         emailPlaceholder: 'Enter email address',
       },
+      monthlyLedgerEmailEnabled: 'Enable monthly ledger email notices',
       subscriptionExpiryNotify: {
         title: 'Subscription Expiry Reminder',
         description: 'Control whether users receive subscription expiry reminder emails.',

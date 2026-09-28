@@ -14,6 +14,23 @@ vi.mock('@/api/client', () => ({
 import monthlyLedgerAPI from '../monthlyLedger'
 
 describe('monthly ledger admin API', () => {
+  it('uses the manual send and shared quota endpoints', async () => {
+    get.mockResolvedValue({ data: { date: '2026-09-28', daily_limit: 5, used: 2 } })
+    put.mockResolvedValue({ data: {} })
+    post.mockResolvedValue({ data: { sent: true } })
+    expect((await monthlyLedgerAPI.getEmailQuota()).used).toBe(2)
+    await monthlyLedgerAPI.setEmailDailyLimit(8)
+    const input = { month: '2026-09', user_id: 7, amount: 42.35, request_id: 'test' }
+    await monthlyLedgerAPI.sendManualEmail(input)
+    expect(get).toHaveBeenCalledWith('/admin/monthly-ledger/email-quota')
+    expect(put).toHaveBeenCalledWith('/admin/monthly-ledger/email-quota', { daily_limit: 8 })
+    expect(post).toHaveBeenCalledWith('/admin/monthly-ledger/emails', input)
+  })
+  it.each([true, false])('persists email preference independently of month: %s', async (enabled) => {
+    put.mockResolvedValue({ data: { enabled } })
+    await monthlyLedgerAPI.setEmailPreference(7, enabled)
+    expect(put).toHaveBeenCalledWith('/admin/monthly-ledger/email-notifications/7', { enabled })
+  })
   it.each([true, false])('sends the settlement boolean unchanged: %s', async (settled) => {
     put.mockResolvedValue({ data: { manually_settled: settled } })
     expect(await monthlyLedgerAPI.setSettlement('2026-07', 7, settled)).toEqual({ manually_settled: settled })

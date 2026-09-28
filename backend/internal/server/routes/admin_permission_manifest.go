@@ -252,12 +252,21 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 	add(service.AdminResourceUsage, service.AdminActionCreate, http.MethodPost, admin+"/usage/cleanup-tasks")
 	add(service.AdminResourceUsage, service.AdminActionExecute, http.MethodPost, admin+"/usage/cleanup-tasks/:id/cancel")
 	add(service.AdminResourceMonthlyLedger, service.AdminActionView, http.MethodGet,
+		admin+"/monthly-ledger/overview", admin+"/monthly-ledger/income-entries", admin+"/monthly-ledger/income-entries/:id/payments", admin+"/monthly-ledger/income-schedules",
+		admin+"/monthly-ledger/email-notifications",
+		admin+"/monthly-ledger/email-quota",
 		admin+"/monthly-ledger", admin+"/monthly-ledger/:month/users/:user_id/payments")
 	add(service.AdminResourceMonthlyLedger, service.AdminActionCreate, http.MethodPost,
+		admin+"/monthly-ledger/income-entries", admin+"/monthly-ledger/income-entries/:id/payments", admin+"/monthly-ledger/income-schedules", admin+"/monthly-ledger/income-schedules/preview",
+		admin+"/monthly-ledger/emails",
 		admin+"/monthly-ledger/:month/users/:user_id/payments")
 	add(service.AdminResourceMonthlyLedger, service.AdminActionUpdate, http.MethodPut,
+		admin+"/monthly-ledger/income-entries/:id", admin+"/monthly-ledger/income-payments/:id", admin+"/monthly-ledger/income-schedules/:id", admin+"/monthly-ledger/income-schedules/:id/state",
+		admin+"/monthly-ledger/email-notifications/:user_id",
+		admin+"/monthly-ledger/email-quota",
 		admin+"/monthly-ledger/:month/multipliers", admin+"/monthly-ledger/:month/users/:user_id/multiplier", admin+"/monthly-ledger/:month/users/:user_id/settlement", admin+"/monthly-ledger/payments/:id")
 	add(service.AdminResourceMonthlyLedger, service.AdminActionDelete, http.MethodDelete,
+		admin+"/monthly-ledger/income-entries/:id", admin+"/monthly-ledger/income-payments/:id",
 		admin+"/monthly-ledger/payments/:id")
 	add(service.AdminResourceUsageInteractions, service.AdminActionView, http.MethodGet, admin+"/usage/:id/interaction")
 	add(service.AdminResourceUsageInteractionRaw, service.AdminActionView, http.MethodGet, admin+"/usage/:id/interaction/raw")
