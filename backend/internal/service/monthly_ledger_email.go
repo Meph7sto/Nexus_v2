@@ -27,7 +27,9 @@ type MonthlyLedgerEmailDelivery struct {
 type MonthlyLedgerEmailRepository interface {
 	ListEmailPreferences(context.Context, string, pagination.PaginationParams) ([]MonthlyLedgerEmailPreference, int64, error)
 	SetEmailPreference(context.Context, int64, bool, time.Time, int64) error
+	SetEmailPreferences(context.Context, []int64, bool, time.Time, int64) (int64, error)
 	PendingEmailMonths(context.Context, time.Time) ([]string, error)
+	HasPendingEmails(context.Context) (bool, error)
 	PrepareEmails(context.Context, MonthlyLedgerPeriod) error
 	DeliverNextEmail(context.Context, func(context.Context, MonthlyLedgerEmailDelivery) error) (bool, error)
 }
@@ -53,27 +55,88 @@ func (s *MonthlyLedgerService) SetEmailPreference(ctx context.Context, userID in
 	return repo.SetEmailPreference(ctx, userID, enabled, month, actorID)
 }
 
+func (s *MonthlyLedgerService) SetEmailPreferences(ctx context.Context, userIDs []int64, enabled bool, actorID int64) (int64, error) {
+	if len(userIDs) == 0 {
+		return 0, ErrMonthlyLedgerNoUsersSelected
+	}
+	ids := make([]int64, 0, len(userIDs))
+	seen := make(map[int64]bool, len(userIDs))
+	for _, id := range userIDs {
+		if id <= 0 {
+			return 0, ErrMonthlyLedgerInvalidUserIDs
+		}
+		if !seen[id] {
+			ids = append(ids, id)
+			seen[id] = true
+		}
+	}
+	repo, ok := s.repo.(MonthlyLedgerEmailRepository)
+	if !ok {
+		return 0, ErrMonthlyLedgerRepositoryNotReady
+	}
+	now := s.now().In(s.location)
+	month := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, s.location)
+	return repo.SetEmailPreferences(ctx, ids, enabled, month, actorID)
+}
+
 func (s *MonthlyLedgerService) StartEmailNotifications(email *NotificationEmailService) {
 	ctx, cancel := context.WithCancel(context.Background())
 	s.emailCancel = cancel
 	s.emailDone = make(chan struct{})
 	go func() {
 		defer close(s.emailDone)
-		ticker := time.NewTicker(5 * time.Minute)
-		defer ticker.Stop()
 		for {
+			startedAt := s.now().In(s.location)
 			runCtx, runCancel := context.WithTimeout(ctx, 4*time.Minute)
-			if err := s.processEmailNotifications(runCtx, email.Send); err != nil && ctx.Err() == nil {
+			err := s.processEmailNotifications(runCtx, email.Send)
+			if err != nil && ctx.Err() == nil {
 				slog.Error("monthly ledger email processing failed", "error", err)
 			}
 			runCancel()
+			if ctx.Err() != nil {
+				return
+			}
+			checkCtx, checkCancel := context.WithTimeout(ctx, 10*time.Second)
+			pending, checkErr := s.hasPendingEmails(checkCtx)
+			checkCancel()
+			if checkErr != nil {
+				slog.Error("monthly ledger email pending check failed", "error", checkErr)
+			}
+			// Empty queues sleep until next month; unfinished work resumes the next day.
+			// Keep a month boundary crossed during catch-up from being skipped.
+			next := nextMonthlyLedgerEmailRun(startedAt, pending || err != nil || checkErr != nil)
+			timer := time.NewTimer(next.Sub(s.now()))
 			select {
 			case <-ctx.Done():
+				timer.Stop()
 				return
-			case <-ticker.C:
+			case <-timer.C:
 			}
 		}
 	}()
+}
+
+func (s *MonthlyLedgerService) hasPendingEmails(ctx context.Context) (bool, error) {
+	enabled, err := s.emailNotificationsEnabled(ctx)
+	if err != nil || !enabled {
+		return false, err
+	}
+	repo, ok := s.repo.(MonthlyLedgerEmailRepository)
+	if !ok {
+		return false, ErrMonthlyLedgerRepositoryNotReady
+	}
+	return repo.HasPendingEmails(ctx)
+}
+
+func nextMonthlyLedgerEmailRun(now time.Time, pending bool) time.Time {
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 15, 0, 0, now.Location())
+	if now.Before(today) && (now.Day() == 1 || pending) {
+		return today
+	}
+	if pending {
+		return time.Date(now.Year(), now.Month(), now.Day()+1, 0, 15, 0, 0, now.Location())
+	}
+	return time.Date(now.Year(), now.Month()+1, 1, 0, 15, 0, 0, now.Location())
 }
 
 func (s *MonthlyLedgerService) Stop() {

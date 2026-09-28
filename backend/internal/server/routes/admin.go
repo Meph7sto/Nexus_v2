@@ -152,6 +152,7 @@ func registerMonthlyLedgerRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		ledger.PUT("/income-schedules/:id", h.Admin.MonthlyLedger.SaveIncomeSchedule)
 		ledger.PUT("/income-schedules/:id/state", h.Admin.MonthlyLedger.SetIncomeScheduleState)
 		ledger.GET("/email-notifications", h.Admin.MonthlyLedger.ListEmailPreferences)
+		ledger.PUT("/email-notifications", h.Admin.MonthlyLedger.SetEmailPreferences)
 		ledger.GET("/email-quota", h.Admin.MonthlyLedger.EmailQuota)
 		ledger.PUT("/email-quota", h.Admin.MonthlyLedger.SetEmailDailyLimit)
 		ledger.POST("/emails", h.Admin.MonthlyLedger.SendManualEmail)

@@ -14,6 +14,11 @@ vi.mock('@/api/client', () => ({
 import monthlyLedgerAPI from '../monthlyLedger'
 
 describe('monthly ledger admin API', () => {
+  it.each([true, false])('updates automatic preferences in one request: %s', async enabled => {
+    put.mockResolvedValue({ data: { updated_count: 2, enabled } })
+    expect(await monthlyLedgerAPI.setEmailPreferences([7, 8], enabled)).toEqual({ updated_count: 2, enabled })
+    expect(put).toHaveBeenCalledWith('/admin/monthly-ledger/email-notifications', { user_ids: [7, 8], enabled })
+  })
   it('uses the manual send and shared quota endpoints', async () => {
     get.mockResolvedValue({ data: { date: '2026-09-28', daily_limit: 5, used: 2 } })
     put.mockResolvedValue({ data: {} })

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
@@ -77,6 +78,9 @@ func TestMonthlyLedgerEmailPostgres(t *testing.T) {
 	var count int
 	require.NoError(t, db.QueryRow(`SELECT COUNT(*) FROM monthly_ledger_email_deliveries`).Scan(&count))
 	require.Equal(t, 4, count) // Disabled and deleted users are excluded; zero/settled months are completed without mail.
+	pending, err := repo.HasPendingEmails(ctx)
+	require.NoError(t, err)
+	require.True(t, pending)
 	exec(`UPDATE monthly_ledger_multipliers SET multiplier=2 WHERE user_id=1`)
 	require.NoError(t, repo.PrepareEmails(ctx, p))
 	processed, err := repo.DeliverNextEmail(ctx, func(ctx context.Context, d service.MonthlyLedgerEmailDelivery) error {
@@ -93,6 +97,10 @@ func TestMonthlyLedgerEmailPostgres(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.True(t, processed)
+	var nextAttempt time.Time
+	require.NoError(t, db.QueryRow(`SELECT next_attempt_at FROM monthly_ledger_email_deliveries WHERE user_id=1`).Scan(&nextAttempt))
+	now := timezone.Now()
+	require.True(t, nextAttempt.Equal(time.Date(now.Year(), now.Month(), now.Day()+1, 0, 15, 0, 0, now.Location())))
 	processed, err = repo.DeliverNextEmail(ctx, func(context.Context, service.MonthlyLedgerEmailDelivery) error {
 		t.Fatal("retry must wait")
 		return nil
@@ -101,6 +109,9 @@ func TestMonthlyLedgerEmailPostgres(t *testing.T) {
 	require.False(t, processed)
 	exec(`UPDATE monthly_ledger_email_deliveries SET next_attempt_at=NOW() WHERE user_id=1`)
 	require.NoError(t, repo.SetEmailPreference(ctx, 1, false, month, 99))
+	pending, err = repo.HasPendingEmails(ctx)
+	require.NoError(t, err)
+	require.False(t, pending)
 	processed, err = repo.DeliverNextEmail(ctx, func(context.Context, service.MonthlyLedgerEmailDelivery) error {
 		t.Fatal("disabled recipient")
 		return nil
@@ -118,8 +129,34 @@ func TestMonthlyLedgerEmailPostgres(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, processed)
 	require.NoError(t, repo.SetEmailPreference(ctx, 1, false, month, 99))
+	pending, err = repo.HasPendingEmails(ctx)
+	require.NoError(t, err)
+	require.False(t, pending)
 	require.NoError(t, repo.SetEmailPreference(ctx, 1, true, month.AddDate(0, 1, 0), 99))
 	var effective string
 	require.NoError(t, db.QueryRow(`SELECT to_char(effective_month,'YYYY-MM') FROM monthly_ledger_email_preferences WHERE user_id=1`).Scan(&effective))
 	require.Equal(t, "2026-09", effective)
+	// Batch writes keep existing opt-in dates, and never partially apply missing users.
+	countUpdated, err := repo.SetEmailPreferences(ctx, []int64{1, 2}, true, month.AddDate(0, 2, 0), 99)
+	require.NoError(t, err)
+	require.EqualValues(t, 2, countUpdated)
+	require.NoError(t, db.QueryRow(`SELECT to_char(effective_month,'YYYY-MM') FROM monthly_ledger_email_preferences WHERE user_id=1`).Scan(&effective))
+	require.Equal(t, "2026-09", effective)
+	require.NoError(t, db.QueryRow(`SELECT to_char(effective_month,'YYYY-MM') FROM monthly_ledger_email_preferences WHERE user_id=2`).Scan(&effective))
+	require.Equal(t, "2026-10", effective)
+	for _, missing := range []int64{5, 999} {
+		_, err = repo.SetEmailPreferences(ctx, []int64{1, missing}, false, month, 99)
+		require.ErrorIs(t, err, service.ErrMonthlyLedgerUserNotFound)
+		var enabled bool
+		require.NoError(t, db.QueryRow(`SELECT enabled FROM monthly_ledger_email_preferences WHERE user_id=1`).Scan(&enabled))
+		require.True(t, enabled)
+	}
+	_, err = repo.SetEmailPreferences(ctx, []int64{1, 2}, false, month.AddDate(0, 2, 0), 99)
+	require.NoError(t, err)
+	_, err = repo.SetEmailPreferences(ctx, []int64{1, 2}, true, month.AddDate(0, 3, 0), 99)
+	require.NoError(t, err)
+	for _, id := range []int64{1, 2} {
+		require.NoError(t, db.QueryRow(`SELECT to_char(effective_month,'YYYY-MM') FROM monthly_ledger_email_preferences WHERE user_id=$1`, id).Scan(&effective))
+		require.Equal(t, "2026-11", effective)
+	}
 }

@@ -157,6 +157,7 @@ var auditActionOverrides = map[string]string{
 	"POST /api/v1/admin/monthly-ledger/income-entries":                  "admin.monthly_ledger.income_entry.create",
 	"POST /api/v1/admin/monthly-ledger/emails":                          "admin.monthly_ledger.email.send",
 	"PUT /api/v1/admin/monthly-ledger/email-quota":                      "admin.monthly_ledger.email_limit.update",
+	"PUT /api/v1/admin/monthly-ledger/email-notifications":              "admin.monthly_ledger.email_preference.batch_update",
 	"PUT /api/v1/admin/monthly-ledger/income-entries/:id":               "admin.monthly_ledger.income_entry.update",
 	"DELETE /api/v1/admin/monthly-ledger/income-entries/:id":            "admin.monthly_ledger.income_entry.delete",
 	"POST /api/v1/admin/monthly-ledger/income-entries/:id/payments":     "admin.monthly_ledger.income_payment.create",

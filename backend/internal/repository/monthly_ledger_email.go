@@ -8,10 +8,22 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/lib/pq"
 )
 
 var _ service.MonthlyLedgerEmailRepository = (*monthlyLedgerRepository)(nil)
+
+func (r *monthlyLedgerRepository) HasPendingEmails(ctx context.Context) (bool, error) {
+	var pending bool
+	err := r.db.QueryRowContext(ctx, `SELECT EXISTS (
+ SELECT 1 FROM monthly_ledger_email_deliveries d
+ JOIN monthly_ledger_email_preferences p ON p.user_id = d.user_id AND p.enabled AND p.effective_month <= d.billing_month
+ JOIN users u ON u.id = d.user_id AND u.role = 'user' AND u.deleted_at IS NULL
+ WHERE d.sent_at IS NULL AND NOT d.skipped AND d.outstanding_amount > 0 AND u.email <> '')`).Scan(&pending)
+	return pending, err
+}
 
 func (r *monthlyLedgerRepository) ListEmailPreferences(ctx context.Context, q string, page pagination.PaginationParams) ([]service.MonthlyLedgerEmailPreference, int64, error) {
 	page = normalizeMonthlyLedgerPagination(page)
@@ -53,6 +65,34 @@ func (r *monthlyLedgerRepository) SetEmailPreference(ctx context.Context, userID
 		return service.ErrMonthlyLedgerUserNotFound
 	}
 	return err
+}
+
+func (r *monthlyLedgerRepository) SetEmailPreferences(ctx context.Context, userIDs []int64, enabled bool, month time.Time, actorID int64) (int64, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	result, err := tx.ExecContext(ctx, `INSERT INTO monthly_ledger_email_preferences(user_id, enabled, effective_month, updated_by)
+ SELECT id, $2, $3::date, $4 FROM users WHERE id = ANY($1::bigint[]) AND role = 'user' AND deleted_at IS NULL ORDER BY id
+ ON CONFLICT (user_id) DO UPDATE SET enabled = EXCLUDED.enabled,
+ effective_month = CASE WHEN EXCLUDED.enabled AND NOT monthly_ledger_email_preferences.enabled
+ THEN EXCLUDED.effective_month ELSE monthly_ledger_email_preferences.effective_month END,
+ updated_by = EXCLUDED.updated_by, updated_at = NOW()`, pq.Array(userIDs), enabled, month.Format("2006-01-02"), actorID)
+	if err != nil {
+		return 0, err
+	}
+	count, err := result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	if count != int64(len(userIDs)) {
+		return 0, service.ErrMonthlyLedgerUserNotFound
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 func (r *monthlyLedgerRepository) PendingEmailMonths(ctx context.Context, currentMonth time.Time) ([]string, error) {
@@ -141,11 +181,13 @@ func (r *monthlyLedgerRepository) DeliverNextEmail(ctx context.Context, send fun
 		return false, nil
 	}
 	if sendErr != nil {
-		slog.Warn("monthly ledger email failed; retry in one hour", "user_id", d.UserID, "month", d.Month, "error", sendErr)
+		slog.Warn("monthly ledger email failed; retry next day", "user_id", d.UserID, "month", d.Month, "error", sendErr)
 	}
+	now := timezone.Now()
+	nextAttempt := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 15, 0, 0, now.Location())
 	_, err = tx.ExecContext(ctx, `UPDATE monthly_ledger_email_deliveries SET attempts = attempts + 1,
- sent_at = CASE WHEN $3 THEN NOW() ELSE NULL END, next_attempt_at = NOW() + INTERVAL '1 hour'
- WHERE user_id = $1 AND billing_month = $2::date`, d.UserID, d.Month+"-01", sendErr == nil)
+ sent_at = CASE WHEN $3 THEN NOW() ELSE NULL END, next_attempt_at = $4
+ WHERE user_id = $1 AND billing_month = $2::date`, d.UserID, d.Month+"-01", sendErr == nil, nextAttempt)
 	if err != nil {
 		return false, err
 	}

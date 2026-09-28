@@ -19,6 +19,7 @@ type ledgerEmailRepoStub struct {
 	effective time.Time
 	enabled   bool
 	actor     int64
+	batchIDs  []int64
 }
 
 func (r *ledgerEmailRepoStub) EmailQuota(context.Context, time.Time) (*MonthlyLedgerEmailQuota, error) {
@@ -39,6 +40,13 @@ func (r *ledgerEmailRepoStub) SetEmailPreference(_ context.Context, _ int64, ena
 }
 func (r *ledgerEmailRepoStub) PendingEmailMonths(context.Context, time.Time) ([]string, error) {
 	return r.months, nil
+}
+func (r *ledgerEmailRepoStub) HasPendingEmails(context.Context) (bool, error) {
+	return r.delivery != nil, nil
+}
+func (r *ledgerEmailRepoStub) SetEmailPreferences(_ context.Context, ids []int64, enabled bool, month time.Time, actor int64) (int64, error) {
+	r.batchIDs, r.enabled, r.effective, r.actor = ids, enabled, month, actor
+	return int64(len(ids)), nil
 }
 func (r *ledgerEmailRepoStub) PrepareEmails(_ context.Context, p MonthlyLedgerPeriod) error {
 	r.prepared = append(r.prepared, p)
@@ -69,6 +77,26 @@ func TestMonthlyLedgerEmailMonthBoundaryAndCatchup(t *testing.T) {
 	require.Len(t, repo.prepared, 2)
 	require.Equal(t, time.Date(2026, 8, 1, 0, 0, 0, 0, loc), repo.prepared[1].Start)
 	require.True(t, repo.prepared[1].CanRecordPayments)
+}
+
+func TestMonthlyLedgerEmailBatchPreferences(t *testing.T) {
+	repo := &ledgerEmailRepoStub{}
+	svc := NewMonthlyLedgerService(repo)
+	svc.location = time.FixedZone("UTC+8", 8*3600)
+	svc.now = func() time.Time { return time.Date(2026, 8, 31, 20, 0, 0, 0, time.UTC) }
+	for _, enabled := range []bool{true, false} {
+		count, err := svc.SetEmailPreferences(context.Background(), []int64{7, 8, 7}, enabled, 99)
+		require.NoError(t, err)
+		require.EqualValues(t, 2, count)
+		require.Equal(t, []int64{7, 8}, repo.batchIDs)
+		require.Equal(t, enabled, repo.enabled)
+		require.EqualValues(t, 99, repo.actor)
+		require.Equal(t, "2026-09-01", repo.effective.Format("2006-01-02"))
+	}
+	_, err := svc.SetEmailPreferences(context.Background(), nil, true, 99)
+	require.ErrorIs(t, err, ErrMonthlyLedgerNoUsersSelected)
+	_, err = svc.SetEmailPreferences(context.Background(), []int64{7, 0}, true, 99)
+	require.ErrorIs(t, err, ErrMonthlyLedgerInvalidUserIDs)
 }
 
 func TestMonthlyLedgerEmailGlobalSwitchDefaultsOffAndPreservesPending(t *testing.T) {

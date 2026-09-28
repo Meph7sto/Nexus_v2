@@ -92,6 +92,25 @@ func (h *MonthlyLedgerHandler) SetEmailPreference(c *gin.Context) {
 	response.Success(c, gin.H{"user_id": userID, "enabled": *req.Enabled})
 }
 
+func (h *MonthlyLedgerHandler) SetEmailPreferences(c *gin.Context) {
+	var req struct {
+		UserIDs []int64 `json:"user_ids"`
+		Enabled *bool   `json:"enabled" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Enabled == nil {
+		response.BadRequest(c, "user_ids and enabled are required")
+		return
+	}
+	count, err := h.service.SetEmailPreferences(c.Request.Context(), req.UserIDs, *req.Enabled, monthlyLedgerActorID(c))
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	middleware.SetAuditAction(c, "admin.monthly_ledger.email_preference.batch_update")
+	middleware.SetAuditExtra(c, map[string]any{"matched_count": count, "enabled": *req.Enabled})
+	response.Success(c, gin.H{"updated_count": count, "enabled": *req.Enabled})
+}
+
 func (h *MonthlyLedgerHandler) List(c *gin.Context) {
 	page, pageSize := response.ParsePagination(c)
 	userID, ok := parseOptionalMonthlyLedgerUserID(c)

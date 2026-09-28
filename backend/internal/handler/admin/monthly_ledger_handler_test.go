@@ -119,6 +119,38 @@ func (r *monthlyLedgerEmailHandlerRepoStub) SetEmailPreference(_ context.Context
 	return nil
 }
 
+func (r *monthlyLedgerEmailHandlerRepoStub) SetEmailPreferences(_ context.Context, ids []int64, enabled bool, _ time.Time, actor int64) (int64, error) {
+	r.enabled, r.actor = enabled, actor
+	return int64(len(ids)), nil
+}
+
+func TestMonthlyLedgerHandlerBatchEmailPreferences(t *testing.T) {
+	for _, tc := range []struct {
+		body   string
+		status int
+	}{
+		{`{"user_ids":[7,8],"enabled":true}`, 200},
+		{`{"user_ids":[7,8],"enabled":false}`, 200},
+		{`{"user_ids":[7,8]}`, 400},
+		{`{"user_ids":[],"enabled":true}`, 400},
+		{`{"user_ids":[0],"enabled":true}`, 400},
+		{`{"user_ids":[7],"enabled":"false"}`, 400},
+	} {
+		repo := &monthlyLedgerEmailHandlerRepoStub{}
+		router := gin.New()
+		handler := NewMonthlyLedgerHandler(service.NewMonthlyLedgerService(repo))
+		router.PUT("/email-notifications", handler.SetEmailPreferences)
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPut, "/email-notifications", bytes.NewBufferString(tc.body))
+		req.Header.Set("Content-Type", "application/json")
+		router.ServeHTTP(rec, req)
+		require.Equal(t, tc.status, rec.Code, rec.Body.String())
+		if tc.status == 200 {
+			require.Contains(t, rec.Body.String(), `"updated_count":2`)
+		}
+	}
+}
+
 func TestMonthlyLedgerHandlerEmailPreferenceRequiresExplicitBoolean(t *testing.T) {
 	for _, body := range []string{`{}`, `{"enabled":null}`, `{"enabled":"true"}`, `{"enabled":0}`, `{"enabled":true}`, `{"enabled":false}`} {
 		t.Run(body, func(t *testing.T) {

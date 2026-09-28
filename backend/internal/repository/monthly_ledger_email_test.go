@@ -2,14 +2,24 @@ package repository
 
 import (
 	"context"
+	"database/sql/driver"
 	"errors"
 	"testing"
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/stretchr/testify/require"
 )
+
+type nextLedgerEmailDay struct{ now time.Time }
+
+func (m nextLedgerEmailDay) Match(value driver.Value) bool {
+	t, ok := value.(time.Time)
+	want := time.Date(m.now.Year(), m.now.Month(), m.now.Day()+1, 0, 15, 0, 0, m.now.Location())
+	return ok && t.Equal(want)
+}
 
 func TestMonthlyLedgerEmailDeliveryCommitAndRetry(t *testing.T) {
 	for _, success := range []bool{true, false} {
@@ -20,7 +30,7 @@ func TestMonthlyLedgerEmailDeliveryCommitAndRetry(t *testing.T) {
 			repo := &monthlyLedgerRepository{db: db}
 			mock.ExpectBegin()
 			mock.ExpectQuery("SELECT d.user_id,.*FOR UPDATE OF d, p SKIP LOCKED").WillReturnRows(sqlmock.NewRows([]string{"id", "month", "email", "username", "usage", "multiplier", "receivable", "paid", "outstanding"}).AddRow(7, "2026-08", "user@example.test", "User", 120, .5, 60, 10, 50))
-			mock.ExpectExec("UPDATE monthly_ledger_email_deliveries SET attempts").WithArgs(int64(7), "2026-08-01", success).WillReturnResult(sqlmock.NewResult(0, 1))
+			mock.ExpectExec("UPDATE monthly_ledger_email_deliveries SET attempts").WithArgs(int64(7), "2026-08-01", success, nextLedgerEmailDay{now: timezone.Now()}).WillReturnResult(sqlmock.NewResult(0, 1))
 			mock.ExpectCommit()
 			processed, err := repo.DeliverNextEmail(context.Background(), func(ctx context.Context, d service.MonthlyLedgerEmailDelivery) error {
 				_, hasDeadline := ctx.Deadline()

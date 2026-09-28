@@ -13,6 +13,7 @@ func TestMonthlyLedgerManualEmailPermissions(t *testing.T) {
 	}{
 		{"GET", "email-quota", service.AdminActionView},
 		{"PUT", "email-quota", service.AdminActionUpdate},
+		{"PUT", "email-notifications", service.AdminActionUpdate},
 		{"POST", "emails", service.AdminActionCreate},
 	} {
 		permission, ok := AdminRoutePermissionFor(tc.method, "/api/v1/admin/monthly-ledger/"+tc.path)

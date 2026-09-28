@@ -38,6 +38,11 @@ export async function setEmailPreference(userId: number, enabled: boolean) {
   return data
 }
 
+export async function setEmailPreferences(userIds: number[], enabled: boolean) {
+  const { data } = await apiClient.put<{ updated_count: number; enabled: boolean }>('/admin/monthly-ledger/email-notifications', { user_ids: userIds, enabled })
+  return data
+}
+
 export interface MonthlyLedgerRow {
   manually_settled: boolean
   user_id: number
@@ -172,6 +177,7 @@ const monthlyLedgerAPI = {
   sendManualEmail,
   listEmailPreferences,
   setEmailPreference,
+  setEmailPreferences,
   setSettlement,
   list,
   listPayments,
