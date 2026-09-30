@@ -84,6 +84,8 @@ export default {
           enabledHint: 'When off, the admin sidebar entry is hidden and gateway moderation is skipped.',
           cyberSessionBlock: 'Cyber session auto-block',
           cyberSessionBlockHint: 'When enabled, sessions hit by upstream cyber_policy are blocked locally for the TTL and no longer forwarded. Only the offending session is blocked; other sessions on the same key are unaffected.',
+          riskControlUserAllowlist: 'Risk control allowlist',
+          riskControlUserAllowlistHint: 'Enter any email keyword to search for matching users. Allowlisted users will not trigger account bans or local blocking, but upstream restrictions still apply. This feature is typically used for trusted downstream relays.',
           cyberSessionBlockTTL: 'Block TTL (seconds)',
         },
         affiliate: {
@@ -476,6 +478,18 @@ export default {
         debounceHint: 'Range: 1–60 minutes. Refresh after the latest model request has been quiet for this long.',
         saved: 'Ollama Cloud usage refresh settings saved',
         saveFailed: 'Failed to save Ollama Cloud usage refresh settings'
+      },
+      opencodeGoUsage: {
+        title: 'OpenCode Go Usage Refresh',
+        description: 'Refresh usage windows reported by the upstream OpenCode Go account for individually opted-in accounts. Disabled by default.',
+        enabled: 'Enable global automatic refresh',
+        enabledHint: 'Only accounts with their own automatic refresh switch enabled are refreshed. Manual refresh remains available.',
+        intervalMinutes: 'Max wait while requests continue (minutes)',
+        intervalHint: 'Range: 5–1440 minutes. When continuous requests keep sliding the debounce, force a refresh after this wait.',
+        debounceMinutes: 'Quiet period after last request (minutes)',
+        debounceHint: 'Range: 1–60 minutes, and must be less than the refresh interval. Refresh after the latest model request has been quiet for this long.',
+        saved: 'OpenCode Go usage refresh settings saved',
+        saveFailed: 'Failed to save OpenCode Go usage refresh settings'
       },
       gatewayForwarding: {
         title: 'Request Forwarding',

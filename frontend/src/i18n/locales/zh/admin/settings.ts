@@ -84,6 +84,8 @@ export default {
           enabledHint: '关闭后管理员侧边栏入口隐藏，网关内容审计不会执行。',
           cyberSessionBlock: 'cyber 会话自动屏蔽',
           cyberSessionBlockHint: '开启后,被上游网络安全策略(cyber_policy)拦截的会话将在 TTL 内被本地屏蔽,不再发往上游。仅屏蔽该会话,不影响同 Key 其他会话。',
+          riskControlUserAllowlist: '风控白名单',
+          riskControlUserAllowlistHint: '输入任意邮箱关键词进行模糊搜索。 白名单中的用户不会触发封号或本地屏蔽，但仍然无法突破上游拦截。该功能通常用于可信的下游中转站。',
           cyberSessionBlockTTL: '屏蔽时长(秒)',
         },
         affiliate: {
@@ -469,6 +471,18 @@ export default {
         debounceHint: '范围 1–60 分钟。最后一次模型请求安静满此时长后再抓取用量。',
         saved: 'Ollama Cloud 用量刷新设置已保存',
         saveFailed: '保存 Ollama Cloud 用量刷新设置失败'
+      },
+      opencodeGoUsage: {
+        title: 'OpenCode Go 用量刷新',
+        description: '刷新上游 OpenCode Go 账号上报的用量窗口；默认关闭，仅对单独开启的账号生效。',
+        enabled: '启用全局自动刷新',
+        enabledHint: '仅刷新账号自身也开启自动刷新的账号。手动刷新不受影响。',
+        intervalMinutes: '请求持续时的最长等待（分钟）',
+        intervalHint: '范围 5–1440 分钟。请求持续不断导致 debounce 一直后移时，最晚在此时间强制刷新。',
+        debounceMinutes: '请求安静等待（分钟）',
+        debounceHint: '范围 1–60 分钟，且必须小于刷新间隔。最后一次模型请求安静满此时长后再抓取用量。',
+        saved: 'OpenCode Go 用量刷新设置已保存',
+        saveFailed: '保存 OpenCode Go 用量刷新设置失败'
       },
       gatewayForwarding: {
         title: '请求转发行为',

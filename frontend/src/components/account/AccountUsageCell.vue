@@ -11,20 +11,20 @@
       <div v-if="loading" class="space-y-1.5">
         <!-- OAuth: 3 rows, Setup Token: 1 row -->
         <div class="flex items-center gap-1">
-          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 "></div>
-          <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 "></div>
-          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 "></div>
+          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
+          <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"></div>
+          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
         </div>
         <template v-if="account.type === 'oauth'">
           <div class="flex items-center gap-1">
-            <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 "></div>
-            <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 "></div>
-            <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 "></div>
+            <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
+            <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"></div>
+            <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
           </div>
           <div class="flex items-center gap-1">
-            <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 "></div>
-            <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 "></div>
-            <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 "></div>
+            <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
+            <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"></div>
+            <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
           </div>
         </template>
       </div>
@@ -37,7 +37,7 @@
       <!-- Usage data -->
       <div v-else-if="usageInfo" class="space-y-1">
         <!-- API error (degraded response) -->
-        <div v-if="usageInfo.error" class="text-xs text-amber-600  truncate max-w-[200px]" :title="usageInfo.error">
+        <div v-if="usageInfo.error" class="text-xs text-amber-600 dark:text-amber-400 truncate max-w-[200px]" :title="usageInfo.error">
           {{ usageInfo.error }}
         </div>
         <!-- 5h Window -->
@@ -77,17 +77,28 @@
           color="amber"
         />
 
-        <!-- Passive sampling label + active query button -->
-        <div class="flex items-center gap-1.5 mt-0.5">
+      </div>
+
+      <!-- No data yet -->
+      <div v-else class="space-y-1">
+        <div class="text-xs text-gray-400">-</div>
+      </div>
+      <!--
+        One stable instance for every usage state, so a reset-credit query started
+        while usage is still loading survives the usage response. The local query
+        button shares its row once usage data exists.
+      -->
+      <ClaudeResetCreditsCell :account="account" class="mt-1" @redeemed="loadActiveUsage">
+        <template v-if="usageInfo" #pre-actions>
           <span
             v-if="usageInfo.source === 'passive'"
-            class="text-[9px] text-gray-400  italic"
+            class="text-[9px] text-gray-400 dark:text-gray-500 italic"
           >
             {{ t('admin.accounts.usageWindow.passiveSampled') }}
           </span>
           <button
             type="button"
-            class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium text-blue-600 hover:bg-blue-50   transition-colors"
+            class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             :disabled="activeQueryLoading"
             @click="loadActiveUsage"
           >
@@ -107,29 +118,12 @@
             </svg>
             {{ t('admin.accounts.usageWindow.activeQuery') }}
           </button>
-        </div>
-      </div>
-
-      <!-- No data yet -->
-      <div v-else class="space-y-1">
-        <div class="text-xs text-gray-400">-</div>
-      </div>
+        </template>
+      </ClaudeResetCreditsCell>
     </template>
 
-    <!-- OpenAI Codex accounts: ticket status; usage querying remains OAuth-only. -->
-    <template v-else-if="account.platform === 'openai' && (account.type === 'oauth' || account.type === 'setup-token')">
-      <div v-if="codexTurnTickets.length" class="mb-1 space-y-0.5">
-        <div
-          v-for="ticket in codexTurnTickets"
-          :key="ticket.model"
-          class="flex items-center gap-1 text-[10px] leading-4"
-        >
-          <span class="truncate font-medium text-gray-500 " :title="ticket.model">{{ shortCodexTicketModel(ticket.model) }}</span>
-          <span v-if="ticket.ready" class="text-emerald-600 ">{{ formatCodexTicketRemaining(ticket.remaining_seconds) }}</span>
-          <span v-else-if="ticket.blocked" class="text-amber-600 ">{{ t('admin.accounts.openai.codexTurnTicketPaused') }}</span>
-          <span v-else class="text-gray-500">{{ t('admin.accounts.openai.codexTurnTicketMissing') }}</span>
-        </div>
-      </div>
+    <!-- OpenAI OAuth accounts: single source from /usage API -->
+    <template v-else-if="account.platform === 'openai' && account.type === 'oauth'">
       <div v-if="hasOpenAIUsageFallback" class="space-y-1">
         <UsageProgressBar
           v-if="usageInfo?.five_hour"
@@ -159,7 +153,7 @@
           <template #pre-actions>
             <button
               type="button"
-              class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-blue-600 hover:bg-blue-50   transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+              class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
               :disabled="activeQueryLoading"
               @click="loadActiveUsage"
             >
@@ -184,21 +178,20 @@
       </div>
       <div v-else-if="loading" class="space-y-1.5">
         <div class="flex items-center gap-1">
-          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 "></div>
-          <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 "></div>
-          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 "></div>
+          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
+          <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"></div>
+          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
         </div>
         <div class="flex items-center gap-1">
-          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 "></div>
-          <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 "></div>
-          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 "></div>
+          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
+          <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"></div>
+          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
         </div>
       </div>
       <div v-else>
         <div class="text-xs text-gray-400">-</div>
         <!-- Always allow on-demand upstream quota query, even before local data exists. -->
         <OpenAIQuotaResetCell
-          v-if="account.type === 'oauth'"
           :account="account"
           class="mt-1"
           @account-updated="handleQuotaResetAccountUpdated"
@@ -235,7 +228,7 @@
             />
           </svg>
           <span
-            class="pointer-events-none absolute left-0 top-full z-50 mt-1 w-80 whitespace-normal break-words rounded bg-gray-900 px-3 py-2 text-xs leading-relaxed text-white opacity-0 shadow-card transition-opacity group-hover:opacity-100 "
+            class="pointer-events-none absolute left-0 top-full z-50 mt-1 w-80 whitespace-normal break-words rounded bg-gray-900 px-3 py-2 text-xs leading-relaxed text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 dark:bg-gray-700"
           >
             {{ t('admin.accounts.ineligibleWarning') }}
           </span>
@@ -257,14 +250,14 @@
             :href="validationURL"
             target="_blank"
             rel="noopener noreferrer"
-            class="text-[10px] text-blue-600 hover:text-blue-800 hover:underline  "
+            class="text-[10px] text-blue-600 hover:text-blue-800 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
             :title="t('admin.accounts.openVerification')"
           >
             {{ t('admin.accounts.openVerification') }}
           </a>
           <button
             type="button"
-            class="text-[10px] text-gray-500 hover:text-gray-700  "
+            class="text-[10px] text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             :title="t('admin.accounts.copyLink')"
             @click="copyValidationURL"
           >
@@ -275,14 +268,14 @@
 
       <!-- Needs reauth (401) -->
       <div v-else-if="needsReauth" class="space-y-1">
-        <span class="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium bg-orange-100 text-orange-700  ">
+        <span class="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">
           {{ t('admin.accounts.needsReauth') }}
         </span>
       </div>
 
       <!-- Degraded error (non-403, non-401) -->
       <div v-else-if="usageInfo?.error" class="space-y-1">
-        <span class="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-700  ">
+        <span class="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
           {{ usageErrorLabel }}
         </span>
       </div>
@@ -290,9 +283,9 @@
       <!-- Loading state -->
       <div v-else-if="loading" class="space-y-1.5">
         <div class="flex items-center gap-1">
-          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 "></div>
-          <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 "></div>
-          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 "></div>
+          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
+          <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"></div>
+          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
         </div>
       </div>
 
@@ -339,139 +332,107 @@
           color="amber"
         />
 
-        <div v-if="aiCreditsDisplay" class="mt-1 text-[10px] text-gray-500 ">
+        <div v-if="aiCreditsDisplay" class="mt-1 text-[10px] text-gray-500 dark:text-gray-400">
           💳 {{ t('admin.accounts.aiCreditsBalance') }}: {{ aiCreditsDisplay }}
         </div>
       </div>
-      <div v-else-if="aiCreditsDisplay" class="text-[10px] text-gray-500 ">
+      <div v-else-if="aiCreditsDisplay" class="text-[10px] text-gray-500 dark:text-gray-400">
         💳 {{ t('admin.accounts.aiCreditsBalance') }}: {{ aiCreditsDisplay }}
       </div>
       <div v-else class="text-xs text-gray-400">-</div>
     </template>
 
-    <!-- Grok OAuth accounts: passive xAI quota headers + local Nexus usage -->
+    <!-- Grok OAuth accounts: passive xAI quota headers + local Sub2API usage -->
     <template v-else-if="account.platform === 'grok' && account.type === 'oauth'">
       <div v-if="loading" class="space-y-1.5">
         <div class="flex items-center gap-1">
-          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 "></div>
-          <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 "></div>
-          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 "></div>
+          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
+          <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"></div>
+          <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
         </div>
       </div>
       <div v-else-if="error" class="text-xs text-red-500">
         {{ error }}
       </div>
       <div v-else-if="needsReauth" class="space-y-1">
-        <span class="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium bg-orange-100 text-orange-700  ">
+        <span class="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">
           {{ t('admin.accounts.needsReauth') }}
         </span>
       </div>
       <div v-else-if="isForbidden" class="space-y-1">
-        <span class="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-700  ">
-          {{ grokEntitlementLabel || t('admin.accounts.forbidden') }}
+        <span class="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">
+          {{ usageInfo?.grok_entitlement_status || t('admin.accounts.forbidden') }}
         </span>
       </div>
       <div v-else-if="usageInfo" class="space-y-1">
-        <div v-if="grokEntitlementLabel" class="mb-0.5">
-          <span class="inline-block rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-800  ">
-            {{ grokEntitlementLabel }}
-          </span>
-        </div>
-        <div v-if="grokLocalUsage" class="mb-0.5 flex items-center">
-          <div class="flex items-center gap-1.5 text-[9px] text-gray-500 ">
-            <span class="rounded bg-gray-100 px-1.5 py-0.5 ">
-              {{ formatWindowRequests(grokLocalUsage) }} req
-            </span>
-            <span class="rounded bg-gray-100 px-1.5 py-0.5 ">
-              {{ formatWindowTokens(grokLocalUsage) }}
-            </span>
-            <span class="rounded bg-gray-100 px-1.5 py-0.5 " :title="t('usage.accountBilled')">
-              A ${{ formatWindowCost(grokLocalUsage) }}
+        <!-- Free: only rolling 24h soft-gate bar. Paid: 7d + 30d + prepaid money. -->
+        <template v-if="grokIsFree">
+          <UsageProgressBar
+            v-if="grokFreeTokenBar"
+            label="24h"
+            :title="t('admin.accounts.usageWindow.grokFreeQuota24hHint', { limit: formatCompactNumber(grokFreeTokenBar.limit) })"
+            :utilization="grokFreeTokenBar.utilization"
+            :window-stats="grokFreeQuotaUsage"
+            :show-now-when-idle="true"
+            color="emerald"
+          />
+          <div v-else-if="grokQuotaUnknown" class="text-[10px] text-gray-500 dark:text-gray-400">
+            {{ grokQuotaUnknownLabel }}
+          </div>
+        </template>
+        <template v-else>
+          <UsageProgressBar
+            v-if="grokWeeklyBillingBar"
+            label="7d"
+            :utilization="grokWeeklyBillingBar.utilization"
+            :resets-at="grokWeeklyBillingBar.resetsAt"
+            :window-stats="grokWeeklyBillingBar.windowStats"
+            :show-now-when-idle="true"
+            color="indigo"
+          />
+          <UsageProgressBar
+            v-if="grokMonthlyBillingBar"
+            label="30d"
+            :utilization="grokMonthlyBillingBar.utilization"
+            :resets-at="grokMonthlyBillingBar.resetsAt"
+            :window-stats="grokMonthlyBillingBar.windowStats"
+            :show-now-when-idle="true"
+            color="indigo"
+          />
+          <div
+            v-if="grokPrepaidMoneyLine"
+            class="flex flex-wrap items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400"
+          >
+            <span
+              v-if="grokPrepaidMoneyLine.showPrepaid"
+              class="rounded bg-emerald-50 px-1 py-0.5 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+              :title="t('admin.accounts.usageWindow.grokPrepaid')"
+            >
+              {{ t('admin.accounts.usageWindow.grokPrepaid') }} ${{ grokPrepaidMoneyLine.prepaid }}
             </span>
             <span
-              v-if="grokLocalUsage.user_cost != null"
-              class="rounded bg-gray-100 px-1.5 py-0.5 "
-              :title="t('usage.userBilled')"
+              v-if="grokPrepaidMoneyLine.showUsedLimit"
+              :title="t('admin.accounts.usageWindow.grokMonthlyLimit')"
             >
-              U ${{ formatWindowUserCost(grokLocalUsage) }}
+              {{ t('admin.accounts.usageWindow.grokUsed') }}
+              {{ grokPrepaidMoneyLine.used }}/{{ grokPrepaidMoneyLine.limit }}
             </span>
           </div>
-        </div>
-        <UsageProgressBar
-          v-if="!grokIsFree && grokWeeklyBillingBar"
-          label="7d"
-          :utilization="grokWeeklyBillingBar.utilization"
-          :resets-at="grokWeeklyBillingBar.resetsAt"
-          :window-stats="grokWeeklyBillingBar.windowStats"
-          :show-now-when-idle="true"
-          color="indigo"
-        />
-        <UsageProgressBar
-          v-if="!grokIsFree && grokMonthlyBillingBar"
-          label="30d"
-          :utilization="grokMonthlyBillingBar.utilization"
-          :resets-at="grokMonthlyBillingBar.resetsAt"
-          :window-stats="grokMonthlyBillingBar.windowStats"
-          :show-now-when-idle="true"
-          color="indigo"
-        />
-        <UsageProgressBar
-          v-if="!grokWeeklyBillingBar && !grokMonthlyBillingBar && !grokIsFree && grokRequestQuotaBar"
-          :label="t('admin.accounts.usageWindow.grokRequests')"
-          :utilization="grokRequestQuotaBar.utilization"
-          :resets-at="grokRequestQuotaBar.resetsAt"
-          :remaining-capacity="true"
-          color="indigo"
-        />
-        <UsageProgressBar
-          v-if="!grokWeeklyBillingBar && !grokMonthlyBillingBar && !grokIsFree && grokTokenQuotaBar"
-          :label="t('admin.accounts.usageWindow.grokTokens')"
-          :utilization="grokTokenQuotaBar.utilization"
-          :resets-at="grokTokenQuotaBar.resetsAt"
-          :remaining-capacity="true"
-          color="emerald"
-        />
-        <UsageProgressBar
-          v-if="grokFreeTokenBar"
-          label="24h"
-          :title="t('admin.accounts.usageWindow.grokFreeQuota24hHint', { limit: formatCompactNumber(grokFreeTokenBar.limit) })"
-          :utilization="grokFreeTokenBar.utilization"
-          :window-stats="grokFreeQuotaUsage"
-          :show-now-when-idle="true"
-          color="emerald"
-        />
-        <div
-          v-if="!grokIsFree && grokPrepaidMoneyLine"
-          class="flex flex-wrap items-center gap-1 text-[10px] text-gray-500"
-        >
-          <span
-            v-if="grokPrepaidMoneyLine.showPrepaid"
-            class="rounded bg-emerald-50 px-1 py-0.5 text-emerald-700"
-            :title="t('admin.accounts.usageWindow.grokPrepaid')"
-          >
-            {{ t('admin.accounts.usageWindow.grokPrepaid') }} ${{ grokPrepaidMoneyLine.prepaid }}
-          </span>
-          <span
-            v-if="grokPrepaidMoneyLine.showUsedLimit"
-            :title="t('admin.accounts.usageWindow.grokMonthlyLimit')"
-          >
-            {{ t('admin.accounts.usageWindow.grokUsed') }}
-            {{ grokPrepaidMoneyLine.used }}/{{ grokPrepaidMoneyLine.limit }}
-          </span>
-        </div>
-        <div v-if="grokRetryAfterLabel" class="text-[10px] text-amber-600 ">
-          {{ t('admin.accounts.usageWindow.grokRetryAfter', { time: grokRetryAfterLabel }) }}
-        </div>
-        <div v-if="grokQuotaUnknown" class="text-[10px] text-gray-500 ">
-          {{ grokQuotaUnknownLabel }}
-        </div>
-        <div v-else-if="usageInfo.error" class="truncate text-xs text-amber-600  max-w-[200px]" :title="usageInfo.error">
+          <div v-if="grokQuotaUnknown" class="text-[10px] text-gray-500 dark:text-gray-400">
+            {{ grokQuotaUnknownLabel }}
+          </div>
+        </template>
+        <div v-if="usageInfo.error" class="truncate text-xs text-amber-600 dark:text-amber-400 max-w-[200px]" :title="usageInfo.error">
           {{ usageErrorLabel }}
         </div>
-        <div v-if="grokQuotaStatusLine" class="text-[10px] text-gray-500 ">
-          {{ grokQuotaStatusLine }}
+        <div v-if="grokRetryAfterLabel" class="text-[10px] text-amber-600 dark:text-amber-400">
+          {{ t('admin.accounts.usageWindow.grokRetryAfter', { time: grokRetryAfterLabel }) }}
         </div>
-        <GrokQuotaProbeCell :account="account" @probed="handleGrokProbed" />
+        <GrokQuotaProbeCell :account="account" compact @probed="handleGrokProbed" />
+      </div>
+      <div v-else class="space-y-1">
+        <div class="text-xs text-gray-400">-</div>
+        <GrokQuotaProbeCell :account="account" compact @probed="handleGrokProbed" />
       </div>
     </template>
 
@@ -485,6 +446,20 @@
         v-if="account.ollama_cloud_usage?.eligible"
         :account="account"
         @updated="handleOllamaCloudUsageUpdated"
+      />
+      <!-- 挂在 CN 平台下的 OpenCode Go 账号（资格由后端下发 eligible）：用量展示与
+           刷新由本分支的 OpenCode 用量窗口独占。对 platform=opencode_go：上游 CN
+           配额链路原生支持该平台（cnQuotaCellVisible 对它返回 true），但其探测
+           端点（base_url + "/usage"，默认 base 即官方 Go 基址）与本 cell 刷新的
+           是同一端点、同一份数据，抑制 CN 子单元格是为了避免同源双份探测与重复
+           展示。对挂载在 kimi/zhipu/deepseek/minimax 下的账号：CN 的额度/余额
+           探测端点由 base_url 衍生，对 opencode.ai 会被后端出站 URL 白名单拒绝，
+           渲染出来只会给用户一行探测报错。两种情况都不再渲染 CN 子单元格与
+           占位符（调度停调仍由上游 CN 触发各自驱动）。 -->
+      <OpenCodeGoUsageCell
+        v-else-if="account.opencode_go_usage?.eligible"
+        :account="account"
+        @updated="handleOpenCodeGoUsageUpdated"
       />
       <div v-else class="space-y-1">
         <!-- 子单元格各自按 模式×平台 判定可见；两者都不可见时（智谱 payg 无公开
@@ -516,7 +491,7 @@
           class="group relative cursor-help"
         >
           <svg
-            class="h-3.5 w-3.5 text-gray-400 hover:text-gray-600  "
+            class="h-3.5 w-3.5 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
             fill="currentColor"
             viewBox="0 0 20 20"
           >
@@ -527,7 +502,7 @@
             />
           </svg>
           <span
-            class="pointer-events-none absolute left-0 top-full z-50 mt-1 w-80 whitespace-normal break-words rounded bg-gray-900 px-3 py-2 text-xs leading-relaxed text-white opacity-0 shadow-card transition-opacity group-hover:opacity-100 "
+            class="pointer-events-none absolute left-0 top-full z-50 mt-1 w-80 whitespace-normal break-words rounded bg-gray-900 px-3 py-2 text-xs leading-relaxed text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 dark:bg-gray-700"
           >
             <div class="font-semibold mb-1">{{ t('admin.accounts.gemini.quotaPolicy.title') }}</div>
             <div class="mb-2 text-gray-300">{{ t('admin.accounts.gemini.quotaPolicy.note') }}</div>
@@ -550,19 +525,19 @@
           v-if="showGeminiTodayStats && todayStats"
           class="mb-0.5 flex items-center"
         >
-          <div class="flex items-center gap-1.5 text-[9px] text-gray-500 ">
-            <span class="rounded bg-gray-100 px-1.5 py-0.5 ">
+          <div class="flex items-center gap-1.5 text-[9px] text-gray-500 dark:text-gray-400">
+            <span class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">
               {{ formatKeyRequests }} req
             </span>
-            <span class="rounded bg-gray-100 px-1.5 py-0.5 ">
+            <span class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">
               {{ formatKeyTokens }}
             </span>
-            <span class="rounded bg-gray-100 px-1.5 py-0.5 " :title="t('usage.accountBilled')">
+            <span class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800" :title="t('usage.accountBilled')">
               A ${{ formatKeyCost }}
             </span>
             <span
               v-if="todayStats.user_cost != null"
-              class="rounded bg-gray-100 px-1.5 py-0.5 "
+              class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800"
               :title="t('usage.userBilled')"
             >
               U ${{ formatKeyUserCost }}
@@ -573,15 +548,15 @@
           v-else-if="showGeminiTodayStats && todayStatsLoading"
           class="mb-0.5 flex items-center gap-1"
         >
-          <div class="h-3 w-10 animate-pulse rounded bg-gray-200 "></div>
-          <div class="h-3 w-8 animate-pulse rounded bg-gray-200 "></div>
-          <div class="h-3 w-12 animate-pulse rounded bg-gray-200 "></div>
+          <div class="h-3 w-10 animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
+          <div class="h-3 w-8 animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
+          <div class="h-3 w-12 animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
         </div>
         <div v-if="loading" class="space-y-1">
           <div class="flex items-center gap-1">
-            <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 "></div>
-            <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 "></div>
-            <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 "></div>
+            <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
+            <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"></div>
+            <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
           </div>
         </div>
         <div v-else-if="error" class="text-xs text-red-500">
@@ -598,7 +573,7 @@
             :window-stats="bar.windowStats"
             :color="bar.color"
           />
-          <p class="mt-1 text-[9px] leading-tight text-gray-400  italic">
+          <p class="mt-1 text-[9px] leading-tight text-gray-400 dark:text-gray-500 italic">
             * {{ t('admin.accounts.gemini.quotaPolicy.simulatedNote') || 'Simulated quota' }}
           </p>
         </div>
@@ -626,24 +601,31 @@
         :account="account"
         @updated="handleOllamaCloudUsageUpdated"
       />
+      <!-- 与上方 CN 分支结构对齐：Ollama 与 OpenCode 用量身份互斥（基址 host 不同），
+           v-else-if 提供结构性互斥保证，不改变实际渲染结果。 -->
+      <OpenCodeGoUsageCell
+        v-else-if="account.opencode_go_usage?.eligible"
+        :account="account"
+        @updated="handleOpenCodeGoUsageUpdated"
+      />
       <!-- Today stats row (requests, tokens, cost, user_cost) -->
       <div
         v-if="todayStats"
         class="mb-0.5 flex items-center"
       >
-        <div class="flex items-center gap-1.5 text-[9px] text-gray-500 ">
-          <span class="rounded bg-gray-100 px-1.5 py-0.5 ">
+        <div class="flex items-center gap-1.5 text-[9px] text-gray-500 dark:text-gray-400">
+          <span class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">
             {{ formatKeyRequests }} req
           </span>
-          <span class="rounded bg-gray-100 px-1.5 py-0.5 ">
+          <span class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">
             {{ formatKeyTokens }}
           </span>
-          <span class="rounded bg-gray-100 px-1.5 py-0.5 " :title="t('usage.accountBilled')">
+          <span class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800" :title="t('usage.accountBilled')">
             A ${{ formatKeyCost }}
           </span>
           <span
             v-if="todayStats.user_cost != null"
-            class="rounded bg-gray-100 px-1.5 py-0.5 "
+            class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800"
             :title="t('usage.userBilled')"
           >
             U ${{ formatKeyUserCost }}
@@ -655,9 +637,9 @@
         v-else-if="todayStatsLoading"
         class="mb-0.5 flex items-center gap-1"
       >
-        <div class="h-3 w-10 animate-pulse rounded bg-gray-200 "></div>
-        <div class="h-3 w-8 animate-pulse rounded bg-gray-200 "></div>
-        <div class="h-3 w-12 animate-pulse rounded bg-gray-200 "></div>
+        <div class="h-3 w-10 animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
+        <div class="h-3 w-8 animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
+        <div class="h-3 w-12 animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
       </div>
 
       <!-- API Key accounts with quota limits: show progress bars -->
@@ -684,7 +666,7 @@
 
       <!-- No data at all -->
       <div
-        v-if="!todayStats && !todayStatsLoading && !hasApiKeyQuota && !account.ollama_cloud_usage?.eligible"
+        v-if="!todayStats && !todayStatsLoading && !hasApiKeyQuota && !account.ollama_cloud_usage?.eligible && !account.opencode_go_usage?.eligible"
         class="text-xs text-gray-400"
       >-</div>
     </div>
@@ -698,15 +680,17 @@ import { adminAPI } from '@/api/admin'
 import type { Account, AccountUsageInfo, GeminiCredentials, WindowStats } from '@/types'
 import { buildOpenAIUsageRefreshKey } from '@/utils/accountUsageRefresh'
 import { enqueueUsageRequest } from '@/utils/usageLoadQueue'
-import { formatCompactNumber, formatRelativeTime } from '@/utils/format'
+import { formatCompactNumber } from '@/utils/format'
 import UsageProgressBar from './UsageProgressBar.vue'
 import AccountQuotaInfo from './AccountQuotaInfo.vue'
+import ClaudeResetCreditsCell from './ClaudeResetCreditsCell.vue'
 import OpenAIQuotaResetCell from './OpenAIQuotaResetCell.vue'
 import GrokQuotaProbeCell from './GrokQuotaProbeCell.vue'
 import CNProviderQuotaCell from './CNProviderQuotaCell.vue'
 import CNProviderBalanceCell from './CNProviderBalanceCell.vue'
 import OllamaCloudUsageCell from './OllamaCloudUsageCell.vue'
 import { cnQuotaCellVisible as cnQuotaCellVisibleFn, cnBalanceCellVisible as cnBalanceCellVisibleFn } from './credentialsBuilder'
+import OpenCodeGoUsageCell from './OpenCodeGoUsageCell.vue'
 
 // Module-level cache shared across all AccountUsageCell instances
 const _usageCache = new Map<number, { data: AccountUsageInfo; ts: number }>()
@@ -831,21 +815,6 @@ const hasOpenAIUsageFallback = computed(() => {
   if (props.account.platform !== 'openai' || props.account.type !== 'oauth') return false
   return !!usageInfo.value?.five_hour || !!usageInfo.value?.seven_day
 })
-
-const codexTurnTickets = computed(() => props.account.codex_turn_tickets ?? [])
-
-function shortCodexTicketModel(model: string) {
-  if (model === 'gpt-6-astra') return 'astra'
-  if (model === 'gpt-5.6-sol') return 'sol'
-  return model
-}
-
-function formatCodexTicketRemaining(seconds: number) {
-  const total = Math.max(0, Math.floor(seconds || 0))
-  const m = Math.floor(total / 60)
-  const s = total % 60
-  return `${m}m${String(s).padStart(2, '0')}s`
-}
 
 const openAISevenDayEstimatedTotalCost = computed(() => {
   const sevenDay = usageInfo.value?.seven_day
@@ -1073,18 +1042,18 @@ const geminiTierClass = computed(() => {
   const level = geminiUserLevel.value
 
   if (channel === 'client' || channel === 'ai studio') {
-    return 'bg-blue-100 text-blue-600  '
+    return 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300'
   }
 
   if (channel === 'google one') {
-    if (level === 'ultra') return 'bg-purple-100 text-purple-600  '
-    if (level === 'pro') return 'bg-blue-100 text-blue-600  '
-    return 'bg-gray-100 text-gray-600  '
+    if (level === 'ultra') return 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300'
+    if (level === 'pro') return 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300'
+    return 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
   }
 
   if (channel === 'gcp') {
-    if (level === 'enterprise') return 'bg-purple-100 text-purple-600  '
-    return 'bg-blue-100 text-blue-600  '
+    if (level === 'enterprise') return 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300'
+    return 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300'
   }
 
   return ''
@@ -1207,19 +1176,6 @@ interface GrokQuotaBarInfo {
   windowStats?: WindowStats | null
 }
 
-const makeGrokQuotaBar = (
-  quota?: { limit?: number | null; remaining?: number | null; reset_at?: string | null } | null
-): GrokQuotaBarInfo | null => {
-  if (!quota || quota.limit == null || quota.remaining == null || quota.limit <= 0) return null
-  const remaining = Math.min(quota.limit, Math.max(0, quota.remaining))
-  return {
-    utilization: (remaining / quota.limit) * 100,
-    resetsAt: quota.reset_at || null
-  }
-}
-
-const grokRequestQuotaBar = computed(() => makeGrokQuotaBar(usageInfo.value?.grok_request_quota))
-const grokTokenQuotaBar = computed(() => makeGrokQuotaBar(usageInfo.value?.grok_token_quota))
 const grokBilling = computed(() => usageInfo.value?.grok_billing || null)
 const grokLocalUsage7d = computed(() => (
   usageInfo.value?.grok_local_usage_7d || usageInfo.value?.seven_day?.window_stats || null
@@ -1324,14 +1280,6 @@ const grokIsFree = computed(() => {
   return billing != null
 })
 const grokFreeQuotaUsage = computed(() => usageInfo.value?.grok_local_usage_24h || null)
-const grokLocalUsage = computed(() => {
-  if (grokIsFree.value) return grokFreeQuotaUsage.value
-  return props.todayStats ||
-    usageInfo.value?.grok_local_usage ||
-    usageInfo.value?.grok_local_usage_7d ||
-    usageInfo.value?.grok_local_usage_monthly ||
-    null
-})
 const grokFreeTokenBar = computed(() => {
   if (!grokIsFree.value || !grokFreeQuotaUsage.value) return null
   const limit = usageInfo.value?.grok_free_token_limit
@@ -1354,33 +1302,6 @@ const grokQuotaUnknownLabel = computed(() => {
     ? t('admin.accounts.usageWindow.grokNoHeaders')
     : t('admin.accounts.usageWindow.grokUnknown')
 })
-const grokQuotaStatusLine = computed(() => {
-  if (props.account.platform !== 'grok') return null
-  const parts: string[] = []
-  const status = usageInfo.value?.grok_last_status_code
-  if (status) {
-    parts.push(t('admin.accounts.usageWindow.grokLastStatus', { status }))
-  }
-  if (usageInfo.value?.grok_last_quota_probe_at) {
-    parts.push(
-      t('admin.accounts.usageWindow.grokLastProbe', {
-        time: formatRelativeTime(usageInfo.value.grok_last_quota_probe_at)
-      })
-    )
-  }
-  if (usageInfo.value?.grok_last_headers_seen_at) {
-    parts.push(
-      t('admin.accounts.usageWindow.grokLastHeadersSeen', {
-        time: formatRelativeTime(usageInfo.value.grok_last_headers_seen_at)
-      })
-    )
-  }
-  return parts.length > 0 ? parts.join(' | ') : null
-})
-const grokEntitlementLabel = computed(() => {
-  const status = (usageInfo.value?.grok_entitlement_status || '').trim()
-  return status || null
-})
 const grokRetryAfterLabel = computed(() => {
   const seconds = usageInfo.value?.grok_retry_after_seconds
   if (seconds == null || seconds <= 0) return null
@@ -1388,11 +1309,6 @@ const grokRetryAfterLabel = computed(() => {
   const minutes = Math.ceil(seconds / 60)
   return `${minutes}m`
 })
-
-const formatWindowRequests = (stats: WindowStats) => formatCompactNumber(stats.requests, { allowBillions: false })
-const formatWindowTokens = (stats: WindowStats) => formatCompactNumber(stats.tokens)
-const formatWindowCost = (stats: WindowStats) => stats.cost.toFixed(2)
-const formatWindowUserCost = (stats: WindowStats) => (stats.user_cost ?? 0).toFixed(2)
 
 // 账户类型显示标签
 const antigravityTierLabel = computed(() => {
@@ -1412,11 +1328,11 @@ const antigravityTierLabel = computed(() => {
 const antigravityTierClass = computed(() => {
   switch (antigravityTier.value) {
     case 'free-tier':
-      return 'bg-gray-100 text-gray-600  '
+      return 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
     case 'g1-pro-tier':
-      return 'bg-blue-100 text-blue-600  '
+      return 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300'
     case 'g1-ultra-tier':
-      return 'bg-purple-100 text-purple-600  '
+      return 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300'
     default:
       return ''
   }
@@ -1462,9 +1378,9 @@ const forbiddenLabel = computed(() => {
 
 const forbiddenBadgeClass = computed(() => {
   if (forbiddenType.value === 'validation') {
-    return 'bg-yellow-100 text-yellow-700  '
+    return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
   }
-  return 'bg-red-100 text-red-700  '
+  return 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
 })
 
 const linkCopied = ref(false)
@@ -1672,6 +1588,10 @@ const handleQuotaResetAccountUpdated = (account: Account) => {
 
 const handleOllamaCloudUsageUpdated = (state: NonNullable<Account['ollama_cloud_usage']>) => {
   emit('account-updated', { ...props.account, ollama_cloud_usage: state })
+}
+
+const handleOpenCodeGoUsageUpdated = (state: NonNullable<Account['opencode_go_usage']>) => {
+  emit('account-updated', { ...props.account, opencode_go_usage: state })
 }
 
 // ===== Key account today stats formatters =====
