@@ -101,5 +101,6 @@ func (s *MonthlyLedgerService) sendLimitedEmail(ctx context.Context, send func(c
 	if err := repo.ReserveEmailAttempt(ctx, s.now().In(s.location)); err != nil {
 		return err
 	}
+	s.recordEmailHistory(&input)
 	return send(ctx, input)
 }

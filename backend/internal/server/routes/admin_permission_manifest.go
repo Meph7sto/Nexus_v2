@@ -126,6 +126,7 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 		admin+"/accounts/:id/usage", admin+"/accounts/:id/today-stats", admin+"/accounts/:id/temp-unschedulable",
 		admin+"/accounts/:id/models", admin+"/accounts/antigravity/default-model-mapping", admin+"/openai/accounts/:id/quota",
 		admin+"/openai/quota-summary", admin+"/accounts/ollama-cloud-usage/settings", admin+"/accounts/:id/ollama-cloud-usage",
+		admin+"/accounts/opencode-go-usage/settings", admin+"/accounts/:id/opencode-go-usage", admin+"/accounts/:id/claude/reset-credits",
 		admin+"/gemini/oauth/capabilities", admin+"/grok/accounts/:id/quota", admin+"/grok/runtime-sanity",
 		admin+"/grok/oauth/capabilities", admin+"/cn-providers/accounts/:id/quota", admin+"/cn-providers/accounts/:id/balance")
 	add(service.AdminResourceAccounts, service.AdminActionView, http.MethodPost, admin+"/accounts/usage/batch")
@@ -137,7 +138,8 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 		admin+"/accounts/:id/grok-media-eligibility",
 		admin+"/accounts/:id", admin+"/accounts/:id/upstream-billing-probe", admin+"/accounts/upstream-billing-probe/settings",
 		admin+"/accounts/ollama-cloud-usage/settings", admin+"/accounts/:id/ollama-cloud-usage/session",
-		admin+"/accounts/:id/ollama-cloud-usage/auto-refresh")
+		admin+"/accounts/:id/ollama-cloud-usage/auto-refresh", admin+"/accounts/opencode-go-usage/settings",
+		admin+"/accounts/:id/opencode-go-usage/auto-refresh")
 	add(service.AdminResourceAccounts, service.AdminActionUpdate, http.MethodDelete,
 		admin+"/accounts/:id/ollama-cloud-usage/session")
 	add(service.AdminResourceAccounts, service.AdminActionDelete, http.MethodDelete,
@@ -162,7 +164,8 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 		admin+"/grok/oauth/reconcile", admin+"/grok/accounts/:id/refresh", admin+"/grok/accounts/:id/reset-quota",
 		admin+"/grok/oauth/sso-token", admin+"/grok/oauth/password", admin+"/openai/accounts/:id/quota/refresh",
 		admin+"/openai/accounts/:id/referrals/refresh", admin+"/openai/accounts/:id/referrals/invite",
-		admin+"/accounts/:id/ollama-cloud-usage/refresh")
+		admin+"/accounts/:id/ollama-cloud-usage/refresh", admin+"/accounts/:id/opencode-go-usage/refresh",
+		admin+"/accounts/:id/claude/reset-credits/redeem")
 	humanOnly(http.MethodPut, admin+"/accounts/:id/ollama-cloud-usage/session")
 	humanOnly(http.MethodDelete, admin+"/accounts/:id/ollama-cloud-usage/session")
 
@@ -255,6 +258,7 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 		admin+"/monthly-ledger/overview", admin+"/monthly-ledger/income-entries", admin+"/monthly-ledger/income-entries/:id/payments", admin+"/monthly-ledger/income-schedules",
 		admin+"/monthly-ledger/email-notifications",
 		admin+"/monthly-ledger/email-quota",
+		admin+"/monthly-ledger/:month/users/:user_id/emails",
 		admin+"/monthly-ledger", admin+"/monthly-ledger/:month/users/:user_id/payments")
 	add(service.AdminResourceMonthlyLedger, service.AdminActionCreate, http.MethodPost,
 		admin+"/monthly-ledger/income-entries", admin+"/monthly-ledger/income-entries/:id/payments", admin+"/monthly-ledger/income-schedules", admin+"/monthly-ledger/income-schedules/preview",

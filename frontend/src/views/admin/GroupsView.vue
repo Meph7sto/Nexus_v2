@@ -2085,7 +2085,6 @@
             form="create-group-form"
             :disabled="submitting"
             class="btn btn-primary"
-            data-tour="group-form-submit"
           >
             <svg
               v-if="submitting"
@@ -3734,7 +3733,6 @@
             form="edit-group-form"
             :disabled="submitting"
             class="btn btn-primary"
-            data-tour="group-form-submit"
           >
             <svg
               v-if="submitting"
@@ -4269,7 +4267,6 @@ import { ref, reactive, computed, onMounted, onUnmounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useAppStore } from "@/stores/app";
 import { useAuthStore } from "@/stores/auth";
-import { useOnboardingStore } from "@/stores/onboarding";
 import { adminAPI } from "@/api/admin";
 import type {
   AdminGroup,
@@ -4451,7 +4448,6 @@ const groupPricingToAPI = (
 const { t } = useI18n();
 const appStore = useAppStore();
 const authStore = useAuthStore();
-const onboardingStore = useOnboardingStore();
 
 const ALWAYS_VISIBLE_COLUMNS = new Set(["name", "actions"]);
 // Default hidden columns (hidden on first load / after schema bumps).
@@ -6029,10 +6025,6 @@ const handleCreateGroup = async () => {
     appStore.showSuccess(t("admin.groups.groupCreated"));
     closeCreateModal();
     loadGroups();
-    // Only advance tour if active, on submit step, and creation succeeded
-    if (onboardingStore.isCurrentStep('[data-tour="group-form-submit"]')) {
-      onboardingStore.nextStep(500);
-    }
   } catch (error: any) {
     appStore.showError(
       extractApiErrorMessage(error, t("admin.groups.failedToCreate")),

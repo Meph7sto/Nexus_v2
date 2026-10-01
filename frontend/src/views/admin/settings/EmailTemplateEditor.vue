@@ -133,6 +133,8 @@
           </p>
         </div>
 
+        <slot :name="selectedEvent.split('.').join('-')" />
+
         <div
           v-if="!eventOptions.length || !localeOptions.length"
           class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700   "

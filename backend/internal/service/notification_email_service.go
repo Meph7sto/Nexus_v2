@@ -118,6 +118,8 @@ type NotificationEmailPreviewInput struct {
 }
 
 type NotificationEmailSendInput struct {
+	BeforeSend       func(context.Context, NotificationEmailPreview) error
+	AfterSend        func(context.Context, error) error
 	Event            string
 	Locale           string
 	RecipientEmail   string
@@ -422,15 +424,25 @@ func (s *NotificationEmailService) Send(ctx context.Context, input NotificationE
 	if s.emailService == nil {
 		return notificationEmailConfigErr(errors.New("email service is not configured"))
 	}
-	if err := s.emailService.SendEmail(ctx, recipient, rendered.Subject, rendered.HTML); err != nil {
-		return notificationEmailDeliveryErr(err)
+	if input.BeforeSend != nil {
+		if err := input.BeforeSend(ctx, rendered); err != nil {
+			return err
+		}
+	}
+	sendErr := s.emailService.SendEmail(ctx, recipient, rendered.Subject, rendered.HTML)
+	var historyErr error
+	if input.AfterSend != nil {
+		historyErr = input.AfterSend(ctx, sendErr)
+	}
+	if sendErr != nil {
+		return notificationEmailDeliveryErr(errors.Join(sendErr, historyErr))
 	}
 	if deliveryKey != "" {
 		if err := s.settingRepo.Set(ctx, deliveryKey, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
 			return err
 		}
 	}
-	return nil
+	return historyErr
 }
 
 func (s *NotificationEmailService) RememberRecipientLocale(ctx context.Context, userID int64, email, acceptLanguage string) {

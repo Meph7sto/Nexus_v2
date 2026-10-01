@@ -1,9 +1,9 @@
 <template>
   <section class="space-y-4" :aria-label="tr('other')">
-    <form class="flex flex-wrap items-end gap-3" @submit.prevent="page = 1; load()">
-      <label class="w-full min-w-0 sm:min-w-[220px] sm:flex-1 sm:basis-0"><span class="input-label">{{ t('common.search') }}</span><input v-model="query" class="input w-full" :placeholder="tr('search')"></label>
-      <label><span class="input-label">{{ tr('category') }}</span><select v-model="category" class="input" @change="page = 1; load()"><option value="">{{ tr('allCategories') }}</option><option v-for="c in categories" :key="c">{{ c }}</option></select></label>
-      <label><span class="input-label">{{ t('admin.monthlyLedger.statusFilter') }}</span><select v-model="status" class="input" @change="page = 1; load()"><option value="">{{ t('admin.monthlyLedger.allStatuses') }}</option><option v-for="s in statuses" :key="s" :value="s">{{ t(`admin.monthlyLedger.status.${s}`) }}</option></select></label>
+    <form class="ledger-toolbar flex flex-wrap items-end gap-3" @submit.prevent="page = 1; load()">
+      <label class="w-full min-w-0 sm:min-w-[220px] sm:flex-1 sm:basis-0 sm:max-w-sm"><span class="input-label">{{ t('common.search') }}</span><span class="relative block"><Icon name="search" size="sm" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--nx-subtle)]" /><input v-model="query" class="input w-full pl-9" :placeholder="tr('search')"></span></label>
+      <label class="w-44"><span class="input-label">{{ tr('category') }}</span><select v-model="category" class="input w-full" @change="page = 1; load()"><option value="">{{ tr('allCategories') }}</option><option v-for="c in categories" :key="c">{{ c }}</option></select></label>
+      <label class="w-44"><span class="input-label">{{ t('admin.monthlyLedger.statusFilter') }}</span><select v-model="status" class="input w-full" @change="page = 1; load()"><option value="">{{ t('admin.monthlyLedger.allStatuses') }}</option><option v-for="s in statuses" :key="s" :value="s">{{ t(`admin.monthlyLedger.status.${s}`) }}</option></select></label>
       <button class="btn btn-secondary" :title="t('common.search')"><Icon name="search" size="sm" /></button>
       <button type="button" class="btn btn-secondary" @click="showSchedules = true"><Icon name="clock" size="sm" />{{ tr('schedules') }}</button>
       <button v-if="canCreate" type="button" class="btn btn-primary" data-test="add-income" @click="editEntry()"><Icon name="plus" size="sm" />{{ tr('add') }}</button>
@@ -14,32 +14,35 @@
       <span>{{ tr('profit') }} <strong class="ml-2 tabular-nums" :class="summary.profit < 0 ? 'text-red-600' : 'text-[var(--nx-success)]'">{{ usd(summary.profit) }}</strong></span>
     </div>
     <p v-if="error" role="alert" class="text-sm text-red-600">{{ error }}</p>
+    <p v-if="savedMessage" role="status" class="text-sm text-[var(--nx-success)]">{{ savedMessage }}</p>
+    <section class="ledger-table-shell">
     <div class="overflow-x-auto" :aria-busy="loading">
-      <table class="income-table">
-        <thead><tr><th v-for="key in columns" :key="key">{{ tr(key) }}</th><th>{{ t('common.actions') }}</th></tr></thead>
+      <table class="ledger-table income-table">
+        <thead><tr><th v-for="key in columns" :key="key" :class="['amount', 'paid', 'cost', 'profit'].includes(key) ? 'text-right' : 'text-left'">{{ tr(key) }}</th><th class="text-right">{{ t('common.actions') }}</th></tr></thead>
         <tbody>
           <tr v-if="loading"><td :colspan="columns.length + 1" class="text-center">{{ t('common.loading') }}</td></tr>
           <template v-else>
             <tr v-for="row in rows" :key="row.id">
               <td class="max-w-56"><span class="break-words font-medium">{{ row.title }}</span><Icon v-if="row.schedule_id" name="clock" size="sm" class="ml-1 inline" :title="tr('recurring')" /></td>
               <td class="max-w-40 break-words">{{ row.customer }}</td><td class="max-w-32 break-words">{{ row.category }}</td><td class="whitespace-nowrap">{{ row.due_date }}</td>
-              <td>{{ usd(row.amount) }}</td><td>{{ usd(row.paid_amount) }}</td><td>{{ usd(row.cost) }}</td><td :class="row.profit < 0 ? 'text-red-600' : ''">{{ usd(row.profit) }}</td>
-              <td class="whitespace-nowrap">{{ t(`admin.monthlyLedger.status.${row.status}`) }}</td>
-              <td><div class="flex gap-1">
-                <button class="btn btn-ghost px-2" :title="t('admin.monthlyLedger.payments.title')" @click="openPayments(row)"><Icon name="creditCard" size="sm" /></button>
-                <button v-if="canUpdate" class="btn btn-ghost px-2" :title="t('common.edit')" @click="editEntry(row)"><Icon name="edit" size="sm" /></button>
-                <button v-if="canDelete" class="btn btn-ghost px-2" :title="row.paid_amount > 0 ? tr('hasPayments') : t('common.delete')" :disabled="row.paid_amount > 0" @click="confirmDelete = { kind: 'entry', id: row.id }"><Icon name="trash" size="sm" /></button>
+              <td class="money-cell">{{ usd(row.amount) }}</td><td class="money-cell text-[var(--nx-success)]">{{ usd(row.paid_amount) }}</td><td class="money-cell">{{ usd(row.cost) }}</td><td class="money-cell" :class="row.profit < 0 ? 'text-red-600' : ''">{{ usd(row.profit) }}</td>
+              <td><span class="status-badge" :class="`status-${row.status}`">{{ t(`admin.monthlyLedger.status.${row.status}`) }}</span></td>
+              <td><div class="flex justify-end gap-1">
+                <button class="icon-command" :title="t('admin.monthlyLedger.payments.title')" @click="openPayments(row)"><Icon name="creditCard" size="sm" /></button>
+                <button v-if="canUpdate" class="icon-command" :title="t('common.edit')" @click="editEntry(row)"><Icon name="edit" size="sm" /></button>
+                <button v-if="canDelete" class="icon-command icon-command-danger" :title="row.paid_amount > 0 ? tr('hasPayments') : t('common.delete')" :disabled="row.paid_amount > 0" @click="confirmDelete = { kind: 'entry', id: row.id }"><Icon name="trash" size="sm" /></button>
               </div></td>
             </tr>
-            <tr v-if="!rows.length"><td :colspan="columns.length + 1" class="py-10 text-center text-[var(--nx-subtle)]">{{ tr('empty') }}</td></tr>
+            <tr v-if="!rows.length"><td :colspan="columns.length + 1" class="empty-row">{{ tr('empty') }}</td></tr>
           </template>
         </tbody>
       </table>
     </div>
     <Pagination v-if="total" :page="page" :page-size="pageSize" :total="total" @update:page="page = $event; load()" @update:page-size="pageSize = $event; page = 1; load()" />
+    </section>
   </section>
   <BaseDialog :show="entryOpen" :title="editingID ? tr('edit') : tr('add')" @close="!saving && (entryOpen = false)">
-    <form class="space-y-4" @submit.prevent="saveEntry">
+    <form class="space-y-4" @submit.prevent="saveEntry" @invalid.capture="formError = tr('invalidFields')">
       <fieldset :disabled="saving" class="space-y-4">
       <IncomeFieldsForm :model-value="entryForm" category-list-id="income-entry-categories" @update:model-value="Object.assign(entryForm, $event)" />
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -47,7 +50,7 @@
         <label><span class="input-label">{{ tr('dueDate') }}</span><input v-model="entryForm.due_date" name="due_date" type="date" required class="input w-full"></label>
       </div>
       <p v-if="formError" role="alert" class="text-sm text-red-600">{{ formError }}</p>
-      <div class="flex justify-end gap-2"><button type="button" class="btn btn-secondary" :disabled="saving" @click="entryOpen = false">{{ t('common.cancel') }}</button><button class="btn btn-primary" :disabled="saving">{{ t('common.save') }}</button></div>
+      <div class="flex justify-end gap-2"><button type="button" class="btn btn-secondary" :disabled="saving" @click="entryOpen = false">{{ t('common.cancel') }}</button><button type="submit" class="btn btn-primary" :disabled="saving">{{ t(saving ? 'common.submitting' : 'common.save') }}</button></div>
       </fieldset>
     </form>
   </BaseDialog>
@@ -80,6 +83,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
+import { extractApiErrorMessage } from '@/utils/apiError'
 import { incomeAPI, type IncomeEntry, type IncomeEntryInput, type IncomePayment, type IncomeSummary } from '@/api/admin/monthlyLedgerIncome'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Pagination from '@/components/common/Pagination.vue'
@@ -100,12 +104,17 @@ const rows = ref<IncomeEntry[]>([]), categories = ref<string[]>([]), summary = r
 const query = ref(''), category = ref(''), status = ref(''), error = ref('')
 const page = ref(1), pageSize = ref(20), total = ref(0), loading = ref(false)
 const entryOpen = ref(false), editingID = ref(0), saving = ref(false), formError = ref(''), showSchedules = ref(false)
+const savedMessage = ref('')
 const localDateTime = () => { const now = new Date(); return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16) }
-const blank = (): IncomeEntryInput => ({ title: '', customer: '', category: tr('categories.other'), note: '', amount: 0, cost: 0, billing_date: localDateTime().slice(0, 10), due_date: localDateTime().slice(0, 10) })
+const blank = (): IncomeEntryInput => {
+  const today = localDateTime().slice(0, 10)
+  const date = today.startsWith(props.month) ? today : `${props.month}-01`
+  return { title: '', customer: '', category: tr('categories.other'), note: '', amount: 0, cost: 0, billing_date: date, due_date: date }
+}
 const entryForm = reactive(blank())
 let previousBilling = entryForm.billing_date
 const usd = (n: number) => `$${n.toFixed(2)}`
-const message = (e: unknown) => (e as { response?: { data?: { message?: string } } })?.response?.data?.message || t('admin.monthlyLedger.saveFailed')
+const message = (e: unknown) => extractApiErrorMessage(e, t('admin.monthlyLedger.saveFailed'))
 let sequence = 0
 async function load() {
   const seq = ++sequence; loading.value = true; error.value = ''
@@ -115,11 +124,21 @@ async function load() {
   } catch (e) { if (seq === sequence) { error.value = message(e); rows.value = []; total.value = 0; summary.value = null } }
   finally { if (seq === sequence) loading.value = false }
 }
-watch(() => props.month, () => { page.value = 1; load() }, { immediate: true })
+watch(() => props.month, () => { page.value = 1; savedMessage.value = ''; load() }, { immediate: true })
 async function changed() { emit('changed'); await load() }
 function editEntry(row?: IncomeEntry) { Object.assign(entryForm, row || blank()); previousBilling = entryForm.billing_date; editingID.value = row?.id || 0; formError.value = ''; entryOpen.value = true }
 function syncDueDate() { if (entryForm.due_date === previousBilling) entryForm.due_date = entryForm.billing_date; previousBilling = entryForm.billing_date }
-async function saveEntry() { if (saving.value) return; saving.value = true; formError.value = ''; try { await incomeAPI.saveEntry(editingID.value, entryForm); entryOpen.value = false; await changed() } catch (e) { formError.value = message(e) } finally { saving.value = false } }
+async function saveEntry() {
+  if (saving.value) return
+  saving.value = true; formError.value = ''; savedMessage.value = ''
+  try {
+    await incomeAPI.saveEntry(editingID.value, entryForm)
+    savedMessage.value = t('admin.monthlyLedger.income.savedInMonth', { month: entryForm.billing_date.slice(0, 7) })
+    entryOpen.value = false
+    await changed()
+  } catch (e) { formError.value = message(e) }
+  finally { saving.value = false }
+}
 const paymentEntry = ref<IncomeEntry | null>(null), payments = ref<IncomePayment[]>([]), paymentID = ref(0), paymentError = ref('')
 const paymentForm = reactive({ amount: 0, paid_at: localDateTime(), note: '' })
 let paymentSequence = 0
@@ -156,9 +175,4 @@ async function remove() {
 }
 </script>
 
-<style scoped>
-.income-table { width: 100%; min-width: 960px; border-collapse: collapse; font-size: 0.8125rem; }
-.income-table th { text-align: left; font-weight: 500; color: var(--nx-subtle); white-space: nowrap; }
-.income-table th, .income-table td { padding: 0.75rem 0.625rem; border-bottom: 1px solid var(--nx-border); font-variant-numeric: tabular-nums; }
-.income-table td { vertical-align: middle; }
-</style>
+<style scoped src="./monthlyLedger.css"></style>

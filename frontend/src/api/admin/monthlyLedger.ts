@@ -3,6 +3,15 @@ import { apiClient } from '../client'
 export type MonthlyLedgerStatus = 'unpaid' | 'partial' | 'settled' | 'overpaid' | 'waived'
 
 export interface MonthlyLedgerEmailQuota { date: string; daily_limit: number; used: number }
+export interface MonthlyLedgerEmailRecord {
+  id: number; user_id: number; month: string; source_type: string; recipient: string
+  amount: number; subject: string; html: string; status: 'sending' | 'sent' | 'failed'
+  created_at: string; sent_at: string | null
+}
+export interface MonthlyLedgerEmailHistory { items: MonthlyLedgerEmailRecord[]; total: number; sent_count: number }
+export async function listEmailHistory(month: string, userId: number, page = 1, pageSize = 20) {
+  return (await apiClient.get<MonthlyLedgerEmailHistory>(`/admin/monthly-ledger/${encodeURIComponent(month)}/users/${userId}/emails`, { params: { page, page_size: pageSize } })).data
+}
 export interface MonthlyLedgerManualEmailInput { month: string; user_id: number; amount: number; request_id: string }
 
 export async function getEmailQuota() {
@@ -58,6 +67,9 @@ export interface MonthlyLedgerRow {
   overpaid_amount: number
   status: MonthlyLedgerStatus
   payment_count: number
+  email_count: number
+  last_email_amount: number
+  last_email_sent_at?: string | null
   last_paid_at?: string | null
 }
 
@@ -172,6 +184,7 @@ export async function deletePayment(paymentId: number) {
 }
 
 const monthlyLedgerAPI = {
+  listEmailHistory,
   getEmailQuota,
   setEmailDailyLimit,
   sendManualEmail,

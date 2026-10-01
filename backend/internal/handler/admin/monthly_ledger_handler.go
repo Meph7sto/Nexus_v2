@@ -29,6 +29,20 @@ func (h *MonthlyLedgerHandler) EmailQuota(c *gin.Context) {
 	response.Success(c, quota)
 }
 
+func (h *MonthlyLedgerHandler) ListEmailHistory(c *gin.Context) {
+	userID, ok := parseMonthlyLedgerID(c, "user_id")
+	if !ok {
+		return
+	}
+	page, size := response.ParsePagination(c)
+	result, err := h.service.ListEmailHistory(c.Request.Context(), c.Param("month"), userID, page, size)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
 func (h *MonthlyLedgerHandler) SetEmailDailyLimit(c *gin.Context) {
 	var req struct {
 		DailyLimit *int `json:"daily_limit" binding:"required"`

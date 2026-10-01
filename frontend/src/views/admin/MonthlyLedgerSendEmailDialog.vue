@@ -55,7 +55,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
 
 const props = defineProps<{ show: boolean; initialMonth: string; recipient: MonthlyLedgerRow | null }>()
-const emit = defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: []; sent: [] }>()
 const { t } = useI18n()
 const auth = useAuthStore()
 const app = useAppStore()
@@ -112,6 +112,7 @@ async function send() {
     requestID ||= crypto.randomUUID()
     await adminAPI.monthlyLedger.sendManualEmail({ month: month.value, user_id: selected.value.user_id, amount: Number(amount.value), request_id: requestID })
     app.showSuccess(t('admin.monthlyLedger.email.sent'))
+    emit('sent')
     emit('close')
   } catch (err) { error.value = message(err) }
   finally { await loadQuota(); sending.value = false }

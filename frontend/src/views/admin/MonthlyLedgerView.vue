@@ -35,8 +35,17 @@
             </div>
           </div>
 
-          <template v-if="activeTab === 'relay'">
-          <div class="min-w-[220px] flex-1 sm:max-w-sm">
+        </div>
+      </section>
+      <div class="flex gap-2 border-b border-[var(--nx-border)] pb-2" role="tablist" :aria-label="t('admin.monthlyLedger.title')">
+        <button v-for="tab in (['relay', 'other'] as const)" :key="tab" type="button" role="tab" :aria-selected="activeTab === tab" :class="['btn', activeTab === tab ? 'btn-primary' : 'btn-ghost']" @click="activeTab = tab">{{ t(`admin.monthlyLedger.income.${tab}`) }}</button>
+      </div>
+      <MonthlyLedgerOverview :month="selectedMonth" :revision="overviewRevision" :relay-summary="loading || !loadedFilterSnapshot.month ? null : summary" />
+      <MonthlyLedgerIncome v-if="activeTab === 'other' && selectedMonth" :month="selectedMonth" @changed="overviewRevision++" />
+      <template v-if="activeTab === 'relay'">
+      <section class="ledger-toolbar">
+        <div class="flex min-w-0 flex-wrap items-end gap-3">
+          <div class="w-full min-w-0 sm:min-w-[220px] sm:flex-1 sm:max-w-sm">
             <label for="ledger-search" class="input-label">{{ t('common.search') }}</label>
             <div class="relative">
               <Icon name="search" size="sm" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--nx-subtle)]" />
@@ -60,9 +69,8 @@
             </select>
           </div>
 
-          <button type="button" class="btn btn-secondary" @click="applyFilters">
+          <button type="button" class="btn btn-secondary" :title="t('common.search')" @click="applyFilters">
             <Icon name="search" size="sm" />
-            {{ t('common.search') }}
           </button>
           <button type="button" class="btn btn-secondary" data-test="open-email-notifications" @click="showEmailDialog = true">
             <Icon name="mail" size="sm" />
@@ -77,38 +85,12 @@
           >
             <Icon name="refresh" size="sm" :class="loading ? 'animate-spin' : ''" />
           </button>
-          </template>
         </div>
 
         <p v-if="activeTab === 'relay' && selectedMonth && selectedMonth === currentMonth" class="open-month-notice">
           <Icon name="infoCircle" size="sm" />
           {{ t('admin.monthlyLedger.currentMonthHint') }}
         </p>
-      </section>
-
-      <MonthlyLedgerOverview :month="selectedMonth" :revision="overviewRevision" />
-      <div class="flex gap-2 border-b border-[var(--nx-border)] pb-2" role="tablist" :aria-label="t('admin.monthlyLedger.title')">
-        <button v-for="tab in (['relay', 'other'] as const)" :key="tab" type="button" role="tab" :aria-selected="activeTab === tab" :class="['btn', activeTab === tab ? 'btn-primary' : 'btn-ghost']" @click="activeTab = tab">{{ t(`admin.monthlyLedger.income.${tab}`) }}</button>
-      </div>
-      <MonthlyLedgerIncome v-if="activeTab === 'other' && selectedMonth" :month="selectedMonth" @changed="overviewRevision++" />
-      <template v-if="activeTab === 'relay'">
-      <section class="summary-grid" aria-label="Monthly ledger summary">
-        <div
-          v-for="metric in summaryMetrics"
-          :key="metric.key"
-          class="summary-card"
-          :class="metric.featured ? 'summary-card-featured' : ''"
-          :data-test="`summary-${metric.key}`"
-        >
-          <span class="summary-icon" :class="metric.iconClass">
-            <Icon :name="metric.icon" size="md" :stroke-width="2" />
-          </span>
-          <div class="min-w-0">
-            <span class="summary-label">{{ metric.label }}</span>
-            <strong class="summary-value" :class="metric.valueClass">{{ formatUSD(metric.value) }}</strong>
-            <span class="summary-detail">{{ metric.detail }}</span>
-          </div>
-        </div>
       </section>
 
       <section v-if="canUpdate" class="bulk-action-bar" data-test="ledger-bulk-actions">
@@ -266,6 +248,17 @@
                       <span v-if="row.payment_count" class="payment-count">{{ row.payment_count }}</span>
                     </button>
                     <button
+                      type="button"
+                      class="icon-command"
+                      :data-test="`email-history-${row.user_id}`"
+                      :title="t('admin.monthlyLedger.email.historyTitle')"
+                      :aria-label="`${t('admin.monthlyLedger.email.historyTitle')} ${row.email}`"
+                      @click="emailHistoryRow = row"
+                    >
+                      <Icon name="clock" size="sm" />
+                      <span class="payment-count">{{ row.email_count || 0 }}</span>
+                    </button>
+                    <button
                       v-if="canCreate"
                       type="button"
                       class="icon-command icon-command-primary"
@@ -308,7 +301,9 @@
     </div>
   </AppLayout>
   <MonthlyLedgerEmailDialog :show="showEmailDialog" @close="showEmailDialog = false" />
-  <MonthlyLedgerSendEmailDialog :show="showSendEmailDialog" :initial-month="selectedMonth" :recipient="emailRow" @close="showSendEmailDialog = false" />
+  <MonthlyLedgerSendEmailDialog :show="showSendEmailDialog" :initial-month="selectedMonth" :recipient="emailRow" @close="showSendEmailDialog = false" @sent="loadLedger" />
+
+  <MonthlyLedgerEmailHistoryDialog :month="selectedMonth" :recipient="emailHistoryRow" @close="emailHistoryRow = null" />
 
   <BaseDialog
     :show="showMultiplierDialog"
@@ -497,6 +492,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import MonthlyLedgerEmailDialog from './MonthlyLedgerEmailDialog.vue'
 import MonthlyLedgerSendEmailDialog from './MonthlyLedgerSendEmailDialog.vue'
+import MonthlyLedgerEmailHistoryDialog from './MonthlyLedgerEmailHistoryDialog.vue'
 import MonthlyLedgerOverview from './MonthlyLedgerOverview.vue'
 import MonthlyLedgerIncome from './MonthlyLedgerIncome.vue'
 import Toggle from '@/components/common/Toggle.vue'
@@ -528,6 +524,7 @@ const loading = ref(false)
 const showEmailDialog = ref(false)
 const showSendEmailDialog = ref(false)
 const emailRow = ref<MonthlyLedgerRow | null>(null)
+const emailHistoryRow = ref<MonthlyLedgerRow | null>(null)
 function openSendEmail(row: MonthlyLedgerRow) {
   emailRow.value = { ...row }
   showSendEmailDialog.value = true
@@ -628,14 +625,6 @@ const sortableColumns = [
   { key: 'outstanding_amount' as const, label: 'admin.monthlyLedger.columns.balance' },
 ]
 
-const summaryMetrics = computed(() => [
-  { key: 'usage', label: t('admin.monthlyLedger.summary.usage'), value: summary.value.usage_amount, detail: t('admin.monthlyLedger.summary.users', { count: summary.value.user_count }), icon: 'chart' as const, iconClass: 'summary-icon-neutral' },
-  { key: 'receivable', label: t('admin.monthlyLedger.summary.receivable'), value: summary.value.receivable_amount, detail: t('admin.monthlyLedger.summary.waivedUsers', { count: summary.value.waived_count }), icon: 'creditCard' as const, iconClass: 'summary-icon-receivable', featured: true },
-  { key: 'paid', label: t('admin.monthlyLedger.summary.paid'), value: summary.value.paid_amount, detail: t('admin.monthlyLedger.summary.settledUsers', { count: summary.value.settled_count }), icon: 'checkCircle' as const, iconClass: 'summary-icon-paid', valueClass: 'text-[var(--nx-success)]', featured: true },
-  { key: 'outstanding', label: t('admin.monthlyLedger.summary.outstanding'), value: summary.value.outstanding_amount, detail: t('admin.monthlyLedger.summary.outstandingUsers', { count: summary.value.unpaid_count + summary.value.partial_count }), icon: 'clock' as const, iconClass: 'summary-icon-outstanding', valueClass: 'text-[var(--nx-warning)]' },
-  { key: 'overpaid', label: t('admin.monthlyLedger.summary.overpaid'), value: summary.value.overpaid_amount, detail: t('admin.monthlyLedger.summary.overpaidUsers', { count: summary.value.overpaid_count }), icon: 'arrowUp' as const, iconClass: 'summary-icon-overpaid' },
-])
-
 const formatUSD = (value: number) => `$${Number(value || 0).toFixed(2)}`
 const formatMultiplier = (value: number) => Number(value).toLocaleString(undefined, { maximumFractionDigits: 4 })
 const formatDateTime = (value: string) => new Intl.DateTimeFormat(locale.value === 'zh' ? 'zh-CN' : 'en-US', {
@@ -688,6 +677,9 @@ const loadLedger = async () => {
     if (sequence !== listRequestSequence) return
     rows.value = []
     summary.value = emptySummary()
+    total.value = 0
+    loadedFilterSnapshot.value = { month: '', status: '' }
+    clearSelection()
     appStore.showError(errorMessage(error, t('admin.monthlyLedger.loadFailed')))
   } finally {
     if (sequence === listRequestSequence) loading.value = false
@@ -736,6 +728,7 @@ const batchMultiplierUserIDs = ref<number[]>([])
 const multiplierDraft = ref('1')
 const multiplierError = ref('')
 const savingMultiplier = ref(false)
+let multiplierDialogVersion = 0
 const multiplierPresets = [0, 0.5, 0.8, 1]
 
 const decimalInteger = (value: number) => {
@@ -780,6 +773,7 @@ const multiplierDialogTitle = computed(() => multiplierMode.value === 'batch'
   : t('admin.monthlyLedger.multiplier.title'))
 
 const openMultiplier = (row: MonthlyLedgerRow) => {
+  multiplierDialogVersion++
   multiplierMode.value = 'single'
   batchMultiplierUserIDs.value = []
   editingMultiplierRow.value = row
@@ -789,6 +783,7 @@ const openMultiplier = (row: MonthlyLedgerRow) => {
 }
 const openBulkMultiplier = () => {
   if (!canUpdate.value || selIds.value.length === 0) return
+  multiplierDialogVersion++
   multiplierMode.value = 'batch'
   batchMultiplierUserIDs.value = [...selIds.value]
   editingMultiplierRow.value = null
@@ -797,17 +792,19 @@ const openBulkMultiplier = () => {
   showMultiplierDialog.value = true
 }
 const closeMultiplier = () => {
+  multiplierDialogVersion++
   showMultiplierDialog.value = false
   editingMultiplierRow.value = null
   batchMultiplierUserIDs.value = []
 }
 const saveMultiplier = async () => {
-  if (!canUpdate.value) return
+  if (!canUpdate.value || savingMultiplier.value) return
+  const dialogVersion = multiplierDialogVersion
   const row = editingMultiplierRow.value
   const multiplier = Number(multiplierDraft.value)
   const scaled = multiplier * 10000
   const hasTarget = multiplierMode.value === 'batch' ? batchMultiplierUserIDs.value.length > 0 : Boolean(row)
-  if (!hasTarget || !Number.isFinite(multiplier) || multiplier < 0 || Math.abs(scaled - Math.round(scaled)) > 1e-7) {
+  if (!hasTarget || String(multiplierDraft.value).trim() === '' || !Number.isFinite(multiplier) || multiplier < 0 || Math.abs(scaled - Math.round(scaled)) > 1e-7) {
     multiplierError.value = t('admin.monthlyLedger.multiplier.invalid')
     return
   }
@@ -820,7 +817,7 @@ const saveMultiplier = async () => {
     } else if (row) {
       await adminAPI.monthlyLedger.setMultiplier(selectedMonth.value, row.user_id, multiplier)
     }
-    closeMultiplier()
+    if (dialogVersion === multiplierDialogVersion) closeMultiplier()
     if (isBatch) {
       clearSelection()
       appStore.showSuccess(t('admin.monthlyLedger.bulk.saved', { count: targetCount }))
@@ -829,7 +826,9 @@ const saveMultiplier = async () => {
     }
     await loadLedger()
   } catch (error) {
-    multiplierError.value = errorMessage(error, t('admin.monthlyLedger.saveFailed'))
+    if (dialogVersion === multiplierDialogVersion) {
+      multiplierError.value = errorMessage(error, t('admin.monthlyLedger.saveFailed'))
+    }
   } finally {
     savingMultiplier.value = false
   }
@@ -1008,145 +1007,4 @@ const confirmDeletePayment = async () => {
 onMounted(loadLedger)
 </script>
 
-<style scoped>
-.ledger-page { color: var(--nx-text); }
-.ledger-toolbar {
-  padding: 16px;
-  border: 1px solid var(--nx-border);
-  border-radius: 6px;
-  background: var(--nx-surface);
-}
-.month-control { display: grid; grid-template-columns: 36px minmax(132px, 1fr) 36px; }
-.month-input, .month-arrow {
-  height: 38px;
-  border: 1px solid var(--nx-border);
-  background: var(--nx-surface);
-  color: var(--nx-text);
-}
-.month-input { min-width: 138px; border-left: 0; border-right: 0; padding: 0 10px; font-size: 14px; }
-.month-arrow { display: grid; place-items: center; transition: background 150ms ease, color 150ms ease; }
-.month-arrow:first-child { border-radius: 4px 0 0 4px; }
-.month-arrow:last-child { border-radius: 0 4px 4px 0; }
-.month-arrow:hover:not(:disabled) { background: var(--nx-bg); color: var(--nx-accent); }
-.month-arrow:disabled { cursor: not-allowed; opacity: 0.4; }
-.open-month-notice {
-  margin-top: 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border-top: 1px solid var(--nx-border);
-  padding-top: 12px;
-  color: var(--nx-warning);
-  font-size: 13px;
-}
-.bulk-action-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 14px;
-  border: 1px solid color-mix(in srgb, var(--nx-accent) 28%, var(--nx-border));
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--nx-accent) 6%, var(--nx-surface));
-}
-.bulk-link {
-  color: var(--nx-accent);
-  font-size: 12px;
-  font-weight: 650;
-}
-.bulk-link::before { content: '·'; margin-right: 8px; color: var(--nx-subtle); }
-.bulk-link:hover:not(:disabled) { text-decoration: underline; }
-.bulk-link:disabled { cursor: wait; opacity: 0.55; }
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 14px;
-}
-.summary-card {
-  min-width: 0;
-  min-height: 108px;
-  display: flex;
-  align-items: center;
-  gap: 13px;
-  padding: 17px;
-  border: 1px solid var(--nx-border);
-  border-radius: 6px;
-  background: var(--nx-surface);
-  box-shadow: 0 1px 2px rgba(17, 17, 17, 0.03);
-}
-.summary-card-featured { border-top: 3px solid var(--nx-accent); padding-top: 15px; }
-.summary-card-featured:nth-child(3) { border-top-color: var(--nx-success); }
-.summary-icon { display: grid; width: 42px; height: 42px; flex: 0 0 42px; place-items: center; border-radius: 7px; }
-.summary-icon-neutral { background: rgba(71, 85, 105, 0.1); color: #475569; }
-.summary-icon-receivable { background: rgba(255, 86, 0, 0.11); color: var(--nx-accent); }
-.summary-icon-paid { background: rgba(22, 163, 74, 0.11); color: #15803d; }
-.summary-icon-outstanding { background: rgba(202, 138, 4, 0.12); color: #a16207; }
-.summary-icon-overpaid { background: rgba(3, 105, 161, 0.1); color: #0369a1; }
-.summary-label, .summary-detail { display: block; color: var(--nx-subtle); font-size: 11px; font-weight: 600; text-transform: uppercase; }
-.summary-value { display: block; margin-top: 6px; font-size: 20px; line-height: 1.2; letter-spacing: 0; white-space: nowrap; }
-.summary-detail { margin-top: 5px; font-weight: 500; text-transform: none; }
-.ledger-table-shell { border: 1px solid var(--nx-border); border-radius: 6px; background: var(--nx-surface); overflow: hidden; }
-.ledger-table { width: 100%; min-width: 1080px; border-collapse: collapse; }
-.ledger-table th { padding: 11px 14px; border-bottom: 1px solid var(--nx-border); background: var(--nx-bg); color: var(--nx-muted); font-size: 11px; font-weight: 700; text-transform: uppercase; }
-.ledger-table td { padding: 13px 14px; border-bottom: 1px solid var(--nx-border); vertical-align: middle; }
-.ledger-table tbody tr:last-child td { border-bottom: 0; }
-.ledger-table tbody tr:hover { background: color-mix(in srgb, var(--nx-bg) 65%, transparent); }
-.ledger-table tbody .ledger-row-selected { background: color-mix(in srgb, var(--nx-accent) 6%, var(--nx-surface)); }
-.selection-cell { width: 46px; padding-left: 12px !important; padding-right: 8px !important; }
-.selection-checkbox { width: 16px; height: 16px; cursor: pointer; border-radius: 3px; border-color: var(--nx-border); color: var(--nx-accent); }
-.selection-checkbox:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--nx-accent) 22%, transparent); }
-.sort-button { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; transition: color 150ms ease; }
-.sort-button:hover { color: var(--nx-accent); }
-.money-cell { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; font-size: 14px; }
-.deleted-badge, .payment-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: var(--nx-surface-muted);
-  color: var(--nx-muted);
-  font-size: 10px;
-  line-height: 18px;
-  padding: 0 6px;
-}
-.multiplier-button { display: inline-flex; align-items: center; gap: 5px; border-bottom: 1px dashed var(--nx-muted); color: var(--nx-text); }
-.multiplier-button:hover { border-color: var(--nx-accent); color: var(--nx-accent); }
-.status-badge { display: inline-flex; min-width: 68px; justify-content: center; border-radius: 999px; padding: 4px 9px; font-size: 11px; font-weight: 700; }
-.status-unpaid { background: rgba(220, 38, 38, 0.09); color: #b91c1c; }
-.status-partial { background: rgba(202, 138, 4, 0.11); color: #a16207; }
-.status-settled { background: rgba(22, 163, 74, 0.1); color: #15803d; }
-.status-overpaid { background: rgba(3, 105, 161, 0.1); color: #0369a1; }
-.status-waived { background: var(--nx-surface-muted); color: var(--nx-muted); }
-.icon-command { position: relative; display: grid; width: 32px; height: 32px; place-items: center; border-radius: 4px; color: var(--nx-muted); transition: background 150ms ease, color 150ms ease; }
-.icon-command:hover:not(:disabled) { background: var(--nx-bg); color: var(--nx-text); }
-.icon-command-primary { color: var(--nx-accent); }
-.icon-command-danger:hover { color: #dc2626; }
-.icon-command:disabled { cursor: not-allowed; opacity: 0.35; }
-.payment-count { position: absolute; right: -3px; top: -3px; min-width: 16px; height: 16px; padding: 0 4px; line-height: 16px; }
-.empty-row { height: 180px; text-align: center; color: var(--nx-subtle); font-size: 14px; }
-.amount-comparison { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; padding: 14px; border: 1px solid var(--nx-border); border-radius: 6px; background: var(--nx-bg); }
-.amount-comparison span { display: block; color: var(--nx-subtle); font-size: 11px; }
-.amount-comparison strong { display: block; margin-top: 4px; font-size: 18px; }
-.batch-scope {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px;
-  border: 1px solid var(--nx-border);
-  border-radius: 6px;
-  background: var(--nx-bg);
-  color: var(--nx-muted);
-  font-size: 13px;
-}
-.multiplier-preset { height: 38px; border: 1px solid var(--nx-border); border-radius: 4px; background: var(--nx-surface); color: var(--nx-muted); font-size: 13px; font-weight: 650; }
-.multiplier-preset:hover, .multiplier-preset-active { border-color: var(--nx-accent); background: rgba(255, 86, 0, 0.07); color: var(--nx-accent); }
-.payment-empty { display: grid; min-height: 230px; place-items: center; border: 1px dashed var(--nx-border); color: var(--nx-subtle); font-size: 13px; }
-.payment-record { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 14px 4px; }
-.payment-form { align-self: start; display: grid; gap: 16px; padding: 16px; border-left: 3px solid var(--nx-accent); background: var(--nx-bg); }
-@media (max-width: 640px) {
-  .bulk-action-bar { align-items: stretch; flex-direction: column; }
-  .bulk-action-bar > .btn { justify-content: center; width: 100%; }
-  .summary-grid { grid-template-columns: minmax(0, 1fr); }
-  .payment-form { border-left: 0; border-top: 3px solid var(--nx-accent); }
-}
-</style>
+<style scoped src="./monthlyLedger.css"></style>

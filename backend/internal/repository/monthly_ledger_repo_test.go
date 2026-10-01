@@ -31,13 +31,13 @@ func TestMonthlyLedgerListUsesOneDatasetWithFullSummaryAndFilteredTotal(t *testi
 		"summary_overpaid_count", "summary_waived_count", "filtered_total",
 		"user_id", "email", "username", "deleted", "usage_amount", "pricing_usage_amount", "multiplier",
 		"receivable_amount", "paid_amount", "outstanding_amount", "overpaid_amount",
-		"status", "payment_count", "last_paid_at", "manually_settled",
+		"status", "payment_count", "email_count", "last_email_amount", "last_email_sent_at", "last_paid_at", "manually_settled",
 	}
 	rows := sqlmock.NewRows(columns).AddRow(
 		810.0, 500.0, 300.25, 224.75, 25.0, int64(8),
 		int64(2), int64(1), int64(2), int64(2), int64(1), int64(1),
 		int64(7), "match@example.test", "Match", false, 600.01, 600.005, 0.5,
-		300.0, 125.25, 174.75, 0.0, "partial", int64(1), period.Start.Add(24*time.Hour), false,
+		300.0, 125.25, 174.75, 0.0, "partial", int64(1), int64(2), 42.35, period.Start.Add(48*time.Hour), period.Start.Add(24*time.Hour), false,
 	)
 	mock.ExpectQuery(`(?s)WITH live_usage_by_user AS.*\(\$7 = 0 OR user_id = \$7\)`).
 		WithArgs(period.Start, period.End, "2026-07-01", true, "match", "partial", int64(7), 20, 0).
@@ -52,6 +52,9 @@ func TestMonthlyLedgerListUsesOneDatasetWithFullSummaryAndFilteredTotal(t *testi
 	})
 	require.NoError(t, err)
 	require.Len(t, items, 1)
+	require.Equal(t, int64(2), items[0].EmailCount)
+	require.Equal(t, 42.35, items[0].LastEmailAmount)
+	require.NotNil(t, items[0].LastEmailSentAt)
 	require.Equal(t, 600.005, items[0].PricingUsageAmount)
 	require.Equal(t, int64(8), summary.UserCount)
 	require.Equal(t, 500.0, summary.ReceivableAmount)

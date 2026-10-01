@@ -1,6 +1,8 @@
 export default {
   monthlyLedger: {
     income: {
+      savedInMonth: 'Saved to other income for {month}',
+      invalidFields: 'Check required fields, amounts and dates. Amount must be positive with at most two decimal places.',
       overview: 'Monthly income overview', relay: 'Relay', other: 'Other income', title: 'Project', customer: 'Customer', category: 'Category',
       amount: 'Receivable', paid: 'Received', cost: 'Cost', profit: 'Expected profit', status: 'Payment status', billingDate: 'Billing date', dueDate: 'Due date',
       add: 'Add income', edit: 'Edit income', search: 'Search projects, customers or notes', allCategories: 'All categories', empty: 'No other income for this month',
@@ -21,6 +23,10 @@ export default {
       quotaHint: 'Shared across all manual and automatic ledger emails. Failed attempts count. Resets daily in the server timezone. Set 0 to pause sending.',
       limitReached: 'The daily ledger email limit has been reached',
       title: 'Automatic monthly email notices',
+      historyTitle: 'Email history', sentCount: 'Sent this month', previewTitle: 'View message',
+      historyCoverage: 'Full records are saved from feature activation. Older automatic emails have amounts and times only; older manual emails were not recorded. Sent means accepted by the mail server.',
+      noHistory: 'No saved email records for this month', contentUnavailable: 'Historical subject and body were not saved', manual: 'Manual', automatic: 'Automatic',
+      deliveryStatus: { sending: 'Sending / unconfirmed', sent: 'Sent', failed: 'Failed' },
       enabled: 'Enabled',
       disabled: 'Disabled',
       effectiveMonth: 'Effective from {month}',
@@ -38,6 +44,9 @@ export default {
     allStatuses: 'All statuses',
     refresh: 'Refresh ledger',
     summary: {
+      actualUsage: 'Relay actual usage',
+      actualUsageHint: 'Actual billed usage',
+      combined: 'Relay + other income',
       usage: 'Raw usage',
       receivable: 'Total receivable',
       paid: 'Total received',

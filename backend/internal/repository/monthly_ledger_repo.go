@@ -53,6 +53,14 @@ payments_by_user AS (
 	WHERE billing_month = $3
 	GROUP BY user_id
 ),
+emails_by_user AS (
+	SELECT user_id, COUNT(*) FILTER (WHERE sent_at IS NOT NULL)::bigint AS email_count,
+		(ARRAY_AGG(amount ORDER BY sent_at DESC, id DESC) FILTER (WHERE sent_at IS NOT NULL))[1] AS last_email_amount,
+		MAX(sent_at) AS last_email_sent_at
+	FROM monthly_ledger_email_history
+	WHERE billing_month = $3
+	GROUP BY user_id
+),
 eligible_users AS (
 	SELECT user_id FROM usage_by_user
 	UNION
@@ -73,6 +81,9 @@ amounts AS (
 		ROUND(COALESCE(payments.paid_amount, 0), 2) AS paid_amount,
 		COALESCE(payments.payment_count, 0) AS payment_count,
 		payments.last_paid_at,
+		COALESCE(emails.email_count, 0) AS email_count,
+		COALESCE(emails.last_email_amount, 0) AS last_email_amount,
+		emails.last_email_sent_at,
 		COALESCE(settlement.manually_settled, FALSE) AS manually_settled
 	FROM eligible_users eligible
 	JOIN users u ON u.id = eligible.user_id AND u.role = 'user'
@@ -82,6 +93,7 @@ amounts AS (
 		ON mult.user_id = u.id AND mult.billing_month = $3
 	LEFT JOIN monthly_ledger_settlements settlement
 		ON settlement.user_id = u.id AND settlement.billing_month = $3
+	LEFT JOIN emails_by_user emails ON emails.user_id = u.id
 ),
 ledger AS (
 	SELECT
@@ -150,7 +162,7 @@ func (r *monthlyLedgerRepository) List(ctx context.Context, period service.Month
 		page_items.user_id, page_items.email, page_items.username, page_items.deleted,
 		page_items.usage_amount, page_items.pricing_usage_amount, page_items.multiplier, page_items.receivable_amount,
 		page_items.paid_amount, page_items.outstanding_amount, page_items.overpaid_amount,
-		page_items.status, page_items.payment_count, page_items.last_paid_at, page_items.manually_settled
+		page_items.status, page_items.payment_count, page_items.email_count, page_items.last_email_amount, page_items.last_email_sent_at, page_items.last_paid_at, page_items.manually_settled
 	FROM summary
 	CROSS JOIN filtered_count
 	LEFT JOIN page_items ON TRUE
@@ -167,12 +179,12 @@ func (r *monthlyLedgerRepository) List(ctx context.Context, period service.Month
 	for rows.Next() {
 		rowSummary := &service.MonthlyLedgerSummary{}
 		var rowTotal int64
-		var userID, paymentCount sql.NullInt64
+		var userID, paymentCount, emailCount sql.NullInt64
 		var email, username, status sql.NullString
 		var deleted, manuallySettled sql.NullBool
 		var usageAmount, pricingUsageAmount, multiplier, receivableAmount sql.NullFloat64
-		var paidAmount, outstandingAmount, overpaidAmount sql.NullFloat64
-		var lastPaidAt sql.NullTime
+		var paidAmount, outstandingAmount, overpaidAmount, lastEmailAmount sql.NullFloat64
+		var lastPaidAt, lastEmailSentAt sql.NullTime
 		if err := rows.Scan(
 			&rowSummary.UsageAmount, &rowSummary.ReceivableAmount, &rowSummary.PaidAmount,
 			&rowSummary.OutstandingAmount, &rowSummary.OverpaidAmount, &rowSummary.UserCount,
@@ -180,7 +192,7 @@ func (r *monthlyLedgerRepository) List(ctx context.Context, period service.Month
 			&rowSummary.OverpaidCount, &rowSummary.WaivedCount, &rowTotal,
 			&userID, &email, &username, &deleted, &usageAmount, &pricingUsageAmount, &multiplier,
 			&receivableAmount, &paidAmount, &outstandingAmount, &overpaidAmount,
-			&status, &paymentCount, &lastPaidAt, &manuallySettled,
+			&status, &paymentCount, &emailCount, &lastEmailAmount, &lastEmailSentAt, &lastPaidAt, &manuallySettled,
 		); err != nil {
 			return nil, nil, nil, fmt.Errorf("scan monthly ledger row: %w", err)
 		}
@@ -200,6 +212,11 @@ func (r *monthlyLedgerRepository) List(ctx context.Context, period service.Month
 			PaidAmount: paidAmount.Float64, OutstandingAmount: outstandingAmount.Float64,
 			OverpaidAmount: overpaidAmount.Float64, Status: status.String,
 			PaymentCount: paymentCount.Int64,
+			EmailCount:   emailCount.Int64, LastEmailAmount: lastEmailAmount.Float64,
+		}
+		if lastEmailSentAt.Valid {
+			value := lastEmailSentAt.Time
+			item.LastEmailSentAt = &value
 		}
 		if lastPaidAt.Valid {
 			value := lastPaidAt.Time

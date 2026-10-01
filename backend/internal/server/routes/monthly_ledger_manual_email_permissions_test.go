@@ -12,6 +12,7 @@ func TestMonthlyLedgerManualEmailPermissions(t *testing.T) {
 		action       service.AdminPermissionAction
 	}{
 		{"GET", "email-quota", service.AdminActionView},
+		{"GET", ":month/users/:user_id/emails", service.AdminActionView},
 		{"PUT", "email-quota", service.AdminActionUpdate},
 		{"PUT", "email-notifications", service.AdminActionUpdate},
 		{"POST", "emails", service.AdminActionCreate},

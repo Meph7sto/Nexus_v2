@@ -67,6 +67,9 @@ type MonthlyLedgerRow struct {
 	OverpaidAmount     float64    `json:"overpaid_amount"`
 	Status             string     `json:"status"`
 	PaymentCount       int64      `json:"payment_count"`
+	EmailCount         int64      `json:"email_count"`
+	LastEmailAmount    float64    `json:"last_email_amount"`
+	LastEmailSentAt    *time.Time `json:"last_email_sent_at,omitempty"`
 	LastPaidAt         *time.Time `json:"last_paid_at,omitempty"`
 }
 

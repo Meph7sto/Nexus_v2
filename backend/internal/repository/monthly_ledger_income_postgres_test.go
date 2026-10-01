@@ -39,7 +39,7 @@ func TestIncomePostgres(t *testing.T) {
 	_, e = db.Exec(`CREATE TABLE users(id BIGINT PRIMARY KEY,email TEXT,username TEXT,role TEXT,deleted_at TIMESTAMPTZ);
 	CREATE TABLE usage_logs(user_id BIGINT,actual_cost NUMERIC(30,10),created_at TIMESTAMPTZ);`)
 	require.NoError(t, e)
-	for _, name := range []string{"188_monthly_ledger.sql", "229_monthly_ledger_usage_snapshots.sql", "235_monthly_ledger_settlements.sql"} {
+	for _, name := range []string{"188_monthly_ledger.sql", "229_monthly_ledger_usage_snapshots.sql", "235_monthly_ledger_settlements.sql", "241_monthly_ledger_email_notifications.sql", "244_monthly_ledger_email_history.sql"} {
 		data, err := os.ReadFile("../../migrations/" + name)
 		require.NoError(t, err)
 		_, err = db.Exec(string(data))

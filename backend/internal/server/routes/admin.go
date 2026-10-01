@@ -158,6 +158,7 @@ func registerMonthlyLedgerRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		ledger.POST("/emails", h.Admin.MonthlyLedger.SendManualEmail)
 		ledger.PUT("/email-notifications/:user_id", h.Admin.MonthlyLedger.SetEmailPreference)
 		ledger.GET("/:month/users/:user_id/payments", h.Admin.MonthlyLedger.ListPayments)
+		ledger.GET("/:month/users/:user_id/emails", h.Admin.MonthlyLedger.ListEmailHistory)
 		ledger.PUT("/:month/multipliers", h.Admin.MonthlyLedger.SetMultipliers)
 		ledger.PUT("/:month/users/:user_id/multiplier", h.Admin.MonthlyLedger.SetMultiplier)
 		ledger.PUT("/:month/users/:user_id/settlement", h.Admin.MonthlyLedger.SetSettlement)

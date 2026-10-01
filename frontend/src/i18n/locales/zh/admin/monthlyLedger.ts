@@ -1,6 +1,8 @@
 export default {
   monthlyLedger: {
     income: {
+      savedInMonth: '已保存至 {month} 的其他收入',
+      invalidFields: '请检查必填项、金额和日期；金额必须大于 0，最多两位小数。',
       overview: '月度收入总览', relay: '中转站', other: '其他收入', title: '项目', customer: '客户', category: '分类',
       amount: '应收', paid: '实收', cost: '成本', profit: '预计利润', status: '收款状态', billingDate: '账单日期', dueDate: '到期日',
       add: '新增收入', edit: '编辑收入', search: '搜索项目、客户或备注', allCategories: '全部分类', empty: '这个月份暂无其他收入',
@@ -21,6 +23,10 @@ export default {
       quotaHint: '全站手动与自动月结邮件共用额度；失败尝试也计数，按服务端时区每日重置。0 表示暂停发送。',
       limitReached: '今日月结邮件额度已用完',
       title: '月结自动邮件通知',
+      historyTitle: '邮件记录', sentCount: '本月已发送次数', previewTitle: '查看正文',
+      historyCoverage: '完整记录从本功能启用后开始保存。历史自动邮件仅保留金额和时间，历史手动邮件未保存记录。已发送表示邮件服务器已接收。',
+      noHistory: '本月没有已保存的邮件记录', contentUnavailable: '历史邮件未保存主题及正文', manual: '手动发送', automatic: '自动发送',
+      deliveryStatus: { sending: '发送中 / 结果未确认', sent: '已发送', failed: '发送失败' },
       enabled: '已开启',
       disabled: '已关闭',
       effectiveMonth: '从 {month} 账单起生效',
@@ -38,6 +44,9 @@ export default {
     allStatuses: '全部状态',
     refresh: '刷新账目',
     summary: {
+      actualUsage: '中转站实际消耗',
+      actualUsageHint: '按系统实际扣费统计',
+      combined: '中转站 + 其他收入',
       usage: '原始用量',
       receivable: '总应收',
       paid: '总实收',

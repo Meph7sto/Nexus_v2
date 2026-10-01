@@ -87,6 +87,12 @@ const authStore = vi.hoisted(() => ({
 vi.mock("@/api", () => ({
   adminAPI: {
     settings: {
+      getEmailTemplates: vi.fn().mockResolvedValue({
+        events: ["auth.verify_code", "billing.monthly_ledger", "billing.monthly_ledger_manual", "subscription.expiry_reminder", "balance.low", "account.quota_alert"],
+        locales: ["zh", "en"],
+      }),
+      getEmailTemplate: vi.fn().mockResolvedValue({ subject: "Subject", html: "<p>Email</p>" }),
+      previewEmailTemplate: vi.fn().mockResolvedValue({ subject: "Subject", html: "<p>Email</p>" }),
       getSettings,
       updateSettings,
       getWebSearchEmulationConfig,
@@ -734,10 +740,19 @@ describe("admin SettingsView payment visible method controls", () => {
   it("defaults monthly ledger email off and saves explicit on/off values", async () => {
     const wrapper = mountView();
     await flushPromises();
+    expect(wrapper.find("#monthly-ledger-email-enabled").exists()).toBe(false);
+    await wrapper.get("#email-template-event").setValue("billing.monthly_ledger");
+    await flushPromises();
     const toggle = wrapper.get<HTMLInputElement>("#monthly-ledger-email-enabled");
     expect(toggle.element.checked).toBe(false);
     for (const enabled of [true, false]) {
-      await toggle.setValue(enabled);
+      await wrapper.get("#monthly-ledger-email-enabled").setValue(enabled);
+      await wrapper.get("#email-template-event").setValue("billing.monthly_ledger_manual");
+      await flushPromises();
+      expect(wrapper.find("#monthly-ledger-email-enabled").exists()).toBe(false);
+      await wrapper.get("#email-template-event").setValue("billing.monthly_ledger");
+      await flushPromises();
+      expect(wrapper.get<HTMLInputElement>("#monthly-ledger-email-enabled").element.checked).toBe(enabled);
       await wrapper.find("form").trigger("submit.prevent");
       await flushPromises();
       expect(updateSettings).toHaveBeenLastCalledWith(expect.objectContaining({ monthly_ledger_email_enabled: enabled }));

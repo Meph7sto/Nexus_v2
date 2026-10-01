@@ -3,6 +3,8 @@ import { flushPromises, mount } from '@vue/test-utils'
 
 import MonthlyLedgerView from '../MonthlyLedgerView.vue'
 import MonthlyLedgerSendEmailDialog from '../MonthlyLedgerSendEmailDialog.vue'
+import MonthlyLedgerOverview from '../MonthlyLedgerOverview.vue'
+import MonthlyLedgerIncome from '../MonthlyLedgerIncome.vue'
 
 const { list, listPayments, setSettlement, setMultiplier, setMultipliers, createPayment, updatePayment, deletePayment, showError, showSuccess, canAdmin } = vi.hoisted(() => ({
   setSettlement: vi.fn(),
@@ -97,6 +99,21 @@ const mountView = (paginationStub: unknown = true) => mount(MonthlyLedgerView, {
 })
 
 describe('MonthlyLedgerView', () => {
+  it('shares one monthly overview across both tabs and refreshes it when other income changes', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const overview = wrapper.getComponent(MonthlyLedgerOverview)
+    const revision = overview.props('revision')
+    await wrapper.findAll('[role="tab"]')[1].trigger('click')
+    expect(wrapper.findAllComponents(MonthlyLedgerOverview)).toHaveLength(1)
+    expect(overview.props('relaySummary').usage_amount).toBe(600)
+    wrapper.getComponent(MonthlyLedgerIncome).vm.$emit('changed')
+    await flushPromises()
+    expect(overview.props('revision')).toBe(revision + 1)
+    await wrapper.findAll('[role="tab"]')[0].trigger('click')
+    expect(wrapper.findAllComponents(MonthlyLedgerOverview)).toHaveLength(1)
+    wrapper.unmount()
+  })
   it('opens email from the row with its recipient and the selected month', async () => {
     const wrapper = mountView()
     await flushPromises()
@@ -153,7 +170,7 @@ describe('MonthlyLedgerView', () => {
     expect(setSettlement).toHaveBeenLastCalledWith('2026-07', 7, true)
     expect(wrapper.get('[data-test="manual-settlement"]').attributes('aria-checked')).toBe('true')
     expect(wrapper.get<HTMLInputElement>('[data-test="payment-amount"]').element.value).toBe('1000')
-    expect(wrapper.get('[data-test="summary-outstanding"]').text()).toContain('$0.00')
+    expect(wrapper.getComponent(MonthlyLedgerOverview).props('relaySummary').outstanding_amount).toBe(0)
     expect(createPayment).not.toHaveBeenCalled()
     list.mockResolvedValue(response())
     await wrapper.get('[data-test="manual-settlement"]').trigger('click')
@@ -230,8 +247,8 @@ describe('MonthlyLedgerView', () => {
     expect(wrapper.text()).toContain('customer@example.test')
     expect(wrapper.text()).toContain('$600.00')
     expect(wrapper.find<HTMLInputElement>('[data-test="ledger-month"]').element.value).toBe('2026-07')
-    expect(wrapper.find('[data-test="summary-receivable"]').text()).toContain('$600.00')
-    expect(wrapper.find('[data-test="summary-paid"]').text()).toContain('$0.00')
+    expect(wrapper.findAllComponents(MonthlyLedgerOverview)).toHaveLength(1)
+    expect(wrapper.getComponent(MonthlyLedgerOverview).props('relaySummary')).toMatchObject({ usage_amount: 600, receivable_amount: 600, paid_amount: 0 })
   })
 
   it('sets a per-user monthly multiplier from a quick option', async () => {
@@ -244,6 +261,79 @@ describe('MonthlyLedgerView', () => {
     await flushPromises()
 
     expect(setMultiplier).toHaveBeenCalledWith('2026-07', 7, 0.5)
+  })
+
+  it.each(['single', 'batch'])('rejects an empty %s multiplier but allows an explicit zero', async (mode) => {
+    const wrapper = mountView()
+    await flushPromises()
+    if (mode === 'batch') {
+      await wrapper.get('[data-test="select-user-7"]').trigger('change')
+      await wrapper.get('[data-test="open-bulk-multiplier"]').trigger('click')
+    } else {
+      await wrapper.get('[data-test="edit-multiplier-7"]').trigger('click')
+    }
+    await wrapper.get('#custom-multiplier').setValue('')
+    await wrapper.get('[data-test="save-multiplier"]').trigger('click')
+    expect(setMultiplier).not.toHaveBeenCalled()
+    expect(setMultipliers).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('admin.monthlyLedger.multiplier.invalid')
+
+    await wrapper.get('[data-test="multiplier-preset-0"]').trigger('click')
+    await wrapper.get('[data-test="save-multiplier"]').trigger('click')
+    await flushPromises()
+    if (mode === 'batch') expect(setMultipliers).toHaveBeenCalledWith('2026-07', [7], 0)
+    else expect(setMultiplier).toHaveBeenCalledWith('2026-07', 7, 0)
+    wrapper.unmount()
+  })
+
+  it('discards stale selection context after a month fails to load and recovers on retry', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('[data-test="select-user-7"]').trigger('change')
+    list.mockRejectedValueOnce(new Error('month unavailable'))
+    await wrapper.get('[data-test="ledger-month"]').setValue('2026-06')
+    await flushPromises()
+    expect(wrapper.find('[data-test="select-all-results"]').exists()).toBe(false)
+    expect(wrapper.get('[data-test="open-bulk-multiplier"]').attributes('disabled')).toBeDefined()
+
+    list.mockResolvedValue({ ...response(), month: '2026-06', items: [{ ...response().items[0], user_id: 8 }] })
+    await wrapper.get('#ledger-search').trigger('keyup.enter')
+    await flushPromises()
+    await wrapper.get('[data-test="select-all-results"]').trigger('click')
+    await flushPromises()
+    expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ month: '2026-06', page_size: 200 }))
+    await wrapper.get('[data-test="open-bulk-multiplier"]').trigger('click')
+    await wrapper.get('[data-test="save-multiplier"]').trigger('click')
+    await flushPromises()
+    expect(setMultipliers).toHaveBeenCalledWith('2026-06', [8], 1)
+    wrapper.unmount()
+  })
+
+  it.each([false, true])('preserves a newer multiplier dialog when an old save settles (failure: %s)', async (fails) => {
+    let resolveSave!: () => void
+    let rejectSave!: (error: Error) => void
+    setMultiplier.mockImplementationOnce(() => new Promise<void>((resolve, reject) => {
+      resolveSave = resolve
+      rejectSave = reject
+    }))
+    list.mockResolvedValue({ ...response(), items: [response().items[0], { ...response().items[0], user_id: 8 }], total: 2 })
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('[data-test="edit-multiplier-7"]').trigger('click')
+    await wrapper.get('[data-test="save-multiplier"]').trigger('click')
+    await wrapper.get('[data-test="close-dialog"]').trigger('click')
+    await wrapper.get('[data-test="edit-multiplier-8"]').trigger('click')
+    await wrapper.get('#custom-multiplier').setValue('0.8')
+    if (fails) rejectSave(new Error('old save failed'))
+    else resolveSave()
+    await flushPromises()
+    expect(wrapper.get<HTMLInputElement>('#custom-multiplier').element.value).toBe('0.8')
+    expect(wrapper.text()).not.toContain('old save failed')
+    expect(wrapper.get('[data-test="save-multiplier"]').attributes('disabled')).toBeUndefined()
+    await wrapper.get('[data-test="save-multiplier"]').trigger('click')
+    await flushPromises()
+    expect(setMultiplier).toHaveBeenLastCalledWith('2026-07', 8, 0.8)
+    wrapper.unmount()
   })
 
   it('keeps partial selections across pages and updates all selected users', async () => {

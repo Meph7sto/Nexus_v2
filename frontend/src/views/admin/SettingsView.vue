@@ -8793,178 +8793,150 @@
             </div>
           </div>
 
-          <!-- 订阅到期提醒 -->
-          <div class="card">
-            <div
-              class="border-b border-gray-100 px-6 py-4 "
-            >
-              <h3 class="text-base font-medium text-gray-900 ">
-                {{ t("admin.settings.subscriptionExpiryNotify.title") }}
-              </h3>
-              <p class="mt-1 text-sm text-gray-500 ">
-                {{ t("admin.settings.subscriptionExpiryNotify.description") }}
-              </p>
-            </div>
-            <div class="px-6 py-6">
+          <EmailTemplateEditor>
+            <template #subscription-expiry_reminder>
+              <div>
+                <div class="flex items-center justify-between gap-4">
+                  <div>
+                    <label for="subscription-expiry-notify-enabled"
+                      class="mb-0 block text-sm font-medium text-gray-700 "
+                    >
+                      {{ t("admin.settings.subscriptionExpiryNotify.enabled") }}
+                    </label>
+                    <p class="mt-1 text-xs text-gray-500 ">
+                      {{ t("admin.settings.subscriptionExpiryNotify.enabledHint") }}
+                    </p>
+                  </div>
+                  <Toggle id="subscription-expiry-notify-enabled" v-model="form.subscription_expiry_notify_enabled" />
+                </div>
+              </div>
+            </template>
+
+            <template #billing-monthly_ledger>
               <div class="flex items-center justify-between gap-4">
-                <div>
+                <label for="monthly-ledger-email-enabled" class="text-sm font-medium text-gray-700">
+                  {{ t("admin.settings.monthlyLedgerEmailEnabled") }}
+                </label>
+                <Toggle id="monthly-ledger-email-enabled" v-model="form.monthly_ledger_email_enabled" data-testid="monthly-ledger-email-enabled" />
+              </div>
+            </template>
+
+            <template #balance-low>
+              <div class="space-y-4">
+                <div class="flex items-center justify-between gap-4">
                   <label
+                    for="balance-low-notify-enabled"
                     class="mb-0 block text-sm font-medium text-gray-700 "
+                    >{{ t("admin.settings.balanceNotify.enabled") }}</label
                   >
-                    {{ t("admin.settings.subscriptionExpiryNotify.enabled") }}
-                  </label>
+                  <Toggle id="balance-low-notify-enabled" v-model="form.balance_low_notify_enabled" />
+                </div>
+                <div v-if="form.balance_low_notify_enabled">
+                  <label
+                    class="mb-2 block text-sm font-medium text-gray-700 "
+                    >{{ t("admin.settings.balanceNotify.threshold") }}</label
+                  >
+                  <div class="relative">
+                    <span
+                      class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                      >$</span
+                    >
+                    <input
+                      v-model.number="form.balance_low_notify_threshold"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      class="input pl-7"
+                    />
+                  </div>
                   <p class="mt-1 text-xs text-gray-500 ">
-                    {{ t("admin.settings.subscriptionExpiryNotify.enabledHint") }}
+                    {{ t("admin.settings.balanceNotify.thresholdHint") }}
                   </p>
                 </div>
-                <Toggle v-model="form.subscription_expiry_notify_enabled" />
-              </div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between gap-4 border-b border-gray-100 px-6 py-6">
-            <label for="monthly-ledger-email-enabled" class="text-sm font-medium text-gray-700">
-              {{ t("admin.settings.monthlyLedgerEmailEnabled") }}
-            </label>
-            <Toggle id="monthly-ledger-email-enabled" v-model="form.monthly_ledger_email_enabled" data-testid="monthly-ledger-email-enabled" />
-          </div>
-          <EmailTemplateEditor />
-
-          <!-- Balance Low Notification -->
-          <div class="card">
-            <div
-              class="border-b border-gray-100 px-6 py-4 "
-            >
-              <h3 class="text-base font-medium text-gray-900 ">
-                {{ t("admin.settings.balanceNotify.title") }}
-              </h3>
-              <p class="mt-1 text-sm text-gray-500 ">
-                {{ t("admin.settings.balanceNotify.description") }}
-              </p>
-            </div>
-            <div class="px-6 py-6 space-y-4">
-              <div class="flex items-center justify-between">
-                <label
-                  class="mb-0 block text-sm font-medium text-gray-700 "
-                  >{{ t("admin.settings.balanceNotify.enabled") }}</label
-                >
-                <Toggle v-model="form.balance_low_notify_enabled" />
-              </div>
-              <div v-if="form.balance_low_notify_enabled">
-                <label
-                  class="mb-2 block text-sm font-medium text-gray-700 "
-                  >{{ t("admin.settings.balanceNotify.threshold") }}</label
-                >
-                <div class="relative">
-                  <span
-                    class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                    >$</span
+                <div>
+                  <label
+                    class="mb-2 block text-sm font-medium text-gray-700 "
+                    >{{ t("admin.settings.balanceNotify.rechargeUrl") }}</label
                   >
                   <input
-                    v-model.number="form.balance_low_notify_threshold"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    class="input pl-7"
+                    v-model="form.balance_low_notify_recharge_url"
+                    type="url"
+                    class="input"
+                    :placeholder="currentOrigin"
                   />
+                  <p class="mt-1 text-xs text-gray-500 ">
+                    {{ t("admin.settings.balanceNotify.rechargeUrlHint") }}
+                  </p>
                 </div>
-                <p class="mt-1 text-xs text-gray-500 ">
-                  {{ t("admin.settings.balanceNotify.thresholdHint") }}
-                </p>
               </div>
-              <div>
-                <label
-                  class="mb-2 block text-sm font-medium text-gray-700 "
-                  >{{ t("admin.settings.balanceNotify.rechargeUrl") }}</label
-                >
-                <input
-                  v-model="form.balance_low_notify_recharge_url"
-                  type="url"
-                  class="input"
-                  :placeholder="currentOrigin"
-                />
-                <p class="mt-1 text-xs text-gray-500 ">
-                  {{ t("admin.settings.balanceNotify.rechargeUrlHint") }}
-                </p>
-              </div>
-            </div>
-          </div>
+            </template>
 
-          <!-- Account Quota Notification -->
-          <div class="card">
-            <div
-              class="border-b border-gray-100 px-6 py-4 "
-            >
-              <h3 class="text-base font-medium text-gray-900 ">
-                {{ t("admin.settings.quotaNotify.title") }}
-              </h3>
-              <p class="mt-1 text-sm text-gray-500 ">
-                {{ t("admin.settings.quotaNotify.description") }}
-              </p>
-            </div>
-            <div class="px-6 py-6 space-y-4">
-              <div class="flex items-center justify-between">
-                <label
-                  class="mb-0 block text-sm font-medium text-gray-700 "
-                  >{{ t("admin.settings.quotaNotify.enabled") }}</label
-                >
-                <Toggle v-model="form.account_quota_notify_enabled" />
-              </div>
-              <div v-if="form.account_quota_notify_enabled">
-                <label
-                  class="mb-2 block text-sm font-medium text-gray-700 "
-                  >{{ t("admin.settings.quotaNotify.emails") }}</label
-                >
-                <div class="space-y-2">
-                  <div
-                    v-for="(entry, index) in form.account_quota_notify_emails ||
-                    []"
-                    :key="index"
-                    class="flex items-center gap-2"
+            <template #account-quota_alert>
+              <div class="space-y-4">
+                <div class="flex items-center justify-between gap-4">
+                  <label
+                    for="account-quota-notify-enabled"
+                    class="mb-0 block text-sm font-medium text-gray-700 "
+                    >{{ t("admin.settings.quotaNotify.enabled") }}</label
                   >
-                    <label
-                      class="relative inline-flex items-center cursor-pointer shrink-0"
+                  <Toggle id="account-quota-notify-enabled" v-model="form.account_quota_notify_enabled" />
+                </div>
+                <div v-if="form.account_quota_notify_enabled">
+                  <label
+                    class="mb-2 block text-sm font-medium text-gray-700 "
+                    >{{ t("admin.settings.quotaNotify.emails") }}</label
+                  >
+                  <div class="space-y-2">
+                    <div
+                      v-for="(entry, index) in form.account_quota_notify_emails ||
+                      []"
+                      :key="index"
+                      class="flex items-center gap-2"
                     >
+                      <label
+                        class="relative inline-flex items-center cursor-pointer shrink-0"
+                      >
+                        <input
+                          type="checkbox"
+                          :checked="!entry.disabled"
+                          @change="entry.disabled = !entry.disabled"
+                          class="sr-only peer"
+                        />
+                        <div
+                          class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer  peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all  peer-checked:bg-primary-600"
+                        ></div>
+                      </label>
                       <input
-                        type="checkbox"
-                        :checked="!entry.disabled"
-                        @change="entry.disabled = !entry.disabled"
-                        class="sr-only peer"
+                        v-model="entry.email"
+                        type="email"
+                        class="input flex-1"
+                        :placeholder="
+                          t('admin.settings.quotaNotify.emailPlaceholder')
+                        "
                       />
-                      <div
-                        class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer  peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all  peer-checked:bg-primary-600"
-                      ></div>
-                    </label>
-                    <input
-                      v-model="entry.email"
-                      type="email"
-                      class="input flex-1"
-                      :placeholder="
-                        t('admin.settings.quotaNotify.emailPlaceholder')
-                      "
-                    />
+                      <button
+                        @click="form.account_quota_notify_emails.splice(index, 1)"
+                        class="btn btn-secondary px-2"
+                        type="button"
+                      >
+                        <Icon name="x" size="xs" class="h-4 w-4" />
+                      </button>
+                    </div>
                     <button
-                      @click="form.account_quota_notify_emails.splice(index, 1)"
-                      class="btn btn-secondary px-2"
+                      @click="addQuotaNotifyEmail"
+                      class="btn btn-secondary btn-sm"
                       type="button"
                     >
-                      <Icon name="x" size="xs" class="h-4 w-4" />
+                      + {{ t("admin.settings.quotaNotify.addEmail") }}
                     </button>
                   </div>
-                  <button
-                    @click="addQuotaNotifyEmail"
-                    class="btn btn-secondary btn-sm"
-                    type="button"
-                  >
-                    + {{ t("admin.settings.quotaNotify.addEmail") }}
-                  </button>
+                  <p class="mt-1 text-xs text-gray-500 ">
+                    {{ t("admin.settings.quotaNotify.emailsHint") }}
+                  </p>
                 </div>
-                <p class="mt-1 text-xs text-gray-500 ">
-                  {{ t("admin.settings.quotaNotify.emailsHint") }}
-                </p>
               </div>
-            </div>
-          </div>
+            </template>
+          </EmailTemplateEditor>
         </div>
         <!-- /Tab: Email -->
 
