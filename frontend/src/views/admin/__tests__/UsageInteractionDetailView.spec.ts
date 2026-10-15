@@ -58,7 +58,7 @@ vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
   return {
     ...actual,
-    useI18n: () => ({ t: (key: string) => key }),
+    useI18n: () => ({ t: (key: string) => key, te: () => true }),
   }
 })
 
@@ -121,6 +121,27 @@ describe('UsageInteractionDetailView', () => {
     await wrapper.get('[data-test="usage-interaction-tab-output"]').trigger('click')
     expect(wrapper.text()).toContain('preserved output')
     expect(wrapper.text()).not.toContain('raw output')
+  })
+
+  it('defaults to parsed request and response without fetching privileged raw data', async () => {
+    getInteraction.mockResolvedValue({ exists: true, interaction: {
+      ...interactionWithoutRaw.interaction,
+      parsed_request: { protocol: 'responses', format: 'json', warnings: [], ended: false, blocks: [
+        { role: 'user', kind: 'text', text: 'Readable question', source: '$.input' },
+      ] },
+      parsed_response: { protocol: 'responses', format: 'sse', warnings: ['missing_end'], ended: false, blocks: [
+        { role: 'assistant', kind: 'text', text: '**Readable answer**', source: '$.output' },
+      ] },
+    } })
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.text()).toContain('Readable question')
+    expect(wrapper.get('strong').text()).toBe('Readable answer')
+    expect(wrapper.text()).not.toContain('preserved input')
+    expect(getInteractionRaw).not.toHaveBeenCalled()
+    await wrapper.get('[data-test="usage-interaction-tab-output"]').trigger('click')
+    expect(wrapper.text()).not.toContain('Readable question')
+    expect(wrapper.text()).toContain('Readable answer')
   })
 
   it('uses the dedicated raw endpoint only after a permitted user opens the raw tab', async () => {

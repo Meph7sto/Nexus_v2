@@ -11,6 +11,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/pkg/interactionparse"
 )
 
 const (
@@ -32,25 +34,27 @@ type UsageInteractionSettings struct {
 }
 
 type UsageInteraction struct {
-	ID                int64          `json:"id"`
-	UsageLogID        int64          `json:"usage_log_id"`
-	RequestID         string         `json:"request_id"`
-	UserID            int64          `json:"user_id"`
-	APIKeyID          int64          `json:"api_key_id"`
-	AccountID         int64          `json:"account_id"`
-	GroupID           *int64         `json:"group_id,omitempty"`
-	CaptureStatus     string         `json:"capture_status"`
-	CaptureError      *string        `json:"capture_error,omitempty"`
-	RequestContent    map[string]any `json:"request_content"`
-	ResponseContent   map[string]any `json:"response_content"`
-	RequestParameters map[string]any `json:"request_parameters"`
-	RoutingContext    map[string]any `json:"routing_context"`
-	RawRequestJSON    map[string]any `json:"raw_request_json,omitempty"`
-	RawResponseJSON   map[string]any `json:"raw_response_json,omitempty"`
-	RawAvailable      bool           `json:"raw_available"`
-	RedactionApplied  bool           `json:"redaction_applied"`
-	RedactionKeys     []string       `json:"redaction_keys"`
-	CreatedAt         time.Time      `json:"created_at"`
+	ParsedRequest     *interactionparse.Document `json:"parsed_request,omitempty"`
+	ParsedResponse    *interactionparse.Document `json:"parsed_response,omitempty"`
+	ID                int64                      `json:"id"`
+	UsageLogID        int64                      `json:"usage_log_id"`
+	RequestID         string                     `json:"request_id"`
+	UserID            int64                      `json:"user_id"`
+	APIKeyID          int64                      `json:"api_key_id"`
+	AccountID         int64                      `json:"account_id"`
+	GroupID           *int64                     `json:"group_id,omitempty"`
+	CaptureStatus     string                     `json:"capture_status"`
+	CaptureError      *string                    `json:"capture_error,omitempty"`
+	RequestContent    map[string]any             `json:"request_content"`
+	ResponseContent   map[string]any             `json:"response_content"`
+	RequestParameters map[string]any             `json:"request_parameters"`
+	RoutingContext    map[string]any             `json:"routing_context"`
+	RawRequestJSON    map[string]any             `json:"raw_request_json,omitempty"`
+	RawResponseJSON   map[string]any             `json:"raw_response_json,omitempty"`
+	RawAvailable      bool                       `json:"raw_available"`
+	RedactionApplied  bool                       `json:"redaction_applied"`
+	RedactionKeys     []string                   `json:"redaction_keys"`
+	CreatedAt         time.Time                  `json:"created_at"`
 }
 
 type UsageInteractionInput struct {
@@ -185,7 +189,37 @@ func (s *UsageInteractionService) GetByUsageLogID(ctx context.Context, usageLogI
 	if interaction == nil {
 		return nil, ErrUsageInteractionNotFound
 	}
-	return interaction, nil
+	// Derive the read model from retained captures, never from privileged raw data.
+	result := *interaction
+	redactedKeys := append([]string(nil), result.RedactionKeys...)
+	redactKey := func(key string) bool {
+		if !isUsageInteractionSecretKey(key) {
+			return false
+		}
+		result.RedactionApplied = true
+		redactedKeys = append(redactedKeys, key)
+		return true
+	}
+	request := interactionparse.Parse(result.RequestContent, false)
+	response := interactionparse.Parse(result.ResponseContent, true)
+	interactionparse.RedactDocument(&request, redactKey)
+	interactionparse.RedactDocument(&response, redactKey)
+	result.ParsedRequest, result.ParsedResponse = &request, &response
+	result.RequestContent = interactionparse.Redact(result.RequestContent, redactKey).(map[string]any)
+	result.ResponseContent = interactionparse.Redact(result.ResponseContent, redactKey).(map[string]any)
+	result.RequestParameters = interactionparse.Redact(result.RequestParameters, redactKey).(map[string]any)
+	result.RoutingContext = interactionparse.Redact(result.RoutingContext, redactKey).(map[string]any)
+	result.RawRequestJSON, result.RawResponseJSON = nil, nil
+	if includeRaw {
+		if interaction.RawRequestJSON != nil {
+			result.RawRequestJSON = interactionparse.Redact(interaction.RawRequestJSON, redactKey).(map[string]any)
+		}
+		if interaction.RawResponseJSON != nil {
+			result.RawResponseJSON = interactionparse.Redact(interaction.RawResponseJSON, redactKey).(map[string]any)
+		}
+	}
+	result.RedactionKeys = uniqueUsageInteractionKeys(redactedKeys)
+	return &result, nil
 }
 
 // ExistingUsageLogIDs returns the usage-log IDs with a retained interaction.

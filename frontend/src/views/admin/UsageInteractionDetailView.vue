@@ -2,7 +2,7 @@
   <AppLayout>
     <div class="space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
+        <div class="min-w-0">
           <button
             type="button"
             data-test="usage-interaction-back"
@@ -15,7 +15,7 @@
           <h1 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
             {{ t('admin.usage.interaction.title') }}
           </h1>
-          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          <p class="mt-1 break-all text-sm text-gray-500 dark:text-gray-400">
             {{ interaction?.request_id || `#${usageLogId}` }}
           </p>
         </div>
@@ -51,7 +51,11 @@
       </div>
 
       <template v-else>
-        <div class="mb-4 flex gap-2 border-b border-gray-200 dark:border-dark-700">
+        <p v-if="interaction.capture_status !== 'complete'" role="status" class="break-words border-l-2 border-amber-500 bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+          {{ t('admin.usage.interaction.reader.capturePartial') }}
+          <span v-if="interaction.capture_error">{{ interaction.capture_error }}</span>
+        </p>
+        <div class="mb-4 flex flex-wrap gap-2 border-b border-gray-200 dark:border-dark-700">
           <button
             v-for="tab in tabs"
             :key="tab.key"
@@ -65,7 +69,16 @@
           </button>
         </div>
 
-        <div class="card overflow-hidden">
+        <div v-if="activeTab === 'conversation' || activeTab === 'input' || activeTab === 'output'" class="min-w-0 space-y-6">
+          <template v-for="section in readingSections" :key="section.key">
+            <InteractionContent v-if="section.document" :document="section.document" :title="section.title" :related-blocks="allBlocks" />
+            <div v-else>
+              <p class="text-sm text-gray-500">{{ t('admin.usage.interaction.reader.unavailable') }}</p>
+              <JsonBlock :title="section.title" :value="section.value" />
+            </div>
+          </template>
+        </div>
+        <div v-else class="overflow-hidden">
           <div class="border-b border-gray-200 px-4 py-3 dark:border-dark-700">
             <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ activeTabLabel }}</h2>
           </div>
@@ -97,13 +110,14 @@ import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import TotpStepUpDialog from '@/components/auth/TotpStepUpDialog.vue'
+import InteractionContent from '@/components/admin/usage/InteractionContent.vue'
 import { adminUsageAPI } from '@/api/admin/usage'
 import { useAdminPermissionGate } from '@/composables/useAdminPermissionGate'
 import { isStepUpBlocked, isStepUpCancelled, stepUpBlockReason, useStepUp } from '@/composables/useStepUp'
 import { useAppStore } from '@/stores'
 import type { UsageInteractionDetail } from '@/api/admin/usage'
 
-type TabKey = 'input' | 'output' | 'parameters' | 'routing' | 'raw'
+type TabKey = 'conversation' | 'input' | 'output' | 'parameters' | 'routing' | 'raw'
 
 const JsonBlock = defineComponent({
   name: 'JsonBlock',
@@ -128,7 +142,7 @@ const { can: canUsageInteractionRaw } = useAdminPermissionGate('usage_interactio
 const canViewUsageInteractionRaw = canUsageInteractionRaw('view')
 const rawStepUp = useStepUp()
 
-const activeTab = ref<TabKey>('input')
+const activeTab = ref<TabKey>('conversation')
 const interaction = ref<UsageInteractionDetail | null>(null)
 const loading = ref(false)
 const rawLoading = ref(false)
@@ -139,6 +153,7 @@ const rawError = ref('')
 const usageLogId = computed(() => Number(route.params.id))
 
 const tabs = computed(() => [
+  { key: 'conversation' as const, label: t('admin.usage.interaction.tabs.conversation') },
   { key: 'input' as const, label: t('admin.usage.interaction.tabs.input') },
   { key: 'output' as const, label: t('admin.usage.interaction.tabs.output') },
   { key: 'parameters' as const, label: t('admin.usage.interaction.tabs.parameters') },
@@ -150,6 +165,15 @@ const tabs = computed(() => [
 
 const activeTabLabel = computed(() => tabs.value.find((tab) => tab.key === activeTab.value)?.label ?? '')
 const notFoundMessage = computed(() => t('admin.usage.interaction.notFound'))
+
+const allBlocks = computed(() => [
+  ...(interaction.value?.parsed_request?.blocks ?? []),
+  ...(interaction.value?.parsed_response?.blocks ?? [])
+])
+const readingSections = computed(() => [
+  { key: 'input', title: t('admin.usage.interaction.sections.input'), document: interaction.value?.parsed_request, value: interaction.value?.request_content },
+  { key: 'output', title: t('admin.usage.interaction.sections.output'), document: interaction.value?.parsed_response, value: interaction.value?.response_content }
+].filter(section => activeTab.value === 'conversation' || activeTab.value === section.key))
 
 const activeSections = computed(() => {
   if (!interaction.value) return []

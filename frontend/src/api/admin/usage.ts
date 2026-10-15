@@ -93,7 +93,32 @@ export interface AdminUsageQueryParams extends UsageQueryParams {
   status_code?: number | null
 }
 
+export interface InteractionBlock {
+  role: string
+  kind: string
+  text?: string
+  name?: string
+  call_id?: string
+  data?: unknown
+  source: string
+  group?: string
+  status?: string
+  sender?: string
+  recipient?: string
+  children?: InteractionBlock[]
+}
+
+export interface InteractionDocument {
+  protocol: string
+  format: string
+  blocks: InteractionBlock[]
+  warnings: string[] | null
+  ended: boolean
+}
+
 export interface UsageInteractionDetail {
+  parsed_request?: InteractionDocument
+  parsed_response?: InteractionDocument
   id: number
   usage_log_id: number
   request_id: string
