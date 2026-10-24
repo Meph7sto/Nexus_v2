@@ -29,7 +29,11 @@
           <p class="text-xs text-gray-500 ">{{ t('payment.orders.payAmount') }}</p>
           <p class="text-sm font-medium text-gray-900 ">{{ paymentAmountSymbol }}{{ order.pay_amount.toFixed(2) }}</p>
         </div>
-        <div v-if="order.amount !== order.pay_amount">
+        <div v-if="(order.bonus_amount ?? 0) > 0">
+          <p class="text-xs text-gray-500 ">{{ t('payment.orders.bonusAmount') }}</p>
+          <p class="text-sm font-medium text-amber-600 ">+{{ creditedAmountSymbol }}{{ (order.bonus_amount ?? 0).toFixed(2) }}</p>
+        </div>
+        <div v-if="order.amount !== order.pay_amount || (order.bonus_amount ?? 0) > 0">
           <p class="text-xs text-gray-500 ">{{ t('payment.orders.creditedAmount') }}</p>
           <p class="text-sm font-medium text-gray-900 ">{{ creditedAmountSymbol }}{{ order.amount.toFixed(2) }}</p>
         </div>

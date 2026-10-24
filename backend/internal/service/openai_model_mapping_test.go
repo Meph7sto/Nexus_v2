@@ -1,6 +1,10 @@
 package service
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
+)
 
 func TestResolveOpenAIForwardModel(t *testing.T) {
 	tests := []struct {
@@ -296,6 +300,9 @@ func TestResolveOpenAIForwardMappedModels_CompactMappingPrecedence(t *testing.T)
 }
 
 func TestCanonicalOpenAIAccountSchedulingModelMatchesForwardSemantics(t *testing.T) {
+	previous := xai.RuntimeModelMappingOptions()
+	xai.SetRuntimeModelMappingOptions(xai.ModelMappingOptions{DefaultText: xai.DefaultTextModel, EnableCrossClientMap: true})
+	t.Cleanup(func() { xai.SetRuntimeModelMappingOptions(previous) })
 	tests := []struct {
 		name    string
 		account *Account
@@ -317,10 +324,17 @@ func TestCanonicalOpenAIAccountSchedulingModelMatchesForwardSemantics(t *testing
 			want:  "public",
 		},
 		{
-			name:    "Grok OAuth does not inherit OpenAI Codex aliases",
+			name:    "Grok OAuth uses its own cross-client mapping",
 			account: &Account{Platform: PlatformGrok, Type: AccountTypeOAuth},
 			model:   "gpt-5.6",
-			want:    "gpt-5.6",
+			want:    xai.DefaultTextModel,
+		},
+		{
+			name: "Grok explicit mapping does not inherit OpenAI Codex aliases",
+			account: &Account{Platform: PlatformGrok, Type: AccountTypeOAuth,
+				Credentials: map[string]any{"model_mapping": map[string]any{"gpt-5.6": "gpt-5.6"}}},
+			model: "gpt-5.6",
+			want:  "gpt-5.6",
 		},
 	}
 

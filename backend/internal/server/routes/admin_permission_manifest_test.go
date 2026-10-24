@@ -23,7 +23,7 @@ func TestAdminRoutePermissionManifestCoversRegisteredRoutes(t *testing.T) {
 	permissions := allowAllAdminPermissionsForRouteTest()
 
 	RegisterAdminRoutes(v1, handlers, adminAuth, permissions, auditLog, stepUp, nil, nil)
-	RegisterPaymentRoutes(v1, nil, nil, (*adminhandler.PaymentHandler)(nil), middleware.JWTAuthMiddleware(func(c *gin.Context) { c.Next() }), adminAuth, permissions, auditLog, nil, nil)
+	RegisterPaymentRoutes(v1, nil, nil, (*adminhandler.PaymentHandler)(nil), middleware.JWTAuthMiddleware(func(c *gin.Context) { c.Next() }), adminAuth, permissions, auditLog, nil, nil, nil)
 	handler.RegisterPageRoutes(v1, t.TempDir(), gin.HandlerFunc(func(c *gin.Context) { c.Next() }), gin.HandlerFunc(adminAuth), permissions, nil, nil)
 
 	require.NoError(t, ValidateAdminRouteManifest(router.Routes()))

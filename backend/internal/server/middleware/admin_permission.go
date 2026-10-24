@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/adminaccess"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 )
@@ -31,7 +32,8 @@ func NewAdminPermissionMiddleware(repo service.AdminPermissionRepository) AdminP
 				return
 			case service.RoleAdmin:
 				subject, ok := GetAuthSubjectFromContext(c)
-				if !ok || subject.UserID <= 0 || !subject.IsHuman() || repo == nil {
+				principal := adminaccess.FromContext(c.Request.Context())
+				if !ok || subject.UserID <= 0 || (!subject.IsHuman() && (principal == nil || principal.CreatorID != subject.UserID)) || repo == nil {
 					AbortWithError(c, http.StatusForbidden, "ADMIN_PERMISSION_DENIED", "Admin permission denied")
 					return
 				}

@@ -2,8 +2,11 @@
  * Centralized platform color definitions.
  *
  * All components that need platform-specific styling should import from here
- * instead of defining their own color mappings.
+ * instead of defining their own color mappings. Platforms registered only on
+ * the server (see constants/platformCatalog) use the neutral *_DEFAULT styles.
  */
+
+import { getPlatformSpec } from '@/constants/platformCatalog'
 
 export type Platform =
   | 'anthropic'
@@ -16,6 +19,9 @@ export type Platform =
   | 'deepseek'
   | 'minimax'
   | 'opencode_go'
+  | 'typesafe'
+  | 'command_code'
+  | 'cline'
   | 'composite'
 
 // ── Badge (bg + text + border, for inline badges with border) ───────
@@ -31,6 +37,9 @@ const BADGE: Record<Platform, string> = {
   composite: 'bg-cyan-500/10 text-cyan-700 border-cyan-500/30',
   minimax: 'bg-rose-500/10 text-rose-600 border-rose-500/30 ',
   opencode_go: 'bg-amber-500/10 text-amber-700 border-amber-500/30 ',
+  typesafe: 'bg-sky-500/10 text-sky-700 border-sky-500/30 ',
+  command_code: 'bg-neutral-500/10 text-neutral-700 border-neutral-500/30 ',
+  cline: 'bg-violet-500/10 text-violet-600 border-violet-500/30 ',
 }
 const BADGE_DEFAULT = 'bg-slate-500/10 text-slate-600 border-slate-500/30 '
 
@@ -47,6 +56,9 @@ const BADGE_LIGHT: Record<Platform, string> = {
   composite: 'bg-cyan-500/10 text-cyan-700',
   minimax: 'bg-rose-500/10 text-rose-600  ',
   opencode_go: 'bg-amber-500/10 text-amber-700  ',
+  typesafe: 'bg-sky-500/10 text-sky-700  ',
+  command_code: 'bg-neutral-500/10 text-neutral-700  ',
+  cline: 'bg-violet-500/10 text-violet-600  ',
 }
 
 // ── Border ──────────────────────────────────────────────────────────
@@ -62,6 +74,9 @@ const BORDER: Record<Platform, string> = {
   composite: 'border-cyan-500/20',
   minimax: 'border-rose-500/20 ',
   opencode_go: 'border-amber-500/20 ',
+  typesafe: 'border-sky-500/20 ',
+  command_code: 'border-neutral-500/20 ',
+  cline: 'border-violet-500/20 ',
 }
 const BORDER_DEFAULT = 'border-gray-200 '
 
@@ -78,6 +93,9 @@ const BORDER_STRONG: Record<Platform, string> = {
   composite: 'border-cyan-500/35',
   minimax: 'border-rose-500/35 ',
   opencode_go: 'border-amber-500/35 ',
+  typesafe: 'border-sky-500/35 ',
+  command_code: 'border-neutral-500/35 ',
+  cline: 'border-violet-500/35 ',
 }
 const BORDER_STRONG_DEFAULT = 'border-gray-300'
 
@@ -94,6 +112,9 @@ const ACCENT: Record<Platform, string> = {
   deepseek: '#14b8a6', // teal-500
   minimax: '#f43f5e', // rose-500
   opencode_go: '#f59e0b', // amber-500
+  typesafe: '#0ea5e9', // sky-500
+  command_code: '#737373', // neutral-500
+  cline: '#8b5cf6', // violet-500（Cline 品牌紫 #9F58FA）
   composite: '#06b6d4', // cyan-500
 }
 const ACCENT_DEFAULT = '#14b8a6' // primary-500 (teal)
@@ -111,6 +132,9 @@ const ACCENT_BAR: Record<Platform, string> = {
   composite: 'bg-cyan-600',
   minimax: 'bg-rose-400',
   opencode_go: 'bg-amber-400',
+  typesafe: 'bg-sky-400',
+  command_code: 'bg-neutral-400',
+  cline: 'bg-violet-400',
 }
 const ACCENT_BAR_DEFAULT = 'bg-primary-400'
 
@@ -127,6 +151,9 @@ const TEXT: Record<Platform, string> = {
   composite: 'text-cyan-700',
   minimax: 'text-rose-600 ',
   opencode_go: 'text-amber-700 ',
+  typesafe: 'text-sky-700 ',
+  command_code: 'text-neutral-700 ',
+  cline: 'text-violet-600 ',
 }
 const TEXT_DEFAULT = 'text-primary-600 '
 
@@ -143,6 +170,9 @@ const ICON: Record<Platform, string> = {
   composite: 'text-cyan-600',
   minimax: 'text-rose-500 ',
   opencode_go: 'text-amber-500 ',
+  typesafe: 'text-sky-500 ',
+  command_code: 'text-neutral-500 ',
+  cline: 'text-violet-500 ',
 }
 const ICON_DEFAULT = 'text-primary-500 '
 
@@ -159,6 +189,9 @@ const BUTTON: Record<Platform, string> = {
   composite: 'bg-cyan-700 text-white hover:bg-cyan-800 active:bg-cyan-900',
   minimax: 'bg-rose-500 text-white hover:bg-rose-600 active:bg-rose-700  ',
   opencode_go: 'bg-amber-500 text-white hover:bg-amber-600 active:bg-amber-700  ',
+  typesafe: 'bg-sky-600 text-white hover:bg-sky-700 active:bg-sky-800  ',
+  command_code: 'bg-neutral-500 text-white hover:bg-neutral-600 active:bg-neutral-700  ',
+  cline: 'bg-violet-500 text-white hover:bg-violet-600 active:bg-violet-700  ',
 }
 const BUTTON_DEFAULT = 'bg-primary-500 text-white hover:bg-primary-600  '
 
@@ -175,6 +208,9 @@ const DISCOUNT: Record<Platform, string> = {
   composite: 'bg-cyan-100 text-cyan-800',
   minimax: 'bg-rose-100 text-rose-700  ',
   opencode_go: 'bg-amber-100 text-amber-800  ',
+  typesafe: 'bg-sky-100 text-sky-800  ',
+  command_code: 'bg-neutral-100 text-neutral-800  ',
+  cline: 'bg-violet-100 text-violet-700  ',
 }
 const DISCOUNT_DEFAULT = 'bg-red-100 text-red-700  '
 
@@ -191,6 +227,9 @@ const GRADIENT: Record<Platform, string> = {
   composite: 'from-cyan-700 to-cyan-700',
   minimax: 'from-rose-500 to-rose-500',
   opencode_go: 'from-amber-500 to-amber-500',
+  typesafe: 'from-sky-500 to-sky-500',
+  command_code: 'from-neutral-500 to-neutral-500',
+  cline: 'from-violet-500 to-violet-500',
 }
 const GRADIENT_DEFAULT = 'from-primary-500 to-primary-600'
 
@@ -206,6 +245,9 @@ const GRADIENT_TEXT: Record<Platform, string> = {
   deepseek: 'text-teal-100',
   minimax: 'text-rose-100',
   opencode_go: 'text-amber-100',
+  typesafe: 'text-sky-100',
+  command_code: 'text-neutral-100',
+  cline: 'text-violet-100',
   composite: 'text-cyan-100',
 }
 const GRADIENT_TEXT_DEFAULT = 'text-primary-100'
@@ -221,6 +263,9 @@ const GRADIENT_SUBTEXT: Record<Platform, string> = {
   deepseek: 'text-teal-200',
   minimax: 'text-rose-200',
   opencode_go: 'text-amber-200',
+  typesafe: 'text-sky-200',
+  command_code: 'text-neutral-200',
+  cline: 'text-violet-200',
   composite: 'text-cyan-200',
 }
 const GRADIENT_SUBTEXT_DEFAULT = 'text-primary-200'
@@ -239,6 +284,9 @@ function isPlatform(p: string): p is Platform {
     p === 'deepseek' ||
     p === 'minimax' ||
     p === 'opencode_go' ||
+    p === 'typesafe' ||
+    p === 'command_code' ||
+    p === 'cline' ||
     p === 'composite'
   )
 }
@@ -295,19 +343,8 @@ export function platformGradientSubtextClass(p: string): string {
   return isPlatform(p) ? GRADIENT_SUBTEXT[p] : GRADIENT_SUBTEXT_DEFAULT
 }
 
+/** 平台展示名：来自平台清单（后端 domain/platforms.go），新登记的平台同样适用。 */
 export function platformLabel(p: string): string {
-  switch (p) {
-    case 'anthropic': return 'Anthropic'
-    case 'openai': return 'OpenAI'
-    case 'antigravity': return 'Antigravity'
-    case 'gemini': return 'Gemini'
-    case 'grok': return 'Grok'
-    case 'kimi': return 'Kimi'
-    case 'zhipu': return 'Zhipu GLM'
-    case 'deepseek': return 'DeepSeek'
-    case 'minimax': return 'MiniMax'
-    case 'opencode_go': return 'OpenCode'
-    case 'composite': return 'Composite'
-    default: return p || 'API'
-  }
+  if (p === 'composite') return 'Composite'
+  return getPlatformSpec(p)?.display_name ?? (p || 'API')
 }

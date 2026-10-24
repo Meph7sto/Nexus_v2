@@ -105,6 +105,7 @@ func provideCleanup(
 	monthlyLedger *service.MonthlyLedgerService,
 	usageCleanup *service.UsageCleanupService,
 	idempotencyCleanup *service.IdempotencyCleanupService,
+	geminiCachedContent *service.GeminiCachedContentService,
 	batchImageCleanup *service.BatchImageCleanupService,
 	batchImageWorker *service.BatchImageWorkerRuntime,
 	pricing *service.PricingService,
@@ -245,6 +246,12 @@ func provideCleanup(
 				}
 				return nil
 			}},
+			{"GeminiCachedContentService", func() error {
+				if geminiCachedContent != nil {
+					geminiCachedContent.Stop()
+				}
+				return nil
+			}},
 			{"BatchImageCleanupService", func() error {
 				if batchImageCleanup != nil {
 					batchImageCleanup.Stop()
@@ -288,7 +295,9 @@ func provideCleanup(
 				return nil
 			}},
 			{"MonthlyLedgerService", func() error {
-				monthlyLedger.Stop()
+				if monthlyLedger != nil {
+					monthlyLedger.Stop()
+				}
 				return nil
 			}},
 			{"SubscriptionService", func() error {

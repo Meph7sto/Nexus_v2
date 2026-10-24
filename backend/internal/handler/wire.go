@@ -121,6 +121,7 @@ func ProvideGatewayHandler(
 	settingService *service.SettingService,
 	coordinator *securityaudit.Coordinator,
 	usageInteractionService *service.UsageInteractionService,
+	geminiCachedContentService *service.GeminiCachedContentService,
 ) *GatewayHandler {
 	gatewayService.SetUsageInteractionService(usageInteractionService)
 	openAIGatewayService.SetUsageInteractionService(usageInteractionService)
@@ -128,6 +129,7 @@ func ProvideGatewayHandler(
 		userService, concurrencyService, billingCacheService, usageService, apiKeyService, usageRecordWorkerPool,
 		errorPassthroughService, contentModerationService, userMsgQueueService, cfg, settingService)
 	h.securityAuditCoordinator = coordinator
+	h.geminiCachedContentService = geminiCachedContentService
 	return h
 }
 

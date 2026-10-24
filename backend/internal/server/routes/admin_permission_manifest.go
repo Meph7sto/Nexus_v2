@@ -211,6 +211,16 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 	humanOnly(http.MethodGet, admin+"/settings/admin-api-key")
 	humanOnly(http.MethodPost, admin+"/settings/admin-api-key/regenerate")
 	humanOnly(http.MethodDelete, admin+"/settings/admin-api-key")
+	add(service.AdminResourceSettings, service.AdminActionView, http.MethodGet, admin+"/settings/admin-api-keys")
+	add(service.AdminResourceSettings, service.AdminActionExecute, http.MethodPost,
+		admin+"/settings/admin-api-keys", admin+"/settings/admin-api-keys/:id/rotate")
+	add(service.AdminResourceSettings, service.AdminActionUpdate, http.MethodPut, admin+"/settings/admin-api-keys/:id")
+	add(service.AdminResourceSettings, service.AdminActionDelete, http.MethodDelete,
+		admin+"/settings/admin-api-keys/:id", admin+"/settings/admin-api-keys/:id/record")
+	humanOnly(http.MethodGet, admin+"/settings/admin-api-keys")
+	humanOnly(http.MethodPost, admin+"/settings/admin-api-keys", admin+"/settings/admin-api-keys/:id/rotate")
+	humanOnly(http.MethodPut, admin+"/settings/admin-api-keys/:id")
+	humanOnly(http.MethodDelete, admin+"/settings/admin-api-keys/:id", admin+"/settings/admin-api-keys/:id/record")
 
 	add(service.AdminResourceDataManagement, service.AdminActionView, http.MethodGet,
 		admin+"/data-management/agent/health", admin+"/data-management/config", admin+"/data-management/sources/:source_type/profiles",
