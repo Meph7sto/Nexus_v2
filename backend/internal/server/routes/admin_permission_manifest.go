@@ -87,9 +87,10 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 		admin+"/users", admin+"/users/:id", admin+"/users/:id/usage",
 		admin+"/users/:id/balance-history", admin+"/users/:id/rpm-status", admin+"/users/:id/platform-quotas")
 	add(service.AdminResourceUsers, service.AdminActionCreate, http.MethodPost, admin+"/users")
+	add(service.AdminResourceUsers, service.AdminActionView, http.MethodPost, admin+"/users/blacklist-matches")
 	add(service.AdminResourceUsers, service.AdminActionUpdate, http.MethodPost,
 		admin+"/users/:id/auth-identities", admin+"/users/:id/balance", admin+"/users/:id/replace-group",
-		admin+"/users/batch-concurrency", admin+"/users/batch-limits")
+		admin+"/users/batch-concurrency", admin+"/users/batch-limits", admin+"/users/batch-disable")
 	add(service.AdminResourceUsers, service.AdminActionUpdate, http.MethodPut, admin+"/users/:id", admin+"/users/:id/platform-quotas")
 	add(service.AdminResourceUsers, service.AdminActionExecute, http.MethodPost, admin+"/users/:id/platform-quotas/reset")
 	add(service.AdminResourceUsers, service.AdminActionDelete, http.MethodDelete, admin+"/users/:id")
@@ -198,11 +199,12 @@ func buildAdminRoutePermissionManifest() map[string]AdminRoutePermission {
 		admin+"/settings", admin+"/settings/email-templates", admin+"/settings/email-templates/:event/:locale",
 		admin+"/settings/admin-api-key", admin+"/settings/overload-cooldown", admin+"/settings/rate-limit-429-cooldown",
 		admin+"/settings/stream-timeout", admin+"/settings/rectifier", admin+"/settings/beta-policy", admin+"/settings/web-search-emulation",
-		admin+"/settings/panel-rate-limit")
+		admin+"/settings/panel-rate-limit", admin+"/settings/registration-email-blacklist")
 	add(service.AdminResourceSettings, service.AdminActionUpdate, http.MethodPut,
 		admin+"/settings", admin+"/settings/email-templates/:event/:locale", admin+"/settings/overload-cooldown",
 		admin+"/settings/rate-limit-429-cooldown", admin+"/settings/stream-timeout", admin+"/settings/rectifier",
-		admin+"/settings/beta-policy", admin+"/settings/web-search-emulation", admin+"/settings/panel-rate-limit")
+		admin+"/settings/beta-policy", admin+"/settings/web-search-emulation", admin+"/settings/panel-rate-limit",
+		admin+"/settings/registration-email-blacklist")
 	add(service.AdminResourceSettings, service.AdminActionExecute, http.MethodPost,
 		admin+"/settings/test-smtp", admin+"/settings/send-test-email", admin+"/settings/email-template-preview",
 		admin+"/settings/email-templates/:event/:locale/restore-official", admin+"/settings/admin-api-key/regenerate",

@@ -33,7 +33,8 @@ func NewAdminPermissionMiddleware(repo service.AdminPermissionRepository) AdminP
 			case service.RoleAdmin:
 				subject, ok := GetAuthSubjectFromContext(c)
 				principal := adminaccess.FromContext(c.Request.Context())
-				if !ok || subject.UserID <= 0 || (!subject.IsHuman() && (principal == nil || principal.CreatorID != subject.UserID)) || repo == nil {
+				mcp := subject.PrincipalKind == PrincipalKindMCPOAuth
+				if !ok || subject.UserID <= 0 || (!subject.IsHuman() && !mcp && (principal == nil || principal.CreatorID != subject.UserID)) || repo == nil {
 					AbortWithError(c, http.StatusForbidden, "ADMIN_PERMISSION_DENIED", "Admin permission denied")
 					return
 				}

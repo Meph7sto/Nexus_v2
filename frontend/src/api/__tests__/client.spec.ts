@@ -260,6 +260,61 @@ describe('API Client', () => {
       )
     })
 
+    it.each([
+      ['17', 17],
+      ['Wed, 21 Oct 2026 07:28:00 GMT', undefined],
+      [undefined, undefined],
+    ])('429 结构化错误携带 Retry-After 秒数（%s）', async (retryAfter, expected) => {
+      apiClient.defaults.adapter = vi.fn().mockRejectedValueOnce({
+        response: {
+          status: 429,
+          data: { code: 'RATE_LIMITED', message: 'Too many requests' },
+          headers: retryAfter === undefined ? {} : { 'retry-after': retryAfter },
+        },
+        config: { url: '/usage', headers: {} },
+      })
+
+      const error = await apiClient.get('/usage').catch((err) => err)
+      expect(error).toMatchObject({ status: 429, code: 'RATE_LIMITED', message: 'Too many requests' })
+      expect(error.retry_after_seconds).toBe(expected)
+    })
+
+    it('保留 423 错误详情和登录态', async () => {
+      localStorage.setItem('auth_token', 'admin-token')
+
+      const adapter = vi.fn().mockRejectedValue({
+        response: {
+          status: 423,
+          data: {
+            code: 'ADMIN_COMPLIANCE_ACK_REQUIRED',
+            message: 'administrator compliance acknowledgement is required',
+            metadata: {
+              version: 'v2026.06.10',
+              document_path_zh: 'docs/legal/admin-compliance.zh.md',
+              document_path_en: 'docs/legal/admin-compliance.en.md',
+            },
+          },
+        },
+        config: {
+          url: '/admin/users',
+          headers: { Authorization: 'Bearer admin-token' },
+        },
+        code: 'ERR_BAD_REQUEST',
+      })
+      apiClient.defaults.adapter = adapter
+
+      await expect(apiClient.get('/admin/users')).rejects.toEqual(
+        expect.objectContaining({
+          status: 423,
+          code: 'ADMIN_COMPLIANCE_ACK_REQUIRED',
+          metadata: expect.objectContaining({
+            version: 'v2026.06.10',
+          }),
+        })
+      )
+
+      expect(localStorage.getItem('auth_token')).toBe('admin-token')
+    })
   })
 
   // --- 401 Token 刷新 ---

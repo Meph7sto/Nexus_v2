@@ -7,6 +7,7 @@ type PrincipalKind string
 const (
 	PrincipalKindHuman       PrincipalKind = "human"
 	PrincipalKindAdminAPIKey PrincipalKind = "admin_api_key"
+	PrincipalKindMCPOAuth    PrincipalKind = "mcp_oauth"
 )
 
 // AuthSubject is the minimal authenticated identity stored in gin context.

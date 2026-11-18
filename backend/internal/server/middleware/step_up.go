@@ -94,6 +94,23 @@ func EnforceStepUpAlways(
 	return enforceStepUp(c, totpService, userService, nil)
 }
 
+// MachineCredentialReason allowlists interactive browser sessions: the user
+// router leaves auth_method empty and the admin router sets "jwt". Every other
+// method (admin API keys, MCP OAuth, future credential types) is a machine
+// credential and is denied by default; the reason distinguishes known kinds.
+func MachineCredentialReason(c *gin.Context) (string, bool) {
+	switch c.GetString("auth_method") {
+	case "", service.AuditAuthMethodJWT:
+		return "", false
+	case service.AuditAuthMethodAdminAPIKey:
+		return "STEP_UP_ADMIN_API_KEY_FORBIDDEN", true
+	case service.AuditAuthMethodMCPOAuth:
+		return "STEP_UP_MCP_OAUTH_FORBIDDEN", true
+	default:
+		return "STEP_UP_MACHINE_CREDENTIAL_FORBIDDEN", true
+	}
+}
+
 func enforceStepUp(c *gin.Context, grantChecker stepUpGrantChecker, userReader stepUpUserReader, settings stepUpSettingReader) bool {
 	// A machine credential can never satisfy a human step-up requirement. This
 	// check intentionally precedes the feature flag so disabling the optional
@@ -103,9 +120,10 @@ func enforceStepUp(c *gin.Context, grantChecker stepUpGrantChecker, userReader s
 			"Admin API key cannot access this endpoint; a two-factor verified admin session is required")
 		return false
 	}
-	if c.GetString("auth_method") == service.AuditAuthMethodAdminAPIKey {
-		AbortWithError(c, 403, "STEP_UP_ADMIN_API_KEY_FORBIDDEN",
-			"Admin API key cannot access this endpoint; a two-factor verified admin session is required")
+
+	if reason, machine := MachineCredentialReason(c); machine {
+		AbortWithError(c, 403, reason,
+			"Machine credentials cannot access this endpoint; a two-factor verified browser session is required")
 		return false
 	}
 
