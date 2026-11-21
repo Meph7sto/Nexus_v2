@@ -74,6 +74,92 @@ const (
 	upstreamKeepaliveEvent = "event: keepalive\n" + upstreamKeepaliveData + "\n\n"
 )
 
+func openAIReasoningHeaderTestStream(body io.ReadCloser, reasoningIncluded bool) *http.Response {
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+		Body:       body,
+	}
+	if reasoningIncluded {
+		resp.Header.Set("X-Reasoning-Included", "1")
+	}
+	return resp
+}
+
+const openAIReasoningHeaderTestOutput = "data: {\"type\":\"response.output_text.delta\",\"delta\":\"hello\"}\n\n" +
+	"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_ok\",\"usage\":{\"input_tokens\":10,\"output_tokens\":1}}}\n\n"
+
+func TestOpenAINativeStreamPreservesReasoningHeaderAfterUpstreamKeepalive(t *testing.T) {
+	for _, heartbeat := range []string{upstreamKeepaliveEvent, upstreamKeepaliveData + "\n\n"} {
+		svc := newKeepaliveForwardService(0)
+		c, rec := newKeepaliveForwardContext()
+		body := heartbeat + openAIReasoningHeaderTestOutput
+		resp := openAIReasoningHeaderTestStream(io.NopCloser(strings.NewReader(body)), true)
+
+		_, err := svc.handleStreamingResponse(c.Request.Context(), resp, c,
+			&Account{ID: 1, Platform: PlatformOpenAI}, time.Now(), "model", "model")
+
+		require.NoError(t, err)
+		require.Equal(t, "1", rec.Result().Header.Get("X-Reasoning-Included"))
+		require.True(t, strings.HasPrefix(rec.Body.String(), heartbeat+"data: {\"type\":\"response.output_text.delta\""))
+	}
+}
+
+func TestOpenAINativeStreamPreservesReasoningHeaderAfterGatewayKeepaliveTick(t *testing.T) {
+	svc := newKeepaliveForwardService(0)
+	svc.cfg.Gateway.StreamKeepaliveInterval = 1
+	c, rec := newKeepaliveForwardContext()
+	reader, writer := io.Pipe()
+	defer reader.Close()
+	go func() {
+		defer writer.Close()
+		time.Sleep(2200 * time.Millisecond)
+		_, _ = io.WriteString(writer, openAIReasoningHeaderTestOutput)
+	}()
+	resp := openAIReasoningHeaderTestStream(reader, true)
+
+	_, err := svc.handleStreamingResponse(c.Request.Context(), resp, c,
+		&Account{ID: 1, Platform: PlatformOpenAI}, time.Now(), "model", "model")
+
+	require.NoError(t, err)
+	require.Equal(t, "1", rec.Result().Header.Get("X-Reasoning-Included"))
+	require.True(t, strings.HasPrefix(rec.Body.String(), "data: {\"type\":\"response.output_text.delta\""))
+}
+
+func TestOpenAINativeStreamPreservesSuccessfulAttemptReasoningHeader(t *testing.T) {
+	for _, tc := range []struct {
+		name           string
+		firstIncludes  bool
+		secondIncludes bool
+		wantHeader     string
+	}{
+		{name: "header on successful attempt", secondIncludes: true, wantHeader: "1"},
+		{name: "header on failed attempt only", firstIncludes: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := newKeepaliveForwardService(0)
+			c, rec := newKeepaliveForwardContext()
+			c.Request.Header.Set("User-Agent", "codex_cli_rs/0.171.0")
+			first := openAIReasoningHeaderTestStream(io.NopCloser(strings.NewReader(upstreamKeepaliveEvent)), tc.firstIncludes)
+
+			_, err := svc.handleStreamingResponse(c.Request.Context(), first, c,
+				&Account{ID: 1, Platform: PlatformOpenAI}, time.Now(), "model", "model")
+
+			var failoverErr *UpstreamFailoverError
+			require.ErrorAs(t, err, &failoverErr)
+			require.False(t, c.Writer.Written())
+			second := openAIReasoningHeaderTestStream(io.NopCloser(strings.NewReader(openAIReasoningHeaderTestOutput)), tc.secondIncludes)
+
+			_, err = svc.handleStreamingResponse(c.Request.Context(), second, c,
+				&Account{ID: 2, Platform: PlatformOpenAI}, time.Now(), "model", "model")
+
+			require.NoError(t, err)
+			require.Equal(t, tc.wantHeader, rec.Result().Header.Get("X-Reasoning-Included"))
+			require.NotContains(t, rec.Body.String(), upstreamKeepaliveData)
+		})
+	}
+}
+
 // Codex resets its stream idle timer only on parsed SSE events, so the upstream keepalive event
 // must reach the client before the first semantic output, while the attempt's preamble and
 // account headers stay private and the bytes still do not count as client output.

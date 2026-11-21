@@ -16,6 +16,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/apicompat"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
 	"github.com/gin-gonic/gin"
@@ -44,6 +45,16 @@ type openaiNonStreamingResult struct {
 	searchCount      int
 }
 
+// ShouldDeferCodexResponsesKeepalive keeps the response headers writable while
+// an ordinary Codex Responses request is waiting for a usable upstream attempt.
+func (s *OpenAIGatewayService) ShouldDeferCodexResponsesKeepalive(c *gin.Context) bool {
+	if c == nil || c.Request == nil || isExplicitOpenAICompactContext(c) {
+		return false
+	}
+	return openai.IsCodexOfficialClientByHeaders(c.GetHeader("User-Agent"), c.GetHeader("originator")) ||
+		(s != nil && s.cfg != nil && s.cfg.Gateway.ForceCodexCLI)
+}
+
 func (s *OpenAIGatewayService) handleStreamingResponse(ctx context.Context, resp *http.Response, c *gin.Context, account *Account, startTime time.Time, originalModel, mappedModel string) (*openaiStreamingResult, error) {
 	return s.handleStreamingResponseWithReasoning(ctx, resp, c, account, startTime, originalModel, mappedModel, "")
 }
@@ -69,6 +80,10 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 	} else if s.responseHeaderFilter != nil {
 		responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 	}
+	// Codex reads X-Reasoning-Included only from the HTTP headers. The first
+	// heartbeat would commit them before we know which attempt supplies usage.
+	deferEarlyKeepalive := stageFirstOutput && !isExplicitOpenAICompactContext(c) &&
+		(len(attemptResponseHeaders.Values("X-Reasoning-Included")) > 0 || s.ShouldDeferCodexResponsesKeepalive(c))
 	// x-codex-turn-state 不在通用响应头白名单内，按 Codex 协议显式回传：
 	// 客户端会在同回合的后续请求中回带（openai_codex_turn_state.go）。
 	// OpenAI 首个语义输出前只暂存，溯源在 applyAttemptResponseHeaders 真正提交时记录。
@@ -491,7 +506,8 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 	// private until semantic output. The bytes do not count as client output.
 	keepaliveEventDirect := false
 	forwardsKeepaliveDirect := func(eventType string) bool {
-		return eventType == "keepalive" && stageFirstOutput && !firstOutputStage.closed && !failureDelivered && !suppressCurrentEvent
+		return eventType == "keepalive" && stageFirstOutput && !deferEarlyKeepalive &&
+			!firstOutputStage.closed && !failureDelivered && !suppressCurrentEvent
 	}
 	writeKeepaliveDirect := func(value string) {
 		if clientDisconnected {
@@ -1044,6 +1060,9 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 
 		case <-keepaliveCh:
 			if clientDisconnected || failureDelivered {
+				continue
+			}
+			if deferEarlyKeepalive && !w.Written() {
 				continue
 			}
 			if eventInProgress {
